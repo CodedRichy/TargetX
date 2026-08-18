@@ -117,6 +117,8 @@ export function TrendChart(props: { data: TrendPoint[]; cgpa: number }) {
  */
 export function GoalGauge(props: {
   projected: number; required: number | null; reachable: boolean;
+  /** False when nothing in the semester has been assessed yet. */
+  assessed?: boolean;
 }) {
   const W = 300, H = 120, CX = 150, CY = 104, R = 78;
   const angle = (v: number) => Math.PI * (1 - Math.min(Math.max(v, 0), 10) / 10);
@@ -135,15 +137,31 @@ export function GoalGauge(props: {
     return props.projected >= props.required ? "var(--good)" : "var(--warn)";
   };
 
+  const known = () => props.assessed !== false;
+
+  /**
+   * Whether the requirement can be drawn on the dial at all.
+   *
+   * SGPA is capped at 10, so a requirement above it is not a position on this
+   * arc - it is the statement that no position on the arc is good enough.
+   * Drawing a tick there put a mark outside the gauge labelled 11.79, which
+   * reads as a scale error rather than as "out of reach".
+   */
+  const markable = () => props.required !== null && props.required <= 10;
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img"
-         aria-label={`Projected SGPA ${fmt(props.projected)}`}>
+         aria-label={known()
+           ? `Projected SGPA ${fmt(props.projected)}`
+           : "No subjects assessed yet"}>
       <path d={arc(0, 10, R)} fill="none" stroke="var(--surface-3)" stroke-width="10"
             stroke-linecap="round" />
-      <path class="gauge-arc" d={arc(0, props.projected, R)} fill="none" stroke={tone()} stroke-width="10"
-            stroke-linecap="round" />
+      <Show when={known()}>
+        <path class="gauge-arc" d={arc(0, props.projected, R)} fill="none"
+              stroke={tone()} stroke-width="10" stroke-linecap="round" />
+      </Show>
 
-      <Show when={props.required !== null}>
+      <Show when={markable()}>
         <line x1={pt(props.required!, R - 10)[0]} y1={pt(props.required!, R - 10)[1]}
               x2={pt(props.required!, R + 10)[0]} y2={pt(props.required!, R + 10)[1]}
               stroke="var(--text)" stroke-width="2" />
@@ -153,10 +171,18 @@ export function GoalGauge(props: {
         </text>
       </Show>
 
-      <text x={CX} y={CY - 20} text-anchor="middle" fill="var(--text)"
-            font-size="30" font-weight="600" class="num">{fmt(props.projected)}</text>
+      {/* Nothing assessed is not a projection of zero. A dial reading 0.00 for
+          a student who has simply not sat anything yet is the same lie the
+          engine refuses to tell about an unassessed subject. */}
+      <text x={CX} y={CY - 20} text-anchor="middle"
+            fill={known() ? "var(--text)" : "var(--text-faint)"}
+            font-size="30" font-weight="600" class="num">
+        {known() ? fmt(props.projected) : "–"}
+      </text>
       <text x={CX} y={CY - 4} text-anchor="middle" fill="var(--text-faint)"
-            font-size="8" letter-spacing="1.6">PROJECTED SGPA</text>
+            font-size="8" letter-spacing="1.6">
+        {known() ? "PROJECTED SGPA" : "NOTHING ASSESSED YET"}
+      </text>
     </svg>
   );
 }

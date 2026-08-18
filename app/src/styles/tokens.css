@@ -43,6 +43,18 @@
      light mode, so this flips with the theme and can never be a literal. */
   --on-brand:    oklch(0.16 0.02 178);
 
+  /* --- Edge: the lit rim on a raised surface ---------------------------- */
+  /* A card catches light along its top edge and loses it toward the bottom.
+     One hairline of real gradient does what a flat border cannot: it says the
+     surface has thickness. Kept extremely low contrast - at full strength this
+     is the plastic bevel look, not glass. */
+  --edge-hi: oklch(1 0 0 / 0.13);
+  --edge-mid: oklch(1 0 0 / 0.04);
+  --edge-lo: oklch(1 0 0 / 0.01);
+  /* Glass only works over something. The header is the one surface with
+     content moving under it, so it is the one that blurs. */
+  --glass: oklch(0.145 0.012 68 / 0.72);
+
   /* --- Semantics: status owns these, nothing else may use them ---------- */
   --good:      oklch(0.76 0.16 145);
   --good-wash: oklch(0.76 0.16 145 / 0.14);
@@ -130,6 +142,13 @@
   --warn-wash: oklch(0.70 0.14 80 / 0.18);
   --danger:    oklch(0.52 0.20 25);
   --danger-wash: oklch(0.52 0.20 25 / 0.10);
+
+  /* On paper the lit edge is a shadow, not a highlight: light comes from the
+     same direction, but a white rim on a white card is invisible. */
+  --edge-hi: oklch(0.30 0.01 68 / 0.14);
+  --edge-mid: oklch(0.30 0.01 68 / 0.06);
+  --edge-lo: oklch(0.30 0.01 68 / 0.03);
+  --glass: oklch(0.955 0.008 68 / 0.74);
 }
 
 @media (prefers-reduced-motion: reduce) {

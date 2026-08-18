@@ -167,3 +167,67 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .gauge-arc { animation: none; }
   button:active:not(:disabled) { transform: none; }
 }
+
+/* --- clicks that answer back ----------------------------------------------
+ *
+ * Every interactive surface now has three visible states, not one. The app
+ * previously changed only what was on screen after a click, never the control
+ * that was clicked - so a press that navigated somewhere below the fold gave
+ * no evidence it had registered at all.
+ */
+
+.tab, .sem, .seg button, .row, button.link, .cell-input, .field-input {
+  transition: background var(--fast) var(--ease),
+              border-color var(--fast) var(--ease),
+              color var(--fast) var(--ease),
+              transform var(--fast) var(--ease);
+}
+
+.tab:active, .sem:active, .seg button:active { transform: translateY(1px); }
+
+/* The tab underline grows from the middle instead of blinking on. It is the
+   only navigation in the app, so it is worth the 120ms. */
+.tab {
+  position: relative;
+  border-bottom-color: transparent !important;
+}
+.tab::after {
+  background: var(--brand);
+  bottom: -1px;
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  transform: scaleX(0);
+  transition: transform var(--med) var(--ease);
+}
+.tab[aria-current="true"]::after { transform: scaleX(1); }
+.theme-toggle::after { content: none; }
+
+/* Semester chips settle into the selected state rather than snapping. */
+.sem[aria-current="true"] { transform: none; }
+
+/* A row being opened is the one place a table may move: the press has to be
+   felt, because the detail it reveals appears below the fold on a long list. */
+.row:active { background: var(--surface-2); }
+
+/* Focus is drawn, not popped. Keyboard users get the same acknowledgement
+   that a click gives, at the same speed. */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+  transition: outline-color var(--fast) var(--ease);
+}
+
+/* Text fields react while being typed in, so a cell that is receiving a mark
+   is distinguishable from forty that are not. */
+.cell-input:focus, .field-input:focus, .paste:focus, .goal-input:focus {
+  background: var(--surface-2);
+  border-color: var(--brand);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab::after { transition: none; }
+  .tab:active, .sem:active, .seg button:active { transform: none; }
+}

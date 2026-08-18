@@ -56,6 +56,7 @@ export function Drawer() {
             projected={summary().sgpaProjected}
             required={goalRequirement()?.required ?? null}
             reachable={goalRequirement()?.possible ?? true}
+            assessed={summary().assessed > 0}
           />
           <Show when={goalRequirement()} fallback={
             <p class="chart-note">Set a target CGPA above to see what this semester has to deliver.</p>

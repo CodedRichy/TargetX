@@ -9,10 +9,14 @@
 
 .app {
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
   grid-template-columns: 1fr auto;
+  /* The launch check's findings get their own row directly under the header.
+     Without a named area they fell to the end of the grid, which put a
+     warning about attendance below the table it was warning about. */
   grid-template-areas:
     "head   head"
+    "notice notice"
     "goal   goal"
     "ledger drawer";
   height: 100%;
@@ -27,7 +31,20 @@
   gap: var(--s5);
   padding: var(--s3) var(--s5);
   border-bottom: 1px solid var(--hairline);
-  background: var(--surface-1);
+  /* The one genuinely glass surface in the app: the table scrolls underneath
+     it, so there is something real to blur. Everywhere else a backdrop filter
+     would be blurring a flat colour, which costs a compositor layer and looks
+     identical to the flat colour. */
+  background: var(--glass);
+  backdrop-filter: blur(14px) saturate(1.2);
+  position: relative;
+  z-index: 2;
+}
+
+/* Supporting the filter is what makes the translucency safe. Without it the
+   header would be a see-through band with the table legible through it. */
+@supports not (backdrop-filter: blur(1px)) {
+  .head { background: var(--surface-1); }
 }
 
 .wordmark {

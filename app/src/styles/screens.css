@@ -343,8 +343,10 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
 }
 
 .card {
-  background: var(--surface-1);
-  border: 1px solid var(--hairline);
+  background:
+    linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
+    linear-gradient(155deg, var(--edge-hi), var(--edge-mid) 42%, var(--edge-lo)) border-box;
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
   padding: var(--s5);
 }
@@ -442,8 +444,15 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
 }
 
 .tile {
-  background: var(--surface-1);
-  border: 1px solid var(--hairline);
+  /* The border is a gradient, not a colour: a hairline that is brightest at
+     the top-left and fades away by the bottom, so the card reads as a raised
+     pane catching light rather than as a rectangle with an outline. Two
+     backgrounds, one clipped to the padding box and one to the border box,
+     is the only way to put a gradient in a border without a pseudo-element. */
+  background:
+    linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
+    linear-gradient(155deg, var(--edge-hi), var(--edge-mid) 42%, var(--edge-lo)) border-box;
+  border: 1px solid transparent;
   border-radius: 14px;
   display: flex;
   flex-direction: column;
@@ -556,6 +565,7 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
    screen: it reports on data the student can see, so covering it would be
    backwards. */
 .launch-notice {
+  grid-area: notice;
   align-items: center;
   display: flex;
   flex-wrap: wrap;

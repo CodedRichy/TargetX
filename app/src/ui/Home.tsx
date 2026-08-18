@@ -143,7 +143,8 @@ export function Home() {
               <Show when={state.goal?.cgpa != null}>
                 <GoalGauge projected={summary().sgpaProjected}
                            required={need()?.required ?? null}
-                           reachable={need()?.possible ?? true} />
+                           reachable={need()?.possible ?? true}
+                           assessed={summary().assessed > 0} />
               </Show>
             </div>
 
