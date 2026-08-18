@@ -336,10 +336,14 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
 
 /* --- data cards ------------------------------------------------------------ */
 
+/* Three columns rather than as-many-as-fit. Data is a screen of five rare
+   operations, and the whole point of putting them together is that a student
+   looking for "how do I get my marks in" sees every answer at once - which
+   only works if the screen does not scroll. */
 .cards {
   display: grid;
-  gap: var(--s5);
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: var(--s4);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 }
 
 .card {
@@ -348,7 +352,7 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
     linear-gradient(155deg, var(--edge-hi), var(--edge-mid) 42%, var(--edge-lo)) border-box;
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
-  padding: var(--s5);
+  padding: var(--s4);
 }
 .card h3 {
   font-size: var(--text-lg);

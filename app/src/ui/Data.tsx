@@ -23,8 +23,8 @@ export function Data() {
         <div>
           <h2>Data</h2>
           <p class="lede">
-            Bring marks in, take a backup out. Everything here is local — there
-            is no account and nothing is uploaded.
+            Bring marks in, take a backup out. All local — no account,
+            nothing uploaded.
           </p>
         </div>
         <Show when={state.lastSync}>
@@ -39,9 +39,8 @@ export function Data() {
           <h3>Portal sync</h3>
           <Show when={canSync()} fallback={
             <p class="lede">
-              Sync needs the desktop app — a browser cannot hold a portal
-              session or reach a college server directly. Paste import below
-              works everywhere.
+              Needs the desktop app — a browser cannot hold a portal session.
+              Paste import works everywhere.
             </p>
           }>
             <SyncPanel compact />
@@ -81,9 +80,9 @@ function PasteImport() {
     <section class="card">
       <h3>Paste from your portal</h3>
       <p class="lede">
-        Select the table on your portal page, copy it, and paste it here. Rows
-        are matched by course code and merged into {state.activeSemester} — the
-        half you do not paste is left alone.
+        Copy the table off your portal page and paste it. Matched by course
+        code and merged into {state.activeSemester}; the half you do not paste
+        is left alone.
       </p>
 
       <div class="seg">
@@ -93,7 +92,7 @@ function PasteImport() {
                 onClick={() => setMode("marks")}>Series marks</button>
       </div>
 
-      <textarea class="paste num" rows="6" value={text()}
+      <textarea class="paste num" rows="4" value={text()}
                 placeholder={mode() === "attendance"
                   ? "PCCST501  Computer Networks  41  48  85.4%"
                   : "PCCST501  Computer Networks  38  31  8"}
@@ -169,7 +168,7 @@ function GradeCardImport() {
         on it are read at once - this is the fastest way to fill in your past.
       </p>
 
-      <textarea class="paste num" rows="5" value={text()}
+      <textarea class="paste num" rows="3" value={text()}
                 placeholder="PCCST501  Computer Networks  4  A+&#10;SGPA: 8.42"
                 onInput={(e) => setText(e.currentTarget.value)} />
 
@@ -218,9 +217,8 @@ function Catalogue() {
     <section class="card">
       <h3>Course catalogue</h3>
       <p class="lede">
-        Credits and mark patterns come from KTU's published curriculum. It is
-        revised between batches, so the catalogue updates separately from the
-        app — you do not have to reinstall to get a new syllabus.
+        Credits and mark patterns come from KTU's published curriculum, which is
+        revised between batches. Updates without reinstalling.
       </p>
       <div class="setup-actions">
         <button class="primary" disabled={busy()} onClick={run}>
@@ -253,8 +251,8 @@ function Backup() {
     <section class="card">
       <h3>Backup and reset</h3>
       <p class="lede">
-        Your data is a file you own. Export it before reinstalling, moving
-        laptops, or trying anything you are not sure about.
+        Your data is a file you own. Export before reinstalling or moving
+        laptops.
       </p>
 
       <div class="setup-actions wrap">
