@@ -257,10 +257,14 @@ export function Home() {
               </div>
             </div>
             <p class="tile-verdict">
+              <Show when={summary().credits > 0} fallback={
+                <>No subjects in {state.activeSemester} yet.</>
+              }>
               <Show when={summary().pending > 0} fallback={<>Every subject has been assessed.</>}>
                 <strong class="num">{summary().pending}</strong> subject
                 {summary().pending === 1 ? "" : "s"} not yet assessed — they are
                 excluded from both numbers rather than counted as zero.
+              </Show>
               </Show>
             </p>
           </section>

@@ -11,7 +11,7 @@ import { History } from "./History";
 import { Home } from "./Home";
 import { Ledger } from "./Ledger";
 import { Setup } from "./Setup";
-import { Splash } from "./Splash";
+import { Mark } from "./Mark";
 import { runLaunchCheck } from "../state/launch";
 import type { Finding } from "../state/launch";
 
@@ -187,7 +187,12 @@ export function App() {
   // The check itself is arithmetic over data already in memory and finishes in
   // single-digit milliseconds. The floor exists so the result is readable
   // rather than a flash - and so a slow machine looks identical to a fast one.
-  const [booting, setBooting] = createSignal(true);
+  // boot: the overlay is opaque and the check is running.
+  // flying: the X is travelling to its place in the wordmark.
+  // done: the overlay is gone.
+  const [phase, setPhase] = createSignal<"boot" | "flying" | "done">("boot");
+  let wordmarkX: HTMLSpanElement | undefined;
+  let flyer: HTMLDivElement | undefined;
   const [findings, setFindings] = createSignal<Finding[]>([]);
   const [dismissed, setDismissed] = createSignal(false);
 
@@ -207,15 +212,72 @@ export function App() {
       }];
     }
     const wait = Math.max(0, 450 - (Date.now() - started));
-    setTimeout(() => { setFindings(found); setBooting(false); }, wait);
+    setTimeout(() => {
+      setFindings(found);
+      setPhase("flying");
+      // The wordmark has to be laid out before it can be measured, and the
+      // overlay has to have painted before it can be animated away from.
+      requestAnimationFrame(() => requestAnimationFrame(flyMark));
+    }, wait);
   });
 
+  /**
+   * Fly the opening X into the wordmark.
+   *
+   * The same drawing in both places, moved rather than swapped: the app does
+   * not cut from a splash to a dashboard, it puts its mark where it lives.
+   *
+   * Measured at the moment it runs rather than hardcoded, because the
+   * wordmark's position depends on the window width and on whether setup is
+   * showing at all. If there is nothing to fly to - setup is open, or the
+   * header has not rendered - it fades instead, which is also what a student
+   * who has asked for reduced motion gets.
+   */
+  const flyMark = () => {
+    const node = flyer;
+    const target = wordmarkX?.getBoundingClientRect();
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (!node || !target || target.width < 1 || reduced) {
+      setTimeout(() => setPhase("done"), reduced ? 0 : 260);
+      return;
+    }
+
+    const from = node.getBoundingClientRect();
+    const scale = target.width / from.width;
+    const dx = (target.left + target.width / 2) - (from.left + from.width / 2);
+    const dy = (target.top + target.height / 2) - (from.top + from.height / 2);
+
+    const flight = node.animate([
+      { transform: "translate(0px, 0px) scale(1) rotate(0deg)" },
+      { transform: `translate(${dx}px, ${dy}px) scale(${scale}) rotate(360deg)` },
+    ], {
+      duration: 760,
+      // Slow to leave, quick to arrive: it should look like it lands rather
+      // than like it drifts.
+      easing: "cubic-bezier(0.7, 0, 0.15, 1)",
+      fill: "forwards",
+    });
+    flight.finished.then(() => setPhase("done")).catch(() => setPhase("done"));
+  };
+
   return (
-    <Show when={!booting()} fallback={<Splash />}>
+    <>
+    <Show when={phase() !== "done"}>
+      <div class="boot" classList={{ leaving: phase() === "flying" }} aria-hidden="true">
+        <div class="boot-veil" />
+        <div class="boot-flyer" ref={flyer}><Mark size="88" /></div>
+        <Show when={phase() === "boot"}>
+          <p class="splash-note">Checking your saved data</p>
+        </Show>
+      </div>
+    </Show>
+
     <Show when={!setupOpen()} fallback={<Setup onDone={() => setSetupOpen(false)} />}>
       <div class="app" classList={{ wide: view() !== "ledger" }}>
         <header class="head">
-          <h1 class="wordmark">Target<span>X</span></h1>
+          <h1 class="wordmark">Target<span class="wordmark-x" ref={wordmarkX}
+              classList={{ waiting: phase() !== "done" }}><Mark size="0.78em" /></span></h1>
 
           <nav class="tabs" aria-label="Views">
             <For each={VIEWS}>{(v) => (
@@ -255,6 +317,6 @@ export function App() {
         <Show when={view() === "data"}><Data /></Show>
       </div>
     </Show>
-    </Show>
+    </>
   );
 }

@@ -83,45 +83,65 @@ button:active:not(:disabled) { transform: translateY(1px); }
    without the transition the whole table jumps. */
 .detail td > * { animation: rise var(--fast) var(--ease) both; }
 
-/* --- the splash ----------------------------------------------------------- */
+/* --- the opening ----------------------------------------------------------
+ *
+ * The app opens on its own mark and then puts it away. The X does not fade out
+ * and a wordmark fade in - it is one object that moves, which is why the
+ * splash drawing and the wordmark drawing are the same component.
+ *
+ * The veil fades separately from the X so the dashboard is already visible
+ * while the mark is still travelling over it. Cutting them together would make
+ * the flight look like a loading screen that had not finished.
+ */
 
-.splash {
+.boot {
   align-items: center;
-  background: var(--bg);
-  display: flex;
-  height: 100%;
-  justify-content: center;
-}
-.splash-body {
-  animation: fade var(--med) var(--ease) both;
   display: flex;
   flex-direction: column;
-  gap: var(--s4);
-  align-items: center;
+  gap: var(--s5);
+  inset: 0;
+  justify-content: center;
+  pointer-events: none;
+  position: fixed;
+  z-index: 50;
 }
-.splash-mark { font-size: var(--text-3xl); margin: 0; }
-.splash-note { color: var(--text-faint); font-size: var(--text-sm); margin: 0; }
 
-/* An indeterminate bar, not a spinner: the check has no measurable progress,
-   and a bar that pretends to fill would be inventing one. */
-.splash-bar {
-  background: var(--surface-2);
-  border-radius: 2px;
-  height: 2px;
-  overflow: hidden;
-  width: 180px;
+.boot-veil {
+  background: var(--bg);
+  inset: 0;
+  position: absolute;
+  transition: opacity 420ms var(--ease);
 }
-.splash-bar i {
-  animation: slide 1.1s var(--ease) infinite;
-  background: var(--brand);
-  display: block;
-  height: 100%;
-  width: 40%;
+.boot.leaving .boot-veil { opacity: 0; }
+
+.boot-flyer {
+  line-height: 0;
+  position: relative;
+  /* Breathes while the check runs so a slow machine shows something alive
+     rather than something stuck. Deliberately not a rotation: a quarter turn
+     puts the X at 45 degrees, where it is a plus sign, and the mark must not
+     pass through being a different symbol on its way anywhere. */
+  animation: breathe 2s var(--ease) infinite;
 }
-@keyframes slide {
-  from { transform: translateX(-100%); }
-  to   { transform: translateX(350%); }
+.boot.leaving .boot-flyer { animation: none; }
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.72; transform: scale(0.94); }
 }
+
+.splash-note {
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+  margin: 0;
+  position: relative;
+  animation: fade var(--med) var(--ease) both;
+}
+.boot.leaving .splash-note { opacity: 0; transition: opacity var(--fast) var(--ease); }
+
+/* The wordmark's X is empty until the flying one lands on it. */
+.wordmark-x { display: inline-block; line-height: 0; vertical-align: -0.12em; }
+.wordmark-x.waiting { opacity: 0; }
 
 /* --- inline busy ---------------------------------------------------------- */
 
@@ -162,7 +182,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 @media (prefers-reduced-motion: reduce) {
   .screen,
   .home .bento > .tile,
-  .splash-body,
+  .boot-flyer,
   .detail td > *,
   .gauge-arc { animation: none; }
   button:active:not(:disabled) { transform: none; }
