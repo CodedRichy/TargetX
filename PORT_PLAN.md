@@ -1,6 +1,16 @@
 # TargetX — port plan (Python/CTk → Tauri 2.0 + SolidJS)
 
-Written 2026-08-18. Execute in a fresh session; this file is the handoff.
+Written 2026-08-18, and largely executed the same day.
+
+| Phase | State |
+|---|---|
+| 1. Engine to TypeScript | **done** — 33 ported tests plus a 612-case differential parity corpus against the Python engine |
+| 2. Scraper to TypeScript | **not started, and gated** — see below |
+| 3. UI | **done** — Solid, no modals, hand-rolled SVG charts, 58KB bundle |
+| Desktop shell | **done** — Tauri 2, 19MB binary, 4.5MB installer |
+
+The one thing that has not moved is the gate: the scraper is still Python and
+should stay that way until a second college has been tested.
 
 ## The decision
 

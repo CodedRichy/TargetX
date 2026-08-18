@@ -14,3 +14,4 @@ node_modules/
 app/src-tauri/target/
 .vite/
 app/shots/
+app/src-tauri/gen/schemas/

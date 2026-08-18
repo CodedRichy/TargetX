@@ -5,12 +5,40 @@ Desktop internal-mark tracker and target-grade engine for the **KTU 2024 scheme*
 Every other KTU calculator tells you what you already got. TargetX tells you the
 mark you still need on the End Semester Exam — per subject, live, as you type.
 
+### Running it
+
+The app is being rebuilt as a Tauri desktop binary with the engine in
+TypeScript. Both versions are in the tree while the port finishes.
+
+```
+cd app
+npm install
+npm run tauri dev      # desktop window
+npm run dev            # or just the frontend in a browser
+npm test               # engine tests, including parity with the Python original
+```
+
+The original Python build still runs and remains the reference implementation
+for the calculation core and the only one with live etlab sync:
+
 ```
 pip install customtkinter requests beautifulsoup4
 python targetx.py
 ```
 
 `pypdf` is optional and only needed to read a grade-card PDF directly.
+
+### Port status
+
+| Piece | State |
+|---|---|
+| Calculation engine | Ported to TypeScript. Proven identical to Python across 612 generated course cases and 60 semester rollups (`tools/parity_dump.py`). |
+| Interface | Rebuilt on Solid. No modal dialogs; hand-rolled SVG charts. |
+| Desktop shell | Tauri 2. Single binary, no Python at runtime. |
+| etlab sync | Still Python-only. Deliberately gated: the scraper has been validated against exactly one college, and porting it before that changes is how you end up with a polished cross-platform tool that works at one campus. |
+
+See `PORT_PLAN.md` for the full reasoning, including the alternatives that were
+rejected and why.
 
 ---
 
