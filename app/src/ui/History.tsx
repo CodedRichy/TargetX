@@ -40,18 +40,25 @@ export function History() {
         // subjects always disagrees with the printed one, and reporting that
         // as a credit fault is crying wolf - the student would learn to
         // ignore the warning that matters.
-        const complete = published !== undefined && published.credits > 0
-          && Math.abs(credits - published.credits) < 0.01;
+        // Registered credits are what the stored subjects add up to, failures
+        // included. Comparing against the earned total would call every
+        // semester with a backlog incomplete.
+        const registered = published?.creditsRegistered ?? null;
+        const complete = registered !== null && registered > 0
+          && Math.abs(credits - registered) < 0.01;
         const drift = complete && recomputed !== null
           ? Math.round((recomputed - published!.sgpa) * 1000) / 1000
           : null;
 
-        return { name, published, recomputed, credits, complete,
+        return { name, published, registered, recomputed, credits, complete,
                  courses: courses.length, drift };
       });
   });
 
   const drifting = () => rows().filter((r) => r.drift !== null && Math.abs(r.drift) >= 0.01);
+
+  /** Semesters carried over from a save that only knew the earned total. */
+  const unconfirmed = () => overall().unconfirmed;
 
   return (
     <div class="screen">
@@ -80,7 +87,8 @@ export function History() {
               <tr>
                 <th class="left">Semester</th>
                 <th>Published SGPA</th>
-                <th>Credits</th>
+                <th>Registered credits</th>
+                <th>Earned</th>
                 <th>Recomputed</th>
                 <th class="left">Cross-check</th>
               </tr>
@@ -121,7 +129,9 @@ export function History() {
 
 interface Row {
   name: string;
-  published: { sgpa: number; credits: number } | undefined;
+  published: SemesterHistory | undefined;
+  /** The published registered total, or null when no save ever held one. */
+  registered: number | null;
   recomputed: number | null;
   credits: number;
   /** True when the stored subjects cover the whole published credit total. */
@@ -134,7 +144,7 @@ function HistoryRow(props: { row: Row }) {
   const [sgpaDraft, setSgpaDraft] = createSignal(
     props.row.published ? String(props.row.published.sgpa) : "");
   const [creditDraft, setCreditDraft] = createSignal(
-    props.row.published ? String(props.row.published.credits) : "");
+    props.row.registered === null ? "" : String(props.row.registered));
 
   const commit = () => {
     const sgpaValue = Number(sgpaDraft().trim());
@@ -143,8 +153,12 @@ function HistoryRow(props: { row: Row }) {
       edit((s) => { delete s.history[props.row.name]; });
       return;
     }
-    if (!Number.isFinite(sgpaValue) || !Number.isFinite(creditValue)) return;
-    setHistory(props.row.name, sgpaValue, creditValue);
+    if (!Number.isFinite(sgpaValue)) return;
+    // A blank credit box is "I do not know yet", not zero - the CGPA falls
+    // back to the earned total and says so rather than dividing by nothing.
+    const credits = creditDraft().trim() === "" ? null : creditValue;
+    if (credits !== null && !Number.isFinite(credits)) return;
+    setHistory(props.row.name, sgpaValue, credits);
   };
 
   return (
@@ -159,15 +173,21 @@ function HistoryRow(props: { row: Row }) {
                onInput={(e) => setCreditDraft(e.currentTarget.value)} onBlur={commit} />
       </td>
       <td class="num">
+        {props.row.published?.creditsEarned ?? "–"}
+      </td>
+      <td class="num">
         {props.row.recomputed === null ? "–" : props.row.recomputed.toFixed(2)}
       </td>
       <td class="left">
         <Show when={props.row.drift !== null} fallback={
           <span style={{ color: "var(--text-faint)" }}>
             <Show when={props.row.published} fallback={<>not recorded</>}>
-              <Show when={props.row.recomputed !== null}
-                    fallback={<>no graded subjects stored</>}>
-                partial record — {props.row.credits} of {props.row.published!.credits} credits
+              <Show when={props.row.registered !== null}
+                    fallback={<>registered credits not recorded</>}>
+                <Show when={props.row.recomputed !== null}
+                      fallback={<>no graded subjects stored</>}>
+                  partial record — {props.row.credits} of {props.row.registered} credits
+                </Show>
               </Show>
             </Show>
           </span>

@@ -4,6 +4,20 @@ import { requiredEse } from "./grade";
 import type { Course, Grade, SemesterHistory } from "./types";
 import { round, toFloat } from "./util";
 
+/**
+ * The credits a past semester weighs by in the CGPA.
+ *
+ * Registered credits are the right denominator, and the only one KTU uses.
+ * Where they are unknown - a save written before TargetX told the two totals
+ * apart - the earned total stands in, so the CGPA a student has been looking
+ * at does not shift under them with nothing on screen to explain it. Those
+ * semesters are named in `CgpaResult.unconfirmed` so the History screen can
+ * ask for the real figure instead.
+ */
+export function historyCredits(entry: SemesterHistory): number {
+  return entry.creditsRegistered ?? entry.creditsEarned ?? 0;
+}
+
 export interface RequiredSgpa {
   required: number | null;
   possible: boolean;
@@ -25,9 +39,9 @@ export function requiredSgpaForCgpa(
   history: Record<string, SemesterHistory>,
   semesterCredits: number,
 ): RequiredSgpa {
-  const past = Object.values(history);
-  const pastCredits = past.reduce((sum, v) => sum + (v.credits || 0), 0);
-  const pastPoints = past.reduce((sum, v) => sum + (v.sgpa || 0) * (v.credits || 0), 0);
+  const past = Object.values(history).map((v) => [historyCredits(v), v.sgpa || 0] as const);
+  const pastCredits = past.reduce((sum, [c]) => sum + c, 0);
+  const pastPoints = past.reduce((sum, [c, sgpa]) => sum + sgpa * c, 0);
   const credits = toFloat(semesterCredits, 0);
 
   if (credits <= 0) {
@@ -205,16 +219,25 @@ export interface CgpaResult {
   cgpa: number;
   credits: number;
   percent: number;
+  /**
+   * Semesters weighted by their earned credits because the registered total
+   * is unknown. Non-empty means the CGPA is a best effort, not the figure
+   * KTU would print, and the student has a number to supply.
+   */
+  unconfirmed: string[];
 }
 
 export function cgpaFromSemesters(
   semMap: Record<string, SemesterHistory>,
 ): CgpaResult {
-  const rows = Object.values(semMap);
-  const credits = rows.reduce((sum, v) => sum + (v.credits || 0), 0);
-  if (credits <= 0) return { cgpa: 0, credits: 0, percent: 0 };
-  const weighted = rows.reduce((sum, v) => sum + (v.sgpa || 0) * (v.credits || 0), 0);
+  const rows = Object.entries(semMap);
+  const unconfirmed = rows
+    .filter(([, v]) => v.creditsRegistered == null)
+    .map(([name]) => name);
+  const credits = rows.reduce((sum, [, v]) => sum + historyCredits(v), 0);
+  if (credits <= 0) return { cgpa: 0, credits: 0, percent: 0, unconfirmed };
+  const weighted = rows.reduce((sum, [, v]) => sum + (v.sgpa || 0) * historyCredits(v), 0);
   const cgpa = round(weighted / credits, 3);
   // 2024 scheme: Percentage = 10 x CGPA. No (10 x CGPA) - 2.5 legacy fudge.
-  return { cgpa, credits, percent: round(cgpa * 10, 2) };
+  return { cgpa, credits, percent: round(cgpa * 10, 2), unconfirmed };
 }

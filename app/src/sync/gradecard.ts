@@ -36,7 +36,9 @@ export interface CardSemester {
   courses: CardCourse[];
   sgpaPrinted?: number;
   sgpaCalc: number;
+  /** Every course on the card, failures included - the CGPA denominator. */
   credits: number;
+  /** Only the courses that passed. Shown, never weighted. */
   creditsEarned: number;
   /**
    * True when the recomputed SGPA disagrees with the printed one, which means

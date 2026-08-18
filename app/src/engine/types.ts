@@ -126,7 +126,27 @@ export type Status =
   | "SAFE" | "TIGHT" | "PENDING"
   | "SHORTAGE" | "DEBARRED" | "FAILED" | "UNREACHABLE";
 
+/**
+ * A finished semester, as the university published it.
+ *
+ * KTU weights the CGPA by REGISTERED credits: a failed course scores zero
+ * grade points but its credits stay in the denominator. Storing the earned
+ * total under a field the CGPA reads inflates every semester that carries a
+ * backlog, so the two totals are named apart and never conflated.
+ */
 export interface SemesterHistory {
   sgpa: number;
-  credits: number;
+  /**
+   * Credits the student registered for - the CGPA denominator.
+   *
+   * Null when it is genuinely unknown. Saves written before the two totals
+   * were told apart hold only the earned figure, and no arithmetic recovers
+   * the registered one from it; see `migrateHistory` in state/store.ts.
+   */
+  creditsRegistered: number | null;
+  /**
+   * Credits passed. Shown to the student, never weighted into the CGPA.
+   * Null when nothing published it.
+   */
+  creditsEarned: number | null;
 }

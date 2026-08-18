@@ -6,7 +6,7 @@ import {
 import type { Course, PresetCourse } from "../engine";
 import type { SyncResult } from "../sync/etlab";
 import type { GradeCard } from "../sync/gradecard";
-import { edit, state } from "./store";
+import { edit, migrateHistory, state } from "./store";
 
 /**
  * Everything that changes the document as a whole: bringing data in, taking it
@@ -158,7 +158,14 @@ export function applyGradeCard(card: GradeCard): CardOutcome {
       };
       courses += entry.courses.length;
       if (entry.sgpaPrinted !== undefined) {
-        s.history[name] = { sgpa: entry.sgpaPrinted, credits: entry.creditsEarned };
+        s.history[name] = {
+          sgpa: entry.sgpaPrinted,
+          // The card lists every course the student registered for, failures
+          // included, so its credit total IS the registered total - the one
+          // KTU weights the CGPA by. The earned total rides along for display.
+          creditsRegistered: entry.credits,
+          creditsEarned: entry.creditsEarned,
+        };
       }
       if (entry.mismatch) mismatched.push(name);
     }
@@ -248,7 +255,9 @@ export function importJson(text: string) {
   if (!parsed || typeof parsed !== "object" || !parsed.semesters) {
     throw new Error("That file is not a TargetX backup.");
   }
-  edit((s) => Object.assign(s, parsed));
+  // A backup written before the registered/earned credit split is the same
+  // old shape arriving later, so it goes through the same migration as a load.
+  edit((s) => Object.assign(s, parsed, { history: migrateHistory(parsed.history) }));
 }
 
 export function resetEverything() {

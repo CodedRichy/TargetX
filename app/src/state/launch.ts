@@ -46,7 +46,10 @@ export function daysSinceSync(): number | null {
 export function reconcileFailures(): string[] {
   const out: string[] = [];
   for (const [name, published] of Object.entries(state.history)) {
-    if (!published || published.credits <= 0) continue;
+    // Registered credits are what the stored subjects should add up to. A
+    // semester whose registered total is unknown cannot be reconciled at all.
+    const registered = published?.creditsRegistered ?? 0;
+    if (!published || registered <= 0) continue;
     const courses = state.semesters[name]?.courses ?? [];
     const graded = courses
       .map((c) => evaluate(c))
@@ -55,7 +58,7 @@ export function reconcileFailures(): string[] {
     if (!graded.length) continue;
 
     const credits = graded.reduce((sum, [c]) => sum + c, 0);
-    if (Math.abs(credits - published.credits) >= 0.01) continue;
+    if (Math.abs(credits - registered) >= 0.01) continue;
     if (Math.abs(computeSgpa(graded) - published.sgpa) >= 0.01) out.push(name);
   }
   return out;

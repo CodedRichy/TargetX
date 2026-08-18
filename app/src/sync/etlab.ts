@@ -11,8 +11,8 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { CODE_RE } from "../engine/parse";
-import { COURSE_TYPES, blankCourse, inferCredits, lookupCourse, verifyCredits } from "../engine";
-import type { Course, TypeKey } from "../engine";
+import { COURSE_TYPES, blankCourse, inferCredits, lookupCourse, toFloat, verifyCredits } from "../engine";
+import type { Course, SemesterHistory, TypeKey } from "../engine";
 
 export class EtlabError extends Error {}
 
@@ -482,7 +482,7 @@ function fitType(typeKey: TypeKey, internal: number | null): TypeKey {
 
 export interface SyncResult {
   semesters: Record<string, { courses: Course[]; creditCheck: ReturnType<typeof verifyCredits> }>;
-  history: Record<string, { sgpa: number; credits: number }>;
+  history: Record<string, SemesterHistory>;
   current: string | null;
   needsCredits: string[];
 }
@@ -547,7 +547,17 @@ export function academicsToState(
     semesters[name] = { courses, creditCheck: verifyCredits(courses, entry.earnedCredits) };
 
     if (entry.sgpa) {
-      history[name] = { sgpa: entry.sgpa, credits: entry.earnedCredits || 0 };
+      history[name] = {
+        sgpa: entry.sgpa,
+        // The portal publishes an earned total and nothing else, so the
+        // registered total - the one the CGPA is weighted by - has to come
+        // from the courses themselves. These are the same seeded credits the
+        // live semester's grade maths already runs on, and creditCheck above
+        // is what says so out loud when they are wrong.
+        creditsRegistered: courses.reduce((sum, c) => sum + toFloat(c.credits, 0), 0),
+        // A missing published total is unknown, not zero.
+        creditsEarned: entry.earnedCredits ?? null,
+      };
     }
   }
 

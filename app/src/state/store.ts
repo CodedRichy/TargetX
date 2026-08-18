@@ -1,13 +1,48 @@
 import { createMemo } from "solid-js";
 import { createStore, produce, unwrap } from "solid-js/store";
 import {
-  cgpaFromSemesters, courseFromCode, defaultState, evaluate, planForSgpa,
-  requiredSgpaForCgpa, statusFor, summarise,
+  cgpaFromSemesters, courseFromCode, defaultState, evaluate, historyCredits,
+  planForSgpa, requiredSgpaForCgpa, statusFor, summarise,
 } from "../engine";
-import type { Course } from "../engine";
+import { toFloat, toOptionalFloat } from "../engine";
+import type { Course, MarkInput, SemesterHistory } from "../engine";
 import type { AppState, Semester } from "../engine/course";
 
 const KEY = "targetx.state.v1";
+
+/**
+ * Bring a saved `history` map up to the registered/earned split.
+ *
+ * Files written before that split hold the EARNED total under a field called
+ * `credits`, and no arithmetic recovers the registered total from it. So the
+ * value is moved to the name that actually describes it and the registered
+ * total is left unknown - rather than being reinterpreted as though it had
+ * always meant registered, which would move a real student's CGPA with
+ * nothing on screen to explain it. Nothing is discarded: the old number
+ * survives as `creditsEarned`, `cgpaFromSemesters` keeps weighting by it so
+ * the displayed CGPA does not jump, and it names those semesters as
+ * unconfirmed so History can ask for the registered figure.
+ *
+ * Keyed off the shape rather than a version stamp, because a restored backup
+ * is the same old file arriving later and its shape is the only thing about
+ * it that can be trusted. Idempotent.
+ */
+export function migrateHistory(raw: unknown): Record<string, SemesterHistory> {
+  const out: Record<string, SemesterHistory> = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== "object") continue;
+    const entry = value as { sgpa?: MarkInput; credits?: MarkInput;
+                             creditsRegistered?: MarkInput; creditsEarned?: MarkInput };
+    out[name] = {
+      sgpa: toFloat(entry.sgpa, 0),
+      creditsRegistered: toOptionalFloat(entry.creditsRegistered),
+      creditsEarned: toOptionalFloat(
+        entry.creditsEarned !== undefined ? entry.creditsEarned : entry.credits),
+    };
+  }
+  return out;
+}
 
 /**
  * Load saved work, or start clean.
@@ -24,7 +59,7 @@ function load(): AppState {
     if (!parsed || typeof parsed !== "object" || !parsed.semesters) {
       throw new Error("shape");
     }
-    return { ...defaultState(), ...parsed };
+    return { ...defaultState(), ...parsed, history: migrateHistory(parsed.history) };
   } catch {
     try {
       const raw = localStorage.getItem(KEY);
@@ -99,14 +134,23 @@ export function setGoal(cgpa: number | null) {
 }
 
 /**
- * Record a finished semester's published SGPA.
+ * Record a finished semester's published SGPA and registered credits.
  *
  * History is what the university printed, not what this app computed. Keeping
  * the two separate is what lets the app cross-check itself and say so when the
  * numbers disagree, instead of quietly agreeing with its own arithmetic.
+ *
+ * The earned total is not editable here and is carried through untouched: it
+ * comes off a grade card or the portal, and the student is being asked for the
+ * one number those sources do not publish.
  */
-export function setHistory(name: string, sgpa: number, credits: number) {
-  edit((s) => { s.history[name] = { sgpa, credits }; });
+export function setHistory(name: string, sgpa: number, creditsRegistered: number | null) {
+  edit((s) => {
+    s.history[name] = {
+      sgpa, creditsRegistered,
+      creditsEarned: s.history[name]?.creditsEarned ?? null,
+    };
+  });
 }
 
 // --- derived ---------------------------------------------------------------
@@ -139,8 +183,13 @@ export const goalPlan = createMemo(() => {
   return planForSgpa(activeCourses(), need.required);
 });
 
-/** Semesters that have both a published SGPA and a name, oldest first. */
+/**
+ * Semesters that have both a published SGPA and a name, oldest first.
+ *
+ * The chart's running CGPA is weighted the same way the real one is, so the
+ * credits handed over are `historyCredits`, not either raw total.
+ */
 export const trend = createMemo(() =>
   Object.entries(state.history)
-    .map(([name, v]) => ({ name, ...v }))
+    .map(([name, v]) => ({ name, sgpa: v.sgpa, credits: historyCredits(v) }))
     .sort((a, b) => Number(a.name.slice(1)) - Number(b.name.slice(1))));
