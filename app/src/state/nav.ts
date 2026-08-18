@@ -10,15 +10,18 @@ import { state } from "./store";
  * steps look skippable in the UI and the main views look sequential.
  */
 
-export type View = "ledger" | "history" | "data";
+export type View = "home" | "ledger" | "history" | "data";
 
 export const VIEWS: Array<{ id: View; label: string; hint: string }> = [
+  { id: "home", label: "Home", hint: "Where you stand and what needs doing" },
   { id: "ledger", label: "Semester", hint: "Marks, attendance and what you still need" },
   { id: "history", label: "History", hint: "Published results from past semesters" },
   { id: "data", label: "Data", hint: "Sync, import, catalogue and backup" },
 ];
 
-const [view, setView] = createSignal<View>("ledger");
+// Home is the landing screen: the ledger answers "what are my marks", which is
+// a question a student only has after the one Home answers - "am I fine".
+const [view, setView] = createSignal<View>("home");
 export { view, setView };
 
 /** Setup steps, in order. `route` splits into the sync path or the manual one. */

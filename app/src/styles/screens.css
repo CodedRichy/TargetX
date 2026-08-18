@@ -421,3 +421,125 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
 }
 .tab:hover { color: var(--text); }
 .tab[aria-current="true"] { border-bottom-color: var(--brand); color: var(--text); }
+
+/* --- Home: the bento ------------------------------------------------------
+ *
+ * A softer, roomier card language than the rest of the app, and confined to
+ * this screen on purpose. The ledger is an instrument read at a glance across
+ * forty rows, so it stays tight; Home is read once and acted on, so it gets
+ * the space. Radius and padding here are deliberately larger than the tokens
+ * the dense screens use.
+ */
+
+.home .bento {
+  display: grid;
+  gap: var(--s4);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  /* Cards size to their content. Stretching every tile to the tallest one in
+     its row leaves a two-line card standing in a column of empty surface,
+     which reads as missing data rather than as a short answer. */
+  align-items: start;
+}
+
+.tile {
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s5);
+}
+
+/* The one card allowed to occupy two columns: standing is the question the
+   screen exists to answer, and the rest are follow-ups. */
+.home .hero { grid-column: span 2; }
+.home .trend { grid-column: span 2; }
+
+@media (max-width: 900px) {
+  .home .hero, .home .trend { grid-column: span 1; }
+}
+
+.tile-head {
+  align-items: baseline;
+  display: flex;
+  gap: var(--s4);
+  justify-content: space-between;
+}
+.tile-head h3 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+}
+.tile-note { color: var(--text-faint); font-size: var(--text-xs); }
+
+/* Attendance loss is the app's whole thesis, so when it is real the card is
+   allowed to say so with its border. Nothing else on this screen may. */
+.tile.flagged { border-color: var(--warn); }
+
+.hero-figure {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s5);
+  justify-content: space-between;
+}
+/* The gauge is a supporting reading, not the headline - but its labels are
+   drawn at a fixed size in the SVG, so shrinking it far past its natural
+   300px makes them unreadable rather than quiet. 280 is the floor. */
+.hero-figure svg { max-width: 280px; height: auto; }
+.hero-number { display: flex; flex-direction: column; gap: 0.15rem; }
+.hero-number.tight { gap: 0; }
+
+.huge {
+  font-size: clamp(2.75rem, 2rem + 3vw, 4rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.hero-unit { color: var(--text-faint); font-size: var(--text-sm); }
+
+.tile-verdict {
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  margin: 0;
+  max-width: 62ch;
+}
+.tile-verdict.dim { color: var(--text-faint); }
+.tile-verdict.bad { color: var(--warn); }
+.tile-verdict strong { color: var(--text); font-weight: 600; }
+
+.concerns { display: flex; flex-direction: column; gap: var(--s2); list-style: none; margin: 0; padding: 0; }
+.concerns li {
+  align-items: baseline;
+  display: flex;
+  font-size: var(--text-sm);
+  gap: var(--s3);
+}
+.concerns b { color: var(--text); font-weight: 600; min-width: 8ch; }
+.concerns span { color: var(--text-dim); line-height: 1.45; }
+
+.dot { border-radius: 50%; flex: none; height: 0.45rem; width: 0.45rem; }
+.dot.bad { background: var(--danger); }
+.dot.warn { background: var(--warn); }
+
+.split { display: flex; gap: var(--s6); }
+.split > div { display: flex; flex-direction: column; gap: 0.1rem; }
+.stat-label {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.stat { font-size: var(--text-2xl); font-weight: 600; letter-spacing: -0.02em; }
+.stat.dim { color: var(--text-dim); }
+
+/* The trend chart is 300x130 and scales to its container, so a two-column
+   tile stretched it to something the size of the rest of the screen. It is
+   context, not the subject. */
+.home .trend svg { margin: 0 auto; max-width: 560px; }
+
+.empty-home { max-width: 60ch; }
+.empty-home h3 { font-size: var(--text-lg); font-weight: 600; margin: 0; }

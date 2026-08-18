@@ -7,6 +7,7 @@ import { VIEWS, needsSetup, setView, view } from "../state/nav";
 import { Data } from "./Data";
 import { Drawer } from "./Drawer";
 import { History } from "./History";
+import { Home } from "./Home";
 import { Ledger } from "./Ledger";
 import { Setup } from "./Setup";
 
@@ -163,6 +164,7 @@ export function App() {
           <Ledger />
           <Drawer />
         </Show>
+        <Show when={view() === "home"}><Home /></Show>
         <Show when={view() === "history"}><History /></Show>
         <Show when={view() === "data"}><Data /></Show>
       </div>

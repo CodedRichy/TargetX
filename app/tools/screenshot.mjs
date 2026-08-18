@@ -128,19 +128,25 @@ await setup.screenshot({ path: "shots/05-goal.png" });
 // --- the app ---------------------------------------------------------------
 
 const app = await seededPage();
-await app.screenshot({ path: "shots/06-ledger.png" });
+await app.screenshot({ path: "shots/06-home.png" });
 
-await app.getByText("PCCST502").click();
+// Home is the landing screen now, so the ledger has to be asked for. Scoping
+// the row click to the table matters: a subject code appears on Home too.
+await app.getByRole("button", { name: "Semester", exact: true }).click();
 await app.waitForTimeout(250);
-await app.screenshot({ path: "shots/07-subject-detail.png" });
+await app.screenshot({ path: "shots/07-ledger.png" });
+
+await app.locator("table").getByText("PCCST502").first().click();
+await app.waitForTimeout(250);
+await app.screenshot({ path: "shots/08-subject-detail.png" });
 
 await app.getByRole("button", { name: "History" }).click();
 await app.waitForTimeout(250);
-await app.screenshot({ path: "shots/08-history.png" });
+await app.screenshot({ path: "shots/09-history.png" });
 
 await app.getByRole("button", { name: "Data" }).click();
 await app.waitForTimeout(250);
-await app.screenshot({ path: "shots/09-data.png" });
+await app.screenshot({ path: "shots/10-data.png" });
 
 await browser.close();
-console.log("wrote shots/01-welcome.png .. 09-data.png");
+console.log("wrote shots/01-welcome.png .. 10-data.png");

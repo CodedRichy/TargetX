@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "app/src/styles/screens.css"
+        ],
+        "createdAt": "2026-08-18T07:26:18.591Z",
+        "reason": "Claude: .notice is an alert, not a content card - the 2px left stripe is a severity marker paired with warn/danger wash, scoped to .notice.warn/.notice.bad only, never on a plain card"
+      },
+      {
+        "rule": "overused-font",
+        "value": "space grotesk",
+        "files": [
+          "C:\\Users\\rishi\\AppData\\Local\\Temp\\claude\\C--Users-rishi\\4192e42a-1918-4339-a965-51abb24c50fa\\scratchpad\\targetx-flow.html"
+        ],
+        "createdAt": "2026-08-18T07:26:46.691Z",
+        "reason": "Claude: the flow doc is deliberately built from the app's own tokens.css; Space Grotesk is TargetX's shipped display face, so swapping it here would make the document misrepresent the product"
+      }
+    ]
+  }
+}
