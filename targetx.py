@@ -86,6 +86,7 @@ GRADE_BANDS = [
 ]
 GRADE_POINTS = {letter: gp for letter, _, gp in GRADE_BANDS}
 GRADE_POINTS["F"] = 0.0
+NON_GRADED = set()
 GRADE_MIN = {letter: lo for letter, lo, _ in GRADE_BANDS}
 
 TOTAL_PASS_MARK = 50          # CIE + ESE must reach 50/100
@@ -631,7 +632,11 @@ def normalise_grade(value):
     text = str(value).strip().upper()
     if text in ("", "-", "--"):
         return None
-    if text in ("PASS", "PASSED"):
+    # Pass/fail courses (life skills, NSS, professional writing) DO count.
+    # Checked against the portal itself: it publishes GPA 5.5 for these rows,
+    # and solving S2's published SGPA only works when they are included. An
+    # earlier version excluded them and was wrong.
+    if text in ("PASS", "PASSED", "P/F", "PF", "COMPLETED"):
         return "P"
     if text in ("FAIL", "FAILED", "F", "FE", "AB", "I", "W"):
         return "F"
@@ -802,7 +807,9 @@ def summarise(courses: list) -> dict:
             else:
                 projected.append((credits, GRADE_POINTS[ev["max_possible_grade"]]))
 
-        if not ev["need_pass"]["possible"]:
+        if not ev["need_pass"]["possible"] and ev["grade"] is None:
+            # A published grade settles the matter; do not warn that a course
+            # already on the record is unreachable.
             impossible.append(course.get("code") or course.get("name") or "?")
         elif ev["grade"] == "F":
             at_risk.append(course.get("code") or "?")
