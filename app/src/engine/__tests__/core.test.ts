@@ -358,3 +358,62 @@ describe("published values outrank derived ones", () => {
     expect(normaliseGrade("N/A")).toBeNull();
   });
 });
+
+describe("an untouched eseMax === 0 course is not graded on attendance alone", () => {
+  it("leaves a blank PRJ 100/0 with good attendance ungraded and PENDING", () => {
+    // Attendance alone fills the 5-mark R 7.5.ii slot and makes cie nonzero,
+    // but nobody has entered a single series mark - grading that would be
+    // grading attendance, not project work.
+    const course: Course = { ...blankCourse("PCCST601", "Project", 4, "PRJ 100/0"), attendance: 90 };
+    const ev = evaluate(course);
+    expect(ev.cie).toBeGreaterThan(0);
+    expect(ev.assessed).toBe(false);
+    expect(ev.grade).toBeNull();
+    expect(ev.total).toBeNull();
+    expect(statusFor(ev)).toBe("PENDING");
+  });
+
+  it("keeps that course out of sgpaConfirmed", () => {
+    const course: Course = { ...blankCourse("PCCST601", "Project", 4, "PRJ 100/0"), attendance: 90 };
+    const summary = summarise([course]);
+    expect(summary.pending).toBe(1);
+    expect(summary.sgpaConfirmed).toBe(0);
+  });
+
+  it("still grades a PRJ 100/0 once a component is entered", () => {
+    // The gate is on `assessed`, not on eseMax === 0 wholesale - real project
+    // marks must still resolve to a grade.
+    const course: Course = {
+      ...blankCourse("PCCST602", "Project", 4, "PRJ 100/0"),
+      s1: 50, s2: 40, other: 10, attendance: 90,
+    };
+    const ev = evaluate(course);
+    expect(ev.assessed).toBe(true);
+    expect(ev.grade).not.toBeNull();
+  });
+});
+
+describe("a published grade is never read as UNREACHABLE or TIGHT", () => {
+  it("shows SAFE, not UNREACHABLE, for a finished LAB 75/25 with no CIE entered", () => {
+    // A grade-card import carries the letter but no marks, so `cie` is 0 - a
+    // reverse-solve off that 0 would say the pass is impossible, but the
+    // grade already settles it.
+    const course: Course = {
+      ...blankCourse("PCCST701", "Networks Lab", 3, "LAB 75/25"), portal_grade: "A",
+    };
+    const ev = evaluate(course);
+    expect(ev.needPass.possible).toBe(false);
+    expect(ev.grade).toBe("A");
+    expect(statusFor(ev)).toBe("SAFE");
+  });
+
+  it("does not show TIGHT for a published P on a TH 40/60 with no CIE entered", () => {
+    const course: Course = {
+      ...blankCourse("PCCST702", "Seminar", 2, "TH 40/60"), portal_grade: "P",
+    };
+    const ev = evaluate(course);
+    expect(ev.grade).toBe("P");
+    expect(statusFor(ev)).not.toBe("TIGHT");
+    expect(statusFor(ev)).toBe("SAFE");
+  });
+});

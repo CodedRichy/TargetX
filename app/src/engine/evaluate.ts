@@ -34,6 +34,18 @@ export function evaluate(course: Course): Evaluation {
   // leave completed semesters permanently "unconfirmed".
   const publishedGrade = normaliseGrade(course.portal_grade);
 
+  // Has this course been assessed at all yet? With no series marks and no
+  // published internal, a nonzero CIE can still be pure attendance marks
+  // (R 7.5.ii) - and reporting a grade for a lab nobody has graded yet would
+  // be a straight falsehood. Computed here, ahead of the grading branch below,
+  // because an eseMax === 0 course with no data must not fall through to it.
+  const assessed =
+    publishedGrade !== null ||
+    toOptionalFloat(course.cie_override) !== null ||
+    spec.components.some(
+      ({ key }) => toOptionalFloat((course as Record<string, MarkInput>)[key]) !== null,
+    );
+
   let total: number | null = null;
   let grade: Grade | null = null;
   let failedReason = "";
@@ -41,7 +53,7 @@ export function evaluate(course: Course): Evaluation {
   if (publishedGrade !== null) {
     grade = publishedGrade;
     if (ese !== null) total = round(cie + ese, 2);
-  } else if (ese !== null || eseMax === 0) {
+  } else if (ese !== null || (eseMax === 0 && assessed)) {
     total = round(cie + (ese ?? 0), 2);
     if (eseMax && ese !== null && ese < cutoff) {
       grade = "F";
@@ -56,17 +68,6 @@ export function evaluate(course: Course): Evaluation {
 
   let target = (course.target ?? "B+") as Letter;
   if (!(target in GRADE_MIN)) target = "B+";
-
-  // Has this course been assessed at all yet? With no series marks and no
-  // published internal, a CIE of 0 is an absence of data, not a score of zero
-  // - and reporting "you need 50/25, impossible" for a lab nobody has graded
-  // yet would be a straight falsehood.
-  const assessed =
-    publishedGrade !== null ||
-    toOptionalFloat(course.cie_override) !== null ||
-    spec.components.some(
-      ({ key }) => toOptionalFloat((course as Record<string, MarkInput>)[key]) !== null,
-    );
 
   return {
     cie,
@@ -101,11 +102,14 @@ export function statusFor(ev: Evaluation): Status {
     if (ev.eligible === false) return "SHORTAGE";
     return "PENDING";
   }
-  if (!ev.needPass.possible) return "UNREACHABLE";
+  // A published grade settles the matter; a projection built without an ESE
+  // mark (portals never publish the exam score) is not grounds to call a
+  // finished course unreachable.
+  if (!ev.needPass.possible && ev.grade === null) return "UNREACHABLE";
   if (ev.grade === "F") return "FAILED";
   if (ev.attendance !== null && ev.attendance < ATTENDANCE_CONDONE) return "DEBARRED";
   if (ev.eligible === false) return "SHORTAGE";
-  if (ev.eseMax && ev.needPass.value / ev.eseMax > 0.7) return "TIGHT";
+  if (ev.grade === null && ev.eseMax && ev.needPass.value / ev.eseMax > 0.7) return "TIGHT";
   return "SAFE";
 }
 
