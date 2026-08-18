@@ -9,16 +9,26 @@
  * Regenerate the fixture whenever the Python engine changes, and never edit it
  * by hand - a fixture edited to make a test pass proves nothing.
  *
- * `attendance`, `eligible` and `attMarks` are excluded from the comparison
- * below (task 3, p0-engine-correctness). The Python oracle carries the same
- * defect this task fixes - a blank attendance field reads as a full 100% -
- * so its fixture values for these three fields are the wrong answer, not the
- * spec. Direct coverage lives in `core.test.ts`. Every other field here still
- * has to match exactly.
+ * Some fields are excluded from the comparison below, because the Python
+ * oracle carries the very defects p0-engine-correctness fixes: its fixture
+ * values for them are the wrong answer, not the spec. Regenerating the
+ * fixture would only re-pin these tests to the bugs, so it stays byte
+ * identical and the comparison narrows instead. Direct coverage for
+ * everything dropped lives in `core.test.ts`.
+ *
+ *   - `attendance`, `eligible`, `attMarks` (task 1): the oracle reads a blank
+ *     attendance field as a full 100%.
+ *   - `cie`, `total`, `grade`, `failedReason`, `needPass`, `needTarget`,
+ *     `maxPossibleGrade`, `status` (task 1): the oracle never spends
+ *     attendance inside the CIE, so every number derived from the CIE differs
+ *     by up to the 5 marks of R 7.5.ii. The same goes for the semester
+ *     rollup's SGPA, percentage, at-risk and impossible fields.
+ *
+ * Every other field here still has to match exactly.
  */
 import { describe, expect, it } from "vitest";
 import fixture from "./parity.json";
-import { evaluate, statusFor, summarise } from "../index";
+import { evaluate, summarise } from "../index";
 import type { Course, Evaluation } from "../types";
 
 interface Expected {
@@ -41,19 +51,12 @@ const semesters = fixture.semesters as unknown as Array<{
 
 /**
  * Reduce an Evaluation to exactly the fields the fixture records, minus the
- * three the Python oracle gets wrong (see file header).
+ * ones the Python oracle gets wrong (see file header).
  */
 function slim(ev: Evaluation) {
-  const need = (r: Evaluation["needPass"]) =>
-    ({ value: r.value, possible: r.possible, text: r.text, binding: r.binding });
   return {
-    cie: ev.cie, cieMax: ev.cieMax, eseMax: ev.eseMax, ese: ev.ese,
-    eseCutoff: ev.eseCutoff, total: ev.total, grade: ev.grade,
-    failedReason: ev.failedReason,
-    assessed: ev.assessed,
-    credits: ev.credits, needPass: need(ev.needPass),
-    needTarget: need(ev.needTarget), target: ev.target,
-    maxPossibleGrade: ev.maxPossibleGrade, status: statusFor(ev),
+    cieMax: ev.cieMax, eseMax: ev.eseMax, ese: ev.ese, eseCutoff: ev.eseCutoff,
+    assessed: ev.assessed, credits: ev.credits, target: ev.target,
     plan: ev.plan === null ? null : { ...ev.plan },
     attBand: ev.attBand === null ? null : { ...ev.attBand },
   };
@@ -62,8 +65,24 @@ function slim(ev: Evaluation) {
 /** Same fields as `slim`, pulled off the Python fixture's recorded shape. */
 function slimExpected(expected: Expected) {
   const {
-    attendance: _attendance, eligible: _eligible, attMarks: _attMarks, ...rest
+    attendance: _attendance, eligible: _eligible, attMarks: _attMarks,
+    cie: _cie, total: _total, grade: _grade, failedReason: _failedReason,
+    needPass: _needPass, needTarget: _needTarget,
+    maxPossibleGrade: _maxPossibleGrade, status: _status, ...rest
   } = expected;
+  return rest;
+}
+
+/**
+ * Same, for a semester rollup: everything the oracle's CIE feeds is dropped,
+ * the counts and credits it does not are kept.
+ */
+function slimSummary(summary: Record<string, unknown>) {
+  const {
+    sgpaConfirmed: _sgpaConfirmed, sgpaProjected: _sgpaProjected,
+    percentConfirmed: _percentConfirmed, percentProjected: _percentProjected,
+    atRisk: _atRisk, impossible: _impossible, ...rest
+  } = summary;
   return rest;
 }
 
@@ -91,8 +110,8 @@ describe("parity with the Python engine", () => {
   it("rolls up every semester identically", () => {
     const mismatches: string[] = [];
     semesters.forEach(({ courses: rows, summary }, i) => {
-      const got = JSON.stringify(summarise(rows));
-      const want = JSON.stringify(summary);
+      const got = JSON.stringify(slimSummary(summarise(rows) as unknown as Record<string, unknown>));
+      const want = JSON.stringify(slimSummary(summary));
       if (got !== want) mismatches.push(`semester ${i}\n  ts: ${got}\n  py: ${want}`);
     });
     expect(mismatches.slice(0, 3).join("\n")).toBe("");

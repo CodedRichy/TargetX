@@ -32,6 +32,8 @@ export interface CourseSpec {
   label: string;
   cieMax: number;
   eseMax: number;
+  /** CIE marks reserved for attendance under R 7.5.ii. */
+  attMax: number;
   components: Component[];
 }
 

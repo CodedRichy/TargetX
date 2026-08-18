@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  ATTENDANCE_CONDONE, DL_CAP_PCT,
+  ATTENDANCE_CONDONE, ATTENDANCE_MARK_MAX, COURSE_TYPES, DL_CAP_PCT, TYPE_KEYS,
   attendanceMarks, attendancePlan, blankCourse, cgpaFromSemesters, computeCie,
   eseCutoff, evaluate, nextAttendanceBand, normaliseGrade, parseEtlab,
   planForSgpa, requiredEse, requiredSgpaForCgpa, sgpa, statusFor, summarise,
@@ -17,17 +17,82 @@ import type { Course } from "../types";
 describe("CIE scaling", () => {
   it("scales each component onto its weight inside a 40-mark CIE", () => {
     const c: Course = { ...blankCourse("PCCST302", "DSA", 4, "TH 40/60"), s1: 40, s2: 30, other: 8 };
-    // 40/50*15 + 30/50*15 + 8/10*10 = 12 + 9 + 8 = 29
-    expect(computeCie(c)).toBe(29.0);
+    // Components share cieMax - attMax = 35, so the weights are 13.125/13.125/8.75:
+    // 40/50*13.125 + 30/50*13.125 + 8/10*8.75 = 10.5 + 7.875 + 7 = 25.375.
+    // Attendance is blank here and so earns nothing.
+    expect(computeCie(c)).toBe(25.38);
   });
 
-  it("caps at the CIE maximum for a 50-mark pattern", () => {
-    const c: Course = { ...blankCourse("X", "Y", 3, "TH 50/50"), s1: 50, s2: 50, other: 10 };
+  it("fills a 50-mark bucket exactly at full components and full attendance", () => {
+    const c: Course = {
+      ...blankCourse("X", "Y", 3, "TH 50/50"), s1: 50, s2: 50, other: 10, attendance: 90,
+    };
+    // 18 + 18 + 9 = 45 of components, plus the 5 attendance marks.
     expect(computeCie(c)).toBe(50.0);
   });
 
   it("lets a published internal total override the components", () => {
     const c: Course = { ...blankCourse("X", "Y", 3, "TH 40/60"), s1: 10, s2: 10, cie_override: 37 };
+    expect(computeCie(c)).toBe(37);
+  });
+});
+
+describe("attendance is spent, not just displayed (R 7.5.ii)", () => {
+  /** Same course throughout; only the attendance evidence changes. */
+  const dsa = (extra: Partial<Course> = {}): Course => ({
+    ...blankCourse("PCCST302", "DSA", 4, "TH 40/60"), s1: 40, s2: 30, other: 8, ...extra,
+  });
+
+  it("splits every CIE bucket into components plus a 5-mark attendance slot", () => {
+    for (const key of TYPE_KEYS) {
+      const spec = COURSE_TYPES[key];
+      const weights = spec.components.reduce((sum, c) => sum + c.weight, 0);
+      expect(spec.attMax).toBe(ATTENDANCE_MARK_MAX);
+      // A spec whose parts do not total cieMax is a silent mis-scaling: every
+      // mark in the bucket has to be reachable, and none twice.
+      expect(weights + spec.attMax).toBeCloseTo(spec.cieMax, 10);
+    }
+  });
+
+  it("separates two courses that differ only in attendance", () => {
+    const poor = evaluate(dsa({ attendance: 45, ese: 30 }));
+    const good = evaluate(dsa({ attendance: 90, ese: 30 }));
+    expect(good.cie - poor.cie).toBe(5);
+    expect(good.total! - poor.total!).toBe(5);
+    expect(poor.needPass.value).toBeGreaterThan(good.needPass.value);
+    expect(poor.needTarget.value - good.needTarget.value).toBe(5);
+  });
+
+  it("pays the full 5 marks from 85% and nothing below 60%", () => {
+    const components = computeCie(dsa({ attendance: 45 }));
+    expect(computeCie(dsa({ attendance: 85 }))).toBe(components + 5);
+    expect(computeCie(dsa({ attendance: 59.9 }))).toBe(components);
+  });
+
+  it("earns nothing for attendance nobody has published, without voiding the components", () => {
+    const ev = evaluate(dsa({ attendance: "" }));
+    expect(ev.attMarks).toBeNull();
+    expect(ev.cie).toBe(25.38);
+    expect(ev.cie).toBe(computeCie(dsa({ attendance: 45 })));
+  });
+
+  it("spends the duty-leave-adjusted percentage, not the raw one", () => {
+    // 14/18 is 77.78% (3 marks); the two approved DL classes lift it to
+    // 87.78% (5 marks), and the CIE has to move with it.
+    const raw = computeCie(dsa({ attended: 14, held: 18 }));
+    const withDl = computeCie(dsa({ attended: 14, held: 18, dl: 2 }));
+    expect(withDl - raw).toBe(2);
+  });
+
+  it("prefers the raw counts over a stale published percentage", () => {
+    const stale = computeCie(dsa({ attendance: 60, attended: 14, held: 18, dl: 2 }));
+    expect(stale).toBe(computeCie(dsa({ attendance: 87.78 })));
+  });
+
+  it("does not top up a published internal total with attendance marks", () => {
+    // The college's own internal already contains its attendance component;
+    // adding five more would count them twice.
+    const c = dsa({ cie_override: 37, attendance: 90 });
     expect(computeCie(c)).toBe(37);
   });
 });

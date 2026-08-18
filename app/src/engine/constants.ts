@@ -65,52 +65,82 @@ const comp = (
 ): Component => ({ key, header, rawMax, weight });
 
 /**
+ * Make room for the attendance marks inside a CIE bucket.
+ *
+ * The weights below are authored on the full `cieMax` scale, which is how
+ * this app has always modelled them, and this rescales them proportionally
+ * into `cieMax - attMax` so that components + attendance total `cieMax`
+ * exactly. Relative weights are preserved; only the room for attendance comes
+ * out of them.
+ *
+ * This is a deliberate approximation. KTU's official per-course-type split of
+ * the remaining marks for the 2024 scheme is not reproduced anywhere in this
+ * repo, and inventing one would be a fabrication dressed as a regulation - so
+ * attendance takes the regulation's own number (5) and everything else keeps
+ * the proportions already modelled. Whoever obtains the real split replaces
+ * the `weight` numbers below and drops this call; the structure around them
+ * is already right.
+ *
+ * Worked example, TH 40/60: 15/15/10 (= 40) becomes 13.125/13.125/8.75
+ * (= 35), plus attMax 5 = 40.
+ */
+function withAttendance(spec: Omit<CourseSpec, "attMax">): CourseSpec {
+  const room = spec.cieMax - ATTENDANCE_MARK_MAX;
+  const authored = spec.components.reduce((sum, c) => sum + c.weight, 0);
+  return {
+    ...spec,
+    attMax: ATTENDANCE_MARK_MAX,
+    components: spec.components.map((c) => ({ ...c, weight: (c.weight / authored) * room })),
+  };
+}
+
+/**
  * Course evaluation patterns. Each component is entered on its own natural
  * scale and scaled into the CIE bucket, so a series marked out of 50 stays
  * entered as /50 instead of being pre-scaled by hand on paper.
  */
 export const COURSE_TYPES: Record<TypeKey, CourseSpec> = {
-  "TH 40/60": {
+  "TH 40/60": withAttendance({
     label: "Theory - CIE 40 / ESE 60",
     cieMax: 40,
     eseMax: 60,
     components: [comp("s1", "S1", 50, 15), comp("s2", "S2", 50, 15), comp("other", "Asg", 10, 10)],
-  },
-  "TH 50/50": {
+  }),
+  "TH 50/50": withAttendance({
     label: "Theory - CIE 50 / ESE 50",
     cieMax: 50,
     eseMax: 50,
     components: [comp("s1", "S1", 50, 20), comp("s2", "S2", 50, 20), comp("other", "Asg", 10, 10)],
-  },
+  }),
   // The 2024 scheme's real lab split. Earlier schemes used 75/25, which is
   // why so many calculators still show it - the pass mark differs.
-  "LAB 50/50": {
+  "LAB 50/50": withAttendance({
     label: "Lab / Practical - CIE 50 / ESE 50",
     cieMax: 50,
     eseMax: 50,
     components: [comp("s1", "Cont", 50, 25), comp("s2", "Test", 50, 15), comp("other", "Rec", 10, 10)],
-  },
+  }),
   // Project-based-learning courses invert the split: more weight inside the
   // semester, a smaller final exam - but the 40% ESE rule still applies, so
   // the cutoff is 16/40.
-  "PBL 60/40": {
+  "PBL 60/40": withAttendance({
     label: "Project-based course - CIE 60 / ESE 40",
     cieMax: 60,
     eseMax: 40,
     components: [comp("s1", "Eval1", 50, 25), comp("s2", "Eval2", 50, 25), comp("other", "Work", 10, 10)],
-  },
-  "LAB 75/25": {
+  }),
+  "LAB 75/25": withAttendance({
     label: "Lab / Practical - CIE 75 / ESE 25",
     cieMax: 75,
     eseMax: 25,
     components: [comp("s1", "Cont", 50, 45), comp("s2", "Test", 50, 20), comp("other", "Rec", 10, 10)],
-  },
-  "PRJ 100/0": {
+  }),
+  "PRJ 100/0": withAttendance({
     label: "Project / Internal only - CIE 100",
     cieMax: 100,
     eseMax: 0,
     components: [comp("s1", "Eval1", 50, 50), comp("s2", "Eval2", 50, 40), comp("other", "Rep", 10, 10)],
-  },
+  }),
 };
 
 export const TYPE_KEYS = Object.keys(COURSE_TYPES) as TypeKey[];

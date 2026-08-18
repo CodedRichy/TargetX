@@ -1,8 +1,8 @@
 import {
   ATTENDANCE_MARK_BANDS, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN, DL_CAP_PCT,
 } from "./constants";
-import type { AttendanceBand, AttendancePlan, MarkInput } from "./types";
-import { ceil, floor, round, toFloat, toOptionalFloat } from "./util";
+import type { AttendanceBand, AttendancePlan, Course, MarkInput } from "./types";
+import { ceil, clamp, floor, round, toFloat, toOptionalFloat } from "./util";
 
 /** CIE marks earned by attendance alone, per R 7.5.ii. */
 export function attendanceMarks(
@@ -109,4 +109,24 @@ export function attendancePlan(
   }
   const need = ceil((fraction * held - effective) / (1 - fraction));
   return { ...base, state: "deficit", skip: 0, attend: Math.max(0, need) };
+}
+
+/**
+ * The one attendance percentage the rest of the engine may use.
+ *
+ * Eligibility and CIE marks both hang off this number, so it is derived here
+ * once rather than in each place that needs it - two derivations that drift
+ * apart would have the ledger flag a shortage the marks do not reflect.
+ *
+ * Duty leave changes the figure, so raw counts plus approved DL beat a
+ * percentage the portal printed before the DL was credited. Null when the
+ * college has published neither: a blank field is not a full record.
+ */
+export function effectiveAttendance(
+  course: Course,
+  plan: AttendancePlan | null = attendancePlan(course.attended, course.held, course.dl ?? 0),
+): number | null {
+  if (plan !== null) return plan.current;
+  const stated = toOptionalFloat(course.attendance);
+  return stated === null ? null : clamp(stated, 0, 100);
 }

@@ -1,7 +1,9 @@
 import {
   ATTENDANCE_CONDONE, ATTENDANCE_MIN, GRADE_MIN, GRADE_POINTS, TOTAL_PASS_MARK,
 } from "./constants";
-import { attendanceMarks, attendancePlan, nextAttendanceBand } from "./attendance";
+import {
+  attendanceMarks, attendancePlan, effectiveAttendance, nextAttendanceBand,
+} from "./attendance";
 import { computeCie, eseCutoff, specFor } from "./cie";
 import { gradeForTotal, normaliseGrade, requiredEse } from "./grade";
 import type { Course, Evaluation, Grade, Letter, MarkInput, Status } from "./types";
@@ -11,25 +13,20 @@ import { clamp, round, toFloat, toOptionalFloat } from "./util";
 export function evaluate(course: Course): Evaluation {
   const spec = specFor(course.type);
   const eseMax = spec.eseMax;
-  const cie = computeCie(course);
   const cutoff = eseCutoff(eseMax);
 
   let ese = toOptionalFloat(course.ese);
   if (ese !== null) ese = clamp(ese, 0, eseMax);
 
-  // A blank field is not a full attendance record - the college simply has
-  // not published one yet, and defaulting it to 100 is the exact lie
-  // absence-is-not-zero exists to forbid.
-  let attendance = toOptionalFloat(course.attendance);
-  if (attendance !== null) attendance = clamp(attendance, 0, 100);
+  // Duty leave changes the figure, and a blank field is not a full attendance
+  // record - both are settled inside `effectiveAttendance`, which the CIE is
+  // then billed against so eligibility and marks can never disagree.
   const plan = attendancePlan(course.attended, course.held, course.dl ?? 0);
-  // Duty leave changes eligibility, so the effective figure governs once raw
-  // counts are known. Flagging a student short when their approved DL already
-  // covers it is the exact false alarm this replaces.
-  if (plan !== null) attendance = plan.current;
+  const attendance = effectiveAttendance(course, plan);
   // Unknown stays unknown: `null` here must never read as "below 75%" (that
   // is `false`) or "fine" (`true`) to any consumer.
   const eligible = attendance === null ? null : attendance >= ATTENDANCE_MIN;
+  const cie = computeCie(course, attendance);
 
   // A grade published by the university is final. It outranks anything this
   // app could derive, and it arrives WITHOUT an ESE mark - portals publish the
