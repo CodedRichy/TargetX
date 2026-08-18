@@ -1,16 +1,19 @@
 /**
- * Screenshot the running app with seeded data.
+ * Screenshot every screen, in the order a real user meets them.
  *
  * Shipping UI without looking at it is how you get a layout that only works on
- * an empty state. The data below is synthetic - invented codes and marks, no
- * student's record - but shaped like a real fifth semester: a couple of
- * subjects in trouble, one attendance shortage, one already graded.
+ * the one state you had in mind. The seed data below is synthetic - invented
+ * codes and marks, no student's record - but shaped like a real fifth semester:
+ * a couple of subjects in trouble, one attendance shortage, one already graded.
  *
  *   npx vite preview --port 4173
  *   node tools/screenshot.mjs
  */
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
+
+const URL = "http://localhost:4173/";
+const VIEWPORT = { width: 1600, height: 950 };
 
 const course = (code, name, credits, type, extra = {}) => ({
   code, name, credits, type,
@@ -23,9 +26,11 @@ const course = (code, name, credits, type, extra = {}) => ({
 const seed = {
   version: 1,
   scheme: "KTU 2024",
-  student: { name: "", reg_no: "", branch: "CSE", college: "" },
+  student: { name: "", reg_no: "", branch: "CSE", college: "mits.etlab.app" },
   activeSemester: "S5",
   etlab: {},
+  onboarded: true,
+  lastSync: "2026-08-18T09:12:00.000Z",
   semesters: {
     S5: {
       courses: [
@@ -45,6 +50,16 @@ const seed = {
                { cie_override: 33, portal_grade: "B+", attended: 36, held: 42 }),
       ],
     },
+    // A past semester with a deliberate credit error, so the History
+    // cross-check has something real to catch.
+    S4: {
+      courses: [
+        course("PCCST401", "Theory of Computation", 4, "TH 40/60", { portal_grade: "B" }),
+        course("PCCST402", "Database Systems", 4, "TH 40/60", { portal_grade: "C+" }),
+        course("PBCST404", "Compiler Design", 3, "PBL 60/40", { portal_grade: "B+" }),
+        course("PCCSL408", "DBMS Lab", 2, "LAB 50/50", { portal_grade: "A" }),
+      ],
+    },
   },
   history: {
     S1: { sgpa: 7.95, credits: 20 },
@@ -56,43 +71,76 @@ const seed = {
 };
 
 const browser = await chromium.launch();
-const page = await browser.newPage({
-  viewport: { width: 1600, height: 950 },
-  deviceScaleFactor: 2,
-});
-
-await page.addInitScript((data) => {
-  localStorage.setItem("targetx.state.v1", JSON.stringify(data));
-}, seed);
-
-await page.goto("http://localhost:4173/", { waitUntil: "networkidle" });
-await page.evaluate(() => document.fonts.ready);
-
 mkdirSync("shots", { recursive: true });
-await page.screenshot({ path: "shots/01-ledger.png" });
 
-// The expanded row is the replacement for the old modal, so it needs looking
-// at in place rather than in isolation.
-await page.getByText("PCCST502").click();
-await page.waitForTimeout(250);
-await page.screenshot({ path: "shots/02-expanded.png" });
+/** A page with no saved state - what a first-time user gets. */
+async function freshPage() {
+  const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 2 });
+  const page = await context.newPage();
+  await page.goto(URL, { waitUntil: "networkidle" });
+  await page.evaluate(() => document.fonts.ready);
+  return page;
+}
 
-await page.getByRole("button", { name: "What the columns mean" }).click();
-await page.waitForTimeout(150);
-await page.screenshot({ path: "shots/03-glossary.png" });
+/**
+ * A page with the seed already in storage.
+ *
+ * addInitScript rather than "load, write, reload": it must be present before
+ * the app's first render. Note the flip side, which caught me out once - an
+ * init script also re-runs on reload, so a "cleared" page is never actually
+ * clear. That is why the empty states above use a separate context.
+ */
+async function seededPage() {
+  const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 2 });
+  await context.addInitScript((data) => {
+    localStorage.setItem("targetx.state.v1", JSON.stringify(data));
+  }, seed);
+  const page = await context.newPage();
+  await page.goto(URL, { waitUntil: "networkidle" });
+  await page.evaluate(() => document.fonts.ready);
+  return page;
+}
 
-// Empty state is the first thing every new user sees; it is not an edge case.
-// It needs a context with no init script - clearing storage and reloading just
-// lets the seed run again, which is how the first version of this file quietly
-// screenshotted the populated app four times.
-const fresh = await browser.newContext({
-  viewport: { width: 1600, height: 950 },
-  deviceScaleFactor: 2,
-});
-const blank = await fresh.newPage();
-await blank.goto("http://localhost:4173/", { waitUntil: "networkidle" });
-await blank.evaluate(() => document.fonts.ready);
-await blank.screenshot({ path: "shots/04-empty.png" });
+// --- first run -------------------------------------------------------------
+
+const setup = await freshPage();
+await setup.screenshot({ path: "shots/01-welcome.png" });
+
+await setup.getByRole("button", { name: "Get started" }).click();
+await setup.waitForTimeout(250);
+await setup.screenshot({ path: "shots/02-how-data-gets-in.png" });
+
+await setup.getByText("Sign in to your college portal").click();
+await setup.waitForTimeout(250);
+await setup.screenshot({ path: "shots/03-sync.png" });
+
+await setup.getByRole("button", { name: "← Other ways to start" }).click();
+await setup.getByText("Pick from the KTU curriculum").click();
+await setup.waitForTimeout(300);
+await setup.screenshot({ path: "shots/04-subject-picker.png" });
+
+// Straight to the goal step without committing a preset.
+await setup.getByRole("button", { name: "← Other ways to start" }).click();
+await setup.getByText("Start empty").click();
+await setup.waitForTimeout(250);
+await setup.screenshot({ path: "shots/05-goal.png" });
+
+// --- the app ---------------------------------------------------------------
+
+const app = await seededPage();
+await app.screenshot({ path: "shots/06-ledger.png" });
+
+await app.getByText("PCCST502").click();
+await app.waitForTimeout(250);
+await app.screenshot({ path: "shots/07-subject-detail.png" });
+
+await app.getByRole("button", { name: "History" }).click();
+await app.waitForTimeout(250);
+await app.screenshot({ path: "shots/08-history.png" });
+
+await app.getByRole("button", { name: "Data" }).click();
+await app.waitForTimeout(250);
+await app.screenshot({ path: "shots/09-data.png" });
 
 await browser.close();
-console.log("wrote shots/01-ledger.png .. 04-empty.png");
+console.log("wrote shots/01-welcome.png .. 09-data.png");

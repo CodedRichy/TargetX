@@ -29,8 +29,12 @@ export function courseFromCode(code: string): Course {
   );
 }
 
+import type { CreditCheck } from "./catalogue";
+
 export interface Semester {
   courses: Course[];
+  /** Seeded credits vs the total the portal published. Null when unchecked. */
+  creditCheck?: CreditCheck;
 }
 
 export interface AppState {
@@ -42,6 +46,16 @@ export interface AppState {
   semesters: Record<string, Semester>;
   history: Record<string, SemesterHistory>;
   goal?: { cgpa: number | null };
+  /**
+   * Whether first-run setup has been completed.
+   *
+   * Stored rather than inferred from "are there any courses", because a student
+   * who deletes every subject to start a semester over should not be dragged
+   * back through onboarding.
+   */
+  onboarded?: boolean;
+  /** ISO timestamp of the last successful portal sync. */
+  lastSync?: string;
 }
 
 export function defaultState(): AppState {
@@ -54,5 +68,6 @@ export function defaultState(): AppState {
     semesters: { S1: { courses: [] } },
     history: {},
     goal: { cgpa: null },
+    onboarded: false,
   };
 }

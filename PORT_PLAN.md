@@ -5,12 +5,41 @@ Written 2026-08-18, and largely executed the same day.
 | Phase | State |
 |---|---|
 | 1. Engine to TypeScript | **done** — 33 ported tests plus a 612-case differential parity corpus against the Python engine |
-| 2. Scraper to TypeScript | **not started, and gated** — see below |
-| 3. UI | **done** — Solid, no modals, hand-rolled SVG charts, 58KB bundle |
+| 2. Scraper to TypeScript | **done** — Rust transport + TS parsing; gate overridden by explicit instruction, see below |
+| 3. UI | **done** — Solid, no modals, hand-rolled SVG charts, 106KB bundle + a lazy 433KB pdf chunk |
 | Desktop shell | **done** — Tauri 2, 19MB binary, 4.5MB installer |
+| Screen flow | **done** — setup → ledger / history / data, no modals anywhere |
+| Python retired | **done** — moved to `legacy/`, see `legacy/README.md` |
 
-The one thing that has not moved is the gate: the scraper is still Python and
-should stay that way until a second college has been tested.
+**The gate was overridden, not met.** The scraper was ported on instruction
+before a second college was tested, so every portal behaviour it encodes is
+still validated against exactly one deployment (MITS). The port preserves each
+of those behaviours verbatim; what it does not do is prove they generalise. The
+first non-MITS run is still the real test, and if discovery fails there the
+design changes — the port just means that change now happens in TypeScript.
+
+## Feature parity against the Python build
+
+Everything the Python build did, and where it now lives:
+
+| Python | TypeScript | Notes |
+|---|---|---|
+| `targetx.py` engine | `src/engine/*` | 33 ported tests + 612-case differential corpus, byte-identical |
+| `targetx.py` GUI | `src/ui/*` | rebuilt, not ported — no modals, charts are new |
+| `etlab_sync.py` transport | `src-tauri/src/etlab.rs` | reqwest + cookie store; session never reaches the web layer |
+| `etlab_sync.py` discovery/parsing | `src/sync/etlab.ts` | form scoring, hidden-input harvest, dashboard link discovery, sibling series rows |
+| `ktu_import.py` | `src/sync/gradecard.ts` | paste, `.txt`/`.html`, and PDF via lazily-imported pdfjs |
+| paste import | `src/engine/parse.ts` + Data screen | attendance and series modes, merged by code |
+| catalogue update | `src/state/actions.ts` | same `curriculum.json` from GitHub raw |
+| JSON backup/restore | Data screen | same shape, so a Python export restores into the Tauri app |
+| text report | `reportText` | same columns |
+| `curriculum_import.py` | **stays Python** | build-time tool, no runtime role |
+| `targetx_check.py` | **stays Python** | portal probe, a diagnostic not a feature |
+
+Added in the port, absent from Python: onboarding, a History screen (its
+absence was why CGPA read 0.00), the SGPA trend, goal gauge, attendance/CIE
+scatter, per-row attendance bars, credit cross-check reporting, and grade-card
+mismatch reporting.
 
 ## The decision
 
@@ -78,7 +107,9 @@ Rules that MUST survive the port — each was found the hard way:
 
 ## Phase 2 — scraper to TypeScript
 
-Only after the gate. Port `etlab_sync.py`. Inside Tauri use the Rust HTTP
+Done. `src-tauri/src/etlab.rs` is transport only; `src/sync/etlab.ts` holds the
+discovery and parsing. Everything below was preserved and is the reason the file
+looks more careful than it needs to. Inside Tauri use the Rust HTTP
 plugin, not `fetch` — native requests carry cookies and are not subject to
 CORS, which is the whole reason this can stay on-device.
 
@@ -116,9 +147,9 @@ Non-modal replacements for the current dialogs:
 | (new) subject detail | inline expanding row — series marks, attendance, projection |
 | Import/curriculum modal | Ctrl+K command palette |
 
-Charts — ECharts (Apache-2.0), tree-shaken to line + gauge + scatter only
-(~250–350KB gzipped). Sparklines inside table rows must be hand-rolled inline
-SVG; an ECharts canvas per row janks at 40 rows.
+Charts — ECharts was planned and dropped. Four chart types, all static, none
+interactive beyond a hover: hand-rolled inline SVG costs ~200 lines and 0KB
+against 250–350KB gzipped, and the row sparkbars had to be hand-rolled anyway.
 
 Views worth building that do not exist today:
 - SGPA trend across semesters (line)
@@ -141,7 +172,8 @@ Visual direction:
 
 ## What stays Python
 
-`curriculum_import.py`. It is a developer tool, run on demand against KTU's
+`curriculum_import.py` and `targetx_check.py`, both now under `legacy/`. The
+first is a developer tool, run on demand against KTU's
 curriculum PDFs, producing `curriculum.json`. That file is served from GitHub
 raw and fetched by the app at launch, so the catalogue updates without
 shipping a new binary. No user data, no server, no liability.
@@ -152,5 +184,8 @@ shipping a new binary. No user data, no server, no liability.
   wrong and the data admits six valid assignments. Needs a first-year
   student's record, or the S1 curriculum table read properly.
 - `UCPWT127` is not in the CSE curriculum PDF; credits derived, not read.
-- Everything scraper-side is n=1 (MITS only).
+- Everything scraper-side is n=1 (MITS only), and the TypeScript port has not
+  yet been run against a live portal at all.
+- Five S1 course codes are missing from the catalogue, so the S1 CSE preset
+  offers 15 credits where it should offer 20.
 - No phone build. Deliberate. The architecture keeps it available.

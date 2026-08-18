@@ -92,3 +92,41 @@ export function verifyCredits(courses: Course[], publishedTotal: MarkInput): Cre
   const delta = Math.round((current - published) * 100) / 100;
   return { matched: Math.abs(delta) < 0.01, current, published, delta };
 }
+
+// --- branch presets --------------------------------------------------------
+
+/**
+ * A semester's course list as published in the curriculum.
+ *
+ * These tables list every elective on offer, not the six or seven courses any
+ * one student registered - S7 CSE has 24 entries. So this is a pick list, not
+ * something to seed blindly: electives come back unticked and the student says
+ * which ones are theirs. Getting that wrong would silently corrupt SGPA with
+ * credits nobody is taking.
+ */
+export interface PresetCourse {
+  code: string;
+  name: string;
+  credits: number;
+  type: TypeKey;
+  elective: boolean;
+}
+
+/** PEC/OEC are chosen; everything else is compulsory for the branch. */
+const ELECTIVE_PREFIXES = ["PEC", "OEC", "MEC", "HEC"];
+
+export const branches = (): string[] => Object.keys(active.branches ?? {}).sort();
+
+export function semesterKeys(branch: string): string[] {
+  const table = active.branches?.[branch] ?? {};
+  return Object.keys(table).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)));
+}
+
+export function presetCourses(branch: string, semester: string): PresetCourse[] {
+  const rows = active.branches?.[branch]?.[semester] ?? [];
+  return rows.map(([code, name, credits, type]) => ({
+    code, name, credits,
+    type: type as TypeKey,
+    elective: ELECTIVE_PREFIXES.some((p) => code.toUpperCase().startsWith(p)),
+  })).sort((a, b) => Number(a.elective) - Number(b.elective) || a.code.localeCompare(b.code));
+}

@@ -3,21 +3,24 @@ import {
   activeCourses, addSemester, goalRequirement, overall, selectSemester,
   semesterNames, setGoal, state, summary,
 } from "../state/store";
+import { VIEWS, needsSetup, setView, view } from "../state/nav";
+import { Data } from "./Data";
 import { Drawer } from "./Drawer";
+import { History } from "./History";
 import { Ledger } from "./Ledger";
+import { Setup } from "./Setup";
 
 /**
  * Header KPIs.
  *
- * Confirmed and projected are shown side by side and never merged. A single
- * blended number would be the most flattering thing to display and the least
- * honest - the student cannot tell which part is real.
+ * Confirmed and projected sit side by side and are never merged. One blended
+ * number would be the most flattering thing to show and the least honest — the
+ * student could not tell which half is real.
  */
 function Kpis() {
-  // With nothing entered, every rollup is 0.00 - which reads as a student who
-  // scored zero rather than a student who has not started. Dashes say the
-  // second thing, and that is the whole discipline of this app applied to its
-  // own header.
+  // With nothing entered every rollup is 0.00, which reads as a student who
+  // scored zero rather than one who has not started. Dashes say the second
+  // thing, which is this app's whole discipline applied to its own header.
   const started = () => summary().credits > 0 || overall().credits > 0;
   const dash = "–";
 
@@ -31,27 +34,29 @@ function Kpis() {
         </div>
       </div>
     }>
-    <div class="kpis">
-      <div class="kpi">
-        <span class="kpi-label">CGPA</span>
-        <span class="kpi-value num">{overall().cgpa.toFixed(2)}</span>
-        <span class="kpi-note num">{overall().percent.toFixed(1)}% · {overall().credits} cr</span>
+      <div class="kpis">
+        <div class="kpi">
+          <span class="kpi-label">CGPA</span>
+          <span class="kpi-value num">{overall().cgpa.toFixed(2)}</span>
+          <span class="kpi-note num">{overall().percent.toFixed(1)}% · {overall().credits} cr</span>
+        </div>
+        <Show when={view() === "ledger"}>
+        <div class="kpi">
+          <span class="kpi-label">Confirmed</span>
+          <span class="kpi-value num dim">{summary().sgpaConfirmed.toFixed(2)}</span>
+          <span class="kpi-note num">{summary().creditsConfirmed} of {summary().credits} cr</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi-label">Projected</span>
+          <span class="kpi-value num">{summary().sgpaProjected.toFixed(2)}</span>
+          <span class="kpi-note">
+            <Show when={summary().pending > 0} fallback={<>all subjects assessed</>}>
+              {summary().pending} not yet assessed
+            </Show>
+          </span>
+        </div>
+        </Show>
       </div>
-      <div class="kpi">
-        <span class="kpi-label">Confirmed</span>
-        <span class="kpi-value num dim">{summary().sgpaConfirmed.toFixed(2)}</span>
-        <span class="kpi-note num">{summary().creditsConfirmed} of {summary().credits} cr</span>
-      </div>
-      <div class="kpi">
-        <span class="kpi-label">Projected</span>
-        <span class="kpi-value num">{summary().sgpaProjected.toFixed(2)}</span>
-        <span class="kpi-note">
-          <Show when={summary().pending > 0} fallback={<>all subjects assessed</>}>
-            {summary().pending} not yet assessed
-          </Show>
-        </span>
-      </div>
-    </div>
     </Show>
   );
 }
@@ -59,9 +64,8 @@ function Kpis() {
 /**
  * The goal line.
  *
- * This is the question the app exists to answer, so it gets its own row rather
- * than living in a settings dialog: "I want an 8. What does this semester have
- * to do?"
+ * The question the app exists to answer, so it gets a permanent row rather than
+ * a settings dialog: "I want an 8. What does this semester have to do?"
  */
 function GoalBar() {
   const [draft, setDraft] = createSignal(
@@ -116,38 +120,52 @@ function GoalBar() {
         </span>
       </Show>
       <Show when={summary().impossible.length > 0}>
-        <span class="pill unreachable">
-          {summary().impossible.length} unreachable
-        </span>
+        <span class="pill unreachable">{summary().impossible.length} unreachable</span>
       </Show>
     </div>
   );
 }
 
 export function App() {
+  const [setupOpen, setSetupOpen] = createSignal(needsSetup());
+
   return (
-    <div class="app">
-      <header class="head">
-        <h1 class="wordmark">Target<span>X</span></h1>
+    <Show when={!setupOpen()} fallback={<Setup onDone={() => setSetupOpen(false)} />}>
+      <div class="app" classList={{ wide: view() !== "ledger" }}>
+        <header class="head">
+          <h1 class="wordmark">Target<span>X</span></h1>
 
-        <nav class="sems" aria-label="Semester">
-          <For each={semesterNames()}>{(name) => (
-            <button class="sem" aria-current={state.activeSemester === name}
-                    onClick={() => selectSemester(name)}>{name}</button>
-          )}</For>
-          <button class="sem" title="Add the next semester" onClick={addSemester}>+</button>
-        </nav>
+          <nav class="tabs" aria-label="Views">
+            <For each={VIEWS}>{(v) => (
+              <button class="tab" aria-current={view() === v.id} title={v.hint}
+                      onClick={() => setView(v.id)}>{v.label}</button>
+            )}</For>
+          </nav>
 
-        <span class="kpi-note num" style={{ color: "var(--text-faint)" }}>
-          {activeCourses().length} subjects
-        </span>
+          <Show when={view() === "ledger"}>
+            <nav class="sems" aria-label="Semester">
+              <For each={semesterNames()}>{(name) => (
+                <button class="sem" aria-current={state.activeSemester === name}
+                        onClick={() => selectSemester(name)}>{name}</button>
+              )}</For>
+              <button class="sem" title="Add the next semester" onClick={addSemester}>+</button>
+            </nav>
+            <span class="kpi-note num" style={{ color: "var(--text-faint)" }}>
+              {activeCourses().length} subjects
+            </span>
+          </Show>
 
-        <Kpis />
-      </header>
+          <Kpis />
+        </header>
 
-      <GoalBar />
-      <Ledger />
-      <Drawer />
-    </div>
+        <Show when={view() === "ledger"}>
+          <GoalBar />
+          <Ledger />
+          <Drawer />
+        </Show>
+        <Show when={view() === "history"}><History /></Show>
+        <Show when={view() === "data"}><Data /></Show>
+      </div>
+    </Show>
   );
 }

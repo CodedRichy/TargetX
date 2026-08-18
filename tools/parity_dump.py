@@ -23,8 +23,11 @@ import random
 import sys
 import types
 
+# The Python build now lives in legacy/, kept solely because it is the oracle
+# this fixture is generated from - the TypeScript engine is asserted identical
+# to it, so deleting it would delete the proof.
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, ROOT)
+sys.path.insert(0, os.path.join(ROOT, "legacy"))
 
 # Stub customtkinter so the module imports without a display server.
 if "customtkinter" not in sys.modules:

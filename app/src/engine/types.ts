@@ -58,6 +58,13 @@ export interface Course {
   cie_override?: MarkInput;
   /** Grade as published by the university. Outranks everything derived. */
   portal_grade?: string | null;
+  /**
+   * True once the student has checked this course's credit against their own
+   * curriculum. Credits are never published per course, only per semester, so
+   * an unconfirmed credit is an inference and a re-sync may overwrite it; a
+   * confirmed one is evidence and must not be.
+   */
+  creditsConfirmed?: boolean;
 }
 
 export interface RequiredEse {

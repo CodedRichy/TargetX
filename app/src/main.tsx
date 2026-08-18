@@ -10,6 +10,7 @@ import "@fontsource/jetbrains-mono/600.css";
 
 import "./styles/tokens.css";
 import "./styles/app.css";
+import "./styles/screens.css";
 
 import { render } from "solid-js/web";
 import { App } from "./ui/App";

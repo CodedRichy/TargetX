@@ -47,7 +47,7 @@ export function persist() {
   }, 250) as unknown as number;
 }
 
-function edit(fn: (draft: AppState) => void) {
+export function edit(fn: (draft: AppState) => void) {
   setState(produce(fn));
   persist();
 }
