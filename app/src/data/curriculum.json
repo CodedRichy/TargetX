@@ -1,0 +1,1261 @@
+{
+  "branches": {
+    "CSE": {
+      "S1": [
+        [
+          "GAMAT101",
+          "Mathematics for Information Science",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "GAPHT121",
+          "Physics for Information Science",
+          4,
+          "TH 40/60"
+        ],
+        [
+          "GMEST103",
+          "Engineering Graphics and Computer Aided Drawing",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "GXESL106",
+          "Basic Electrical and Electronics Engineering Workshop",
+          1,
+          "LAB 50/50"
+        ],
+        [
+          "UCEST105",
+          "Algorithmic Thinking with Python",
+          4,
+          "TH 40/60"
+        ]
+      ],
+      "S2": [
+        [
+          "GAMAT201",
+          "Mathematics for Information Science",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "GAPHT121",
+          "Physics for Information Science",
+          4,
+          "TH 40/60"
+        ],
+        [
+          "GXESL208",
+          "IT Workshop",
+          1,
+          "LAB 50/50"
+        ],
+        [
+          "GXEST203",
+          "Foundations of Computing: From Hardware Essentials to Web Design",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "GXEST204",
+          "Programming in C",
+          4,
+          "TH 40/60"
+        ],
+        [
+          "PCCST205",
+          "Discrete Mathematics",
+          4,
+          "TH 40/60"
+        ],
+        [
+          "UCEST206",
+          "Engineering Entrepreneurship & IPR",
+          3,
+          "PBL 60/40"
+        ]
+      ],
+      "S3": [
+        [
+          "GAEST305",
+          "Digital Electronics & Logic Design",
+          4,
+          "TH 40/60"
+        ],
+        [
+          "GAMAT301",
+          "Mathematics for Information Science",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PBCST304",
+          "Object Oriented Programming",
+          4,
+          "PBL 60/40"
+        ],
+        [
+          "PCCSL307",
+          "Data Structures Lab",
+          2,
+          "LAB 50/50"
+        ],
+        [
+          "PCCSL308",
+          "Digital Lab",
+          2,
+          "LAB 50/50"
+        ],
+        [
+          "PCCST302",
+          "Theory of Computation",
+          4,
+          "TH 40/60"
+        ],
+        [
+          "PCCST303",
+          "Data Structures and Algorithms",
+          4,
+          "TH 40/60"
+        ],
+        [
+          "PECST411",
+          "Software Engineering",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST412",
+          "Pattern Recognition",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST413",
+          "Functional Programming",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST414",
+          "Coding Theory",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST415",
+          "VLSI Design 5/",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST416",
+          "Signals And Systems",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST417",
+          "Soft Computing",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST418",
+          "Computational Geometry",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST419",
+          "Cyber Ethics, Privacy, And Legal Issues",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST495",
+          "Advanced Data Structures 5/",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "UCHUT346",
+          "Economics for Engineers",
+          2,
+          "TH 50/50"
+        ]
+      ],
+      "S4": [
+        [
+          "GAMAT401",
+          "Mathematics for Information Science",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PBCST404",
+          "Computer Organization and Architecture",
+          4,
+          "PBL 60/40"
+        ],
+        [
+          "PCCSL407",
+          "Operating Systems Lab",
+          2,
+          "LAB 50/50"
+        ],
+        [
+          "PCCSL408",
+          "DBMS Lab",
+          2,
+          "LAB 50/50"
+        ],
+        [
+          "PCCST402",
+          "Database Management Systems",
+          4,
+          "TH 40/60"
+        ],
+        [
+          "PCCST403",
+          "Operating Systems",
+          4,
+          "TH 40/60"
+        ],
+        [
+          "UCHUT346",
+          "Economics for Engineers",
+          2,
+          "TH 50/50"
+        ]
+      ],
+      "S5": [
+        [
+          "PBCST504",
+          "Microcontrollers",
+          4,
+          "PBL 60/40"
+        ],
+        [
+          "PCCSL507",
+          "Networks Lab",
+          2,
+          "LAB 50/50"
+        ],
+        [
+          "PCCSL508",
+          "Machine Learning Lab",
+          2,
+          "LAB 50/50"
+        ],
+        [
+          "PCCST501",
+          "Computer Networks",
+          4,
+          "TH 40/60"
+        ],
+        [
+          "PCCST502",
+          "Design and Analysis of Algorithms",
+          4,
+          "TH 40/60"
+        ],
+        [
+          "PCCST503",
+          "Machine Learning",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST521",
+          "Software Project Management",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST522",
+          "Artificial Intelligence",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST523",
+          "Data Analytics",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST524",
+          "Data Compression",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST525",
+          "Data Mining 5/",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST526",
+          "Digital Signal Processing",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST527",
+          "Computer Graphics & Multimedia",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST528",
+          "Advanced Computer Architectures",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST595",
+          "Advanced Graph Algorithms 5/",
+          3,
+          "TH 40/60"
+        ]
+      ],
+      "S6": [
+        [
+          "GAEST605",
+          "Design Thinking and Product Development (Group Specific Syllabus)",
+          2,
+          "TH 40/60"
+        ],
+        [
+          "OECST611",
+          "Data Structures",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "OECST612",
+          "Data Communication",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "OECST613",
+          "Foundations of Cryptography",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "OECST614",
+          "Machine Learning for Engineers",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "OECST615",
+          "Object Oriented Programming",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PBCST604",
+          "Fundamentals of Cyber Security",
+          4,
+          "PBL 60/40"
+        ],
+        [
+          "PCCSL607",
+          "Systems Lab",
+          2,
+          "LAB 50/50"
+        ],
+        [
+          "PCCSP608",
+          "Mini Project: Socially Relevant Project",
+          2,
+          "TH 50/50"
+        ],
+        [
+          "PCCST601",
+          "Compiler Design",
+          4,
+          "TH 40/60"
+        ],
+        [
+          "PCCST602",
+          "Advanced Computing Systems",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST631",
+          "Software Testing",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST632",
+          "Deep Learning",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST633",
+          "Wireless & Mobile Computing",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST634",
+          "Advanced Database Systems",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST635",
+          "Cloud Computing 5/",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST636",
+          "Digital Image Processing",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST637",
+          "Fundamentals of Cryptography",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST638",
+          "Quantum Computing",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST639",
+          "Randomized Algorithms",
+          3,
+          "TH 40/60"
+        ]
+      ],
+      "S7": [
+        [
+          "OECST721",
+          "Cyber Security",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "OECST722",
+          "Cloud Computing",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "OECST723",
+          "Software Engineering",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "OECST724",
+          "Computer Networks",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PCCSI706",
+          "Option",
+          4,
+          "PRJ 100/0"
+        ],
+        [
+          "PECST741",
+          "Formal Methods in Software Engineering",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST742",
+          "Web Programming",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST743",
+          "Bioinformatics",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST744",
+          "Information Security",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST745",
+          "Computer Vision 5/",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST746",
+          "Embedded Systems",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST747",
+          "Blockchain and Cryptocurrencies",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST748",
+          "Realtime Systems",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST749",
+          "Approximation Algorithms",
+          5,
+          "TH 40/60"
+        ],
+        [
+          "PECST751",
+          "Advanced Computer Networks",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST752",
+          "Responsible Artificial Intelligence",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST753",
+          "Fuzzy Systems",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST754",
+          "Digital Forensics",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST755",
+          "Internet of Things 5/",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST756",
+          "Game Theory and Mechanism Design",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST757",
+          "High Performance Computing",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST758",
+          "Programming Languages",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST759",
+          "Parallel Algorithms",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "UEHUT704",
+          "/ UEHUM",
+          2,
+          "TH 50/50"
+        ]
+      ],
+      "S8": [
+        [
+          "OECST831",
+          "Introduction to Algorithms",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "OECST832",
+          "Web Programming",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "OECST833",
+          "Software Testing",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "OECST834",
+          "Internet of Things",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PCCSJ806",
+          "Option",
+          4,
+          "PRJ 100/0"
+        ],
+        [
+          "PECST861",
+          "Software Architectures",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST862",
+          "Natural Language Processing",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST863",
+          "Topics in Security",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST864",
+          "Computational Complexity",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST866",
+          "Speech and Audio Processing",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST867",
+          "Storage Systems",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST868",
+          "Prompt Engineering",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "PECST869",
+          "Computational Number Theory",
+          3,
+          "TH 40/60"
+        ],
+        [
+          "UEHUM803",
+          "Organizational Behavior and Business Communication (Internship Students: Self Study/MOOC Approved by the University/Online Classes)",
+          1,
+          "TH 50/50"
+        ]
+      ]
+    }
+  },
+  "credits": {
+    "GAMAT101": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Mathematics for Information Science"
+    },
+    "GAPHT121": {
+      "credits": 4,
+      "type": "TH 40/60",
+      "name": "Physics for Information Science"
+    },
+    "GMEST103": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Engineering Graphics and Computer Aided Drawing"
+    },
+    "GXESL106": {
+      "credits": 1,
+      "type": "LAB 50/50",
+      "name": "Basic Electrical and Electronics Engineering Workshop"
+    },
+    "UCEST105": {
+      "credits": 4,
+      "type": "TH 40/60",
+      "name": "Algorithmic Thinking with Python"
+    },
+    "GAMAT201": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Mathematics for Information Science"
+    },
+    "GXESL208": {
+      "credits": 1,
+      "type": "LAB 50/50",
+      "name": "IT Workshop"
+    },
+    "GXEST203": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Foundations of Computing: From Hardware Essentials to Web Design"
+    },
+    "GXEST204": {
+      "credits": 4,
+      "type": "TH 40/60",
+      "name": "Programming in C"
+    },
+    "PCCST205": {
+      "credits": 4,
+      "type": "TH 40/60",
+      "name": "Discrete Mathematics"
+    },
+    "UCEST206": {
+      "credits": 3,
+      "type": "PBL 60/40",
+      "name": "Engineering Entrepreneurship & IPR"
+    },
+    "GAEST305": {
+      "credits": 4,
+      "type": "TH 40/60",
+      "name": "Digital Electronics & Logic Design"
+    },
+    "GAMAT301": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Mathematics for Information Science"
+    },
+    "PBCST304": {
+      "credits": 4,
+      "type": "PBL 60/40",
+      "name": "Object Oriented Programming"
+    },
+    "PCCSL307": {
+      "credits": 2,
+      "type": "LAB 50/50",
+      "name": "Data Structures Lab"
+    },
+    "PCCSL308": {
+      "credits": 2,
+      "type": "LAB 50/50",
+      "name": "Digital Lab"
+    },
+    "PCCST302": {
+      "credits": 4,
+      "type": "TH 40/60",
+      "name": "Theory of Computation"
+    },
+    "PCCST303": {
+      "credits": 4,
+      "type": "TH 40/60",
+      "name": "Data Structures and Algorithms"
+    },
+    "PECST411": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Software Engineering"
+    },
+    "PECST412": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Pattern Recognition"
+    },
+    "PECST413": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Functional Programming"
+    },
+    "PECST414": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Coding Theory"
+    },
+    "PECST415": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "VLSI Design 5/"
+    },
+    "PECST416": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Signals And Systems"
+    },
+    "PECST417": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Soft Computing"
+    },
+    "PECST418": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Computational Geometry"
+    },
+    "PECST419": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Cyber Ethics, Privacy, And Legal Issues"
+    },
+    "PECST495": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Advanced Data Structures 5/"
+    },
+    "UCHUT346": {
+      "credits": 2,
+      "type": "TH 50/50",
+      "name": "Economics for Engineers"
+    },
+    "GAMAT401": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Mathematics for Information Science"
+    },
+    "PBCST404": {
+      "credits": 4,
+      "type": "PBL 60/40",
+      "name": "Computer Organization and Architecture"
+    },
+    "PCCSL407": {
+      "credits": 2,
+      "type": "LAB 50/50",
+      "name": "Operating Systems Lab"
+    },
+    "PCCSL408": {
+      "credits": 2,
+      "type": "LAB 50/50",
+      "name": "DBMS Lab"
+    },
+    "PCCST402": {
+      "credits": 4,
+      "type": "TH 40/60",
+      "name": "Database Management Systems"
+    },
+    "PCCST403": {
+      "credits": 4,
+      "type": "TH 40/60",
+      "name": "Operating Systems"
+    },
+    "PBCST504": {
+      "credits": 4,
+      "type": "PBL 60/40",
+      "name": "Microcontrollers"
+    },
+    "PCCSL507": {
+      "credits": 2,
+      "type": "LAB 50/50",
+      "name": "Networks Lab"
+    },
+    "PCCSL508": {
+      "credits": 2,
+      "type": "LAB 50/50",
+      "name": "Machine Learning Lab"
+    },
+    "PCCST501": {
+      "credits": 4,
+      "type": "TH 40/60",
+      "name": "Computer Networks"
+    },
+    "PCCST502": {
+      "credits": 4,
+      "type": "TH 40/60",
+      "name": "Design and Analysis of Algorithms"
+    },
+    "PCCST503": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Machine Learning"
+    },
+    "PECST521": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Software Project Management"
+    },
+    "PECST522": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Artificial Intelligence"
+    },
+    "PECST523": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Data Analytics"
+    },
+    "PECST524": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Data Compression"
+    },
+    "PECST525": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Data Mining 5/"
+    },
+    "PECST526": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Digital Signal Processing"
+    },
+    "PECST527": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Computer Graphics & Multimedia"
+    },
+    "PECST528": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Advanced Computer Architectures"
+    },
+    "PECST595": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Advanced Graph Algorithms 5/"
+    },
+    "GAEST605": {
+      "credits": 2,
+      "type": "TH 40/60",
+      "name": "Design Thinking and Product Development (Group Specific Syllabus)"
+    },
+    "OECST611": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Data Structures"
+    },
+    "OECST612": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Data Communication"
+    },
+    "OECST613": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Foundations of Cryptography"
+    },
+    "OECST614": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Machine Learning for Engineers"
+    },
+    "OECST615": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Object Oriented Programming"
+    },
+    "PBCST604": {
+      "credits": 4,
+      "type": "PBL 60/40",
+      "name": "Fundamentals of Cyber Security"
+    },
+    "PCCSL607": {
+      "credits": 2,
+      "type": "LAB 50/50",
+      "name": "Systems Lab"
+    },
+    "PCCSP608": {
+      "credits": 2,
+      "type": "TH 50/50",
+      "name": "Mini Project: Socially Relevant Project"
+    },
+    "PCCST601": {
+      "credits": 4,
+      "type": "TH 40/60",
+      "name": "Compiler Design"
+    },
+    "PCCST602": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Advanced Computing Systems"
+    },
+    "PECST631": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Software Testing"
+    },
+    "PECST632": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Deep Learning"
+    },
+    "PECST633": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Wireless & Mobile Computing"
+    },
+    "PECST634": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Advanced Database Systems"
+    },
+    "PECST635": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Cloud Computing 5/"
+    },
+    "PECST636": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Digital Image Processing"
+    },
+    "PECST637": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Fundamentals of Cryptography"
+    },
+    "PECST638": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Quantum Computing"
+    },
+    "PECST639": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Randomized Algorithms"
+    },
+    "OECST721": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Cyber Security"
+    },
+    "OECST722": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Cloud Computing"
+    },
+    "OECST723": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Software Engineering"
+    },
+    "OECST724": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Computer Networks"
+    },
+    "PCCSI706": {
+      "credits": 4,
+      "type": "PRJ 100/0",
+      "name": "Option"
+    },
+    "PECST741": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Formal Methods in Software Engineering"
+    },
+    "PECST742": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Web Programming"
+    },
+    "PECST743": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Bioinformatics"
+    },
+    "PECST744": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Information Security"
+    },
+    "PECST745": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Computer Vision 5/"
+    },
+    "PECST746": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Embedded Systems"
+    },
+    "PECST747": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Blockchain and Cryptocurrencies"
+    },
+    "PECST748": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Realtime Systems"
+    },
+    "PECST749": {
+      "credits": 5,
+      "type": "TH 40/60",
+      "name": "Approximation Algorithms"
+    },
+    "PECST751": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Advanced Computer Networks"
+    },
+    "PECST752": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Responsible Artificial Intelligence"
+    },
+    "PECST753": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Fuzzy Systems"
+    },
+    "PECST754": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Digital Forensics"
+    },
+    "PECST755": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Internet of Things 5/"
+    },
+    "PECST756": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Game Theory and Mechanism Design"
+    },
+    "PECST757": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "High Performance Computing"
+    },
+    "PECST758": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Programming Languages"
+    },
+    "PECST759": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Parallel Algorithms"
+    },
+    "UEHUT704": {
+      "credits": 2,
+      "type": "TH 50/50",
+      "name": "/ UEHUM"
+    },
+    "OECST831": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Introduction to Algorithms"
+    },
+    "OECST832": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Web Programming"
+    },
+    "OECST833": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Software Testing"
+    },
+    "OECST834": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Internet of Things"
+    },
+    "PCCSJ806": {
+      "credits": 4,
+      "type": "PRJ 100/0",
+      "name": "Option"
+    },
+    "PECST861": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Software Architectures"
+    },
+    "PECST862": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Natural Language Processing"
+    },
+    "PECST863": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Topics in Security"
+    },
+    "PECST864": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Computational Complexity"
+    },
+    "PECST866": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Speech and Audio Processing"
+    },
+    "PECST867": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Storage Systems"
+    },
+    "PECST868": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Prompt Engineering"
+    },
+    "PECST869": {
+      "credits": 3,
+      "type": "TH 40/60",
+      "name": "Computational Number Theory"
+    },
+    "UEHUM803": {
+      "credits": 1,
+      "type": "TH 50/50",
+      "name": "Organizational Behavior and Business Communication (Internship Students: Self Study/MOOC Approved by the University/Online Classes)"
+    },
+    "GXEST104": {
+      "credits": 4,
+      "type": "TH 40/60",
+      "name": "Introduction to Electrical & Electronics Engineering"
+    },
+    "UCHUT128": {
+      "credits": 1,
+      "type": "PRJ 100/0",
+      "name": "Life Skills and Professional Communication"
+    },
+    "GXCYT122": {
+      "credits": 4,
+      "type": "TH 40/60",
+      "name": "Chemistry for Information Science"
+    },
+    "UCPWT127": {
+      "credits": 1,
+      "type": "PRJ 100/0",
+      "name": "Sports/NSS/Professional Writing"
+    },
+    "UCHUT347": {
+      "credits": 2,
+      "type": "TH 50/50",
+      "name": "Engineering Ethics and Sustainable Development"
+    }
+  },
+  "version": 2,
+  "updated": "2026-08-18",
+  "_readme": [
+    "Course catalogue for TargetX. Generated by curriculum_import.py from KTU's",
+    "published B.Tech curriculum PDFs - one PDF per branch.",
+    "To refresh after a KTU revision:",
+    "   python curriculum_import.py <branch-curriculum.pdf> --branch CSE",
+    "then bump 'version' and push. Every installed app picks it up on next launch.",
+    "'credits' is the flat code -> {credits, type, name} lookup the app reads.",
+    "course_type: TH 40/60 | TH 50/50 | PBL 60/40 | LAB 50/50 | LAB 75/25 | PRJ 100/0"
+  ],
+  "verified_overrides_note": "Codes the curriculum-PDF parser cannot read: first-year rows use a different structure (two-part courses, 100/0 pass-fail, shared rows). Credits here are derived from published earned-credit totals and cross-checked against the PDF and the pass/fail grade pattern. Verified: S1 sums to 20, S2 to 23."
+}

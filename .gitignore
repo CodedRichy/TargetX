@@ -10,3 +10,6 @@ dist/
 *.spec
 targetx-compat-*.json
 _curr.txt
+node_modules/
+app/src-tauri/target/
+.vite/
