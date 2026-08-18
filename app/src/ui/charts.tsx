@@ -140,7 +140,7 @@ export function GoalGauge(props: {
          aria-label={`Projected SGPA ${fmt(props.projected)}`}>
       <path d={arc(0, 10, R)} fill="none" stroke="var(--surface-3)" stroke-width="10"
             stroke-linecap="round" />
-      <path d={arc(0, props.projected, R)} fill="none" stroke={tone()} stroke-width="10"
+      <path class="gauge-arc" d={arc(0, props.projected, R)} fill="none" stroke={tone()} stroke-width="10"
             stroke-linecap="round" />
 
       <Show when={props.required !== null}>

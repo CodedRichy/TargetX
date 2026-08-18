@@ -1,5 +1,16 @@
 mod etlab;
 
+/// A frontend error, forwarded to stderr.
+///
+/// A webview swallows its own exceptions: a panic in Rust reaches the terminal
+/// but a TypeError in the UI leaves nothing behind except a screen that stopped
+/// updating. This puts both in the same stream, which is the only way a running
+/// build can be watched for faults.
+#[tauri::command]
+fn log_error(message: String) {
+  eprintln!("[frontend] {message}");
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -10,6 +21,7 @@ pub fn run() {
       etlab::etlab_active,
       etlab::etlab_get,
       etlab::etlab_post,
+      log_error,
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {

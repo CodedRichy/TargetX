@@ -66,8 +66,8 @@ button.primary, button.ghost, button.danger, button.link {
 button.primary {
   background: var(--brand);
   border: 1px solid var(--brand);
-  /* Dark text on the verdigris: it is a light colour and white on it fails contrast. */
-  color: oklch(0.16 0.02 178);
+  /* Contrast against the verdigris, which flips lightness with the theme. */
+  color: var(--on-brand);
   font-weight: 600;
 }
 button.primary:hover:not(:disabled) { background: var(--brand-bright); }
@@ -543,3 +543,39 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
 
 .empty-home { max-width: 60ch; }
 .empty-home h3 { font-size: var(--text-lg); font-weight: 600; margin: 0; }
+
+/* The appearance control sits with the tabs but is not one - it changes how
+   the app looks, not what it shows, so it never takes the current-tab rule. */
+.theme-toggle {
+  border-bottom-color: transparent;
+  min-width: 4.5rem;
+}
+.theme-toggle:hover { color: var(--text); }
+
+/* The launch check's findings. Sits under the goal bar rather than over the
+   screen: it reports on data the student can see, so covering it would be
+   backwards. */
+.launch-notice {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  padding: var(--s4) var(--s7) 0;
+}
+/* One line each. These are prompts, not documentation - the full explanation
+   lives on the screen the button goes to, and a paragraph here pushed the
+   whole app down the page. */
+.launch-notice .notice {
+  align-items: baseline;
+  display: flex;
+  flex: 1 1 24rem;
+  gap: var(--s3);
+  margin-top: 0;
+  padding: var(--s2) var(--s4);
+}
+.launch-notice .notice .setup-actions { margin: 0; }
+.launch-notice > button.link { margin-left: auto; }
+
+@media (max-width: 900px) {
+  .launch-notice { padding: var(--s4) var(--s5) 0; }
+}

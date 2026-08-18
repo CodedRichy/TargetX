@@ -54,6 +54,8 @@ export interface AppState {
    * back through onboarding.
    */
   onboarded?: boolean;
+  /** "system" | "light" | "dark". Absent means system. */
+  theme?: string;
   /** ISO timestamp of the last successful portal sync. */
   lastSync?: string;
 }

@@ -1,0 +1,169 @@
+/*
+ * Motion.
+ *
+ * The app was static and read as dead - nothing acknowledged a click, nothing
+ * arrived, numbers simply appeared already at their value. This adds motion
+ * with one rule: it either shows something arriving or confirms something the
+ * student did. Nothing here loops, nothing decorates, and nothing delays a
+ * number by longer than it takes to read the label next to it.
+ *
+ * Durations come from the tokens (--fast 120ms, --med 200ms) and both collapse
+ * to 0ms under prefers-reduced-motion, so every animation below inherits the
+ * accessibility behaviour instead of restating it.
+ */
+
+/* --- arrival --------------------------------------------------------------
+ * Screens and cards rise a few pixels as they mount. Small enough that it
+ * reads as the surface settling rather than as a slide transition.
+ */
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.screen { animation: rise var(--med) var(--ease) both; }
+
+/* Tiles stagger so the eye lands on Standing first and reads outward, which
+   is the order the screen is designed to be read in anyway. */
+.home .bento > .tile { animation: rise var(--med) var(--ease) both; }
+.home .bento > .tile:nth-child(1) { animation-delay: 0ms; }
+.home .bento > .tile:nth-child(2) { animation-delay: 40ms; }
+.home .bento > .tile:nth-child(3) { animation-delay: 80ms; }
+.home .bento > .tile:nth-child(4) { animation-delay: 120ms; }
+.home .bento > .tile:nth-child(5) { animation-delay: 160ms; }
+
+/* The ledger gets no stagger. Forty rows arriving in sequence is a wave, and
+   a table the student is scanning for one bad number must be still. */
+
+/* --- the goal gauge draws itself -----------------------------------------
+ * The one place a chart animates. The arc sweeping to its value is the app
+ * saying "this is how far along you are", which is the arc's whole content.
+ */
+
+.gauge-arc {
+  animation: sweep 700ms var(--ease) both;
+  stroke-dasharray: 1000;
+}
+
+@keyframes sweep {
+  from { stroke-dashoffset: 1000; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* --- feedback -------------------------------------------------------------
+ * Every control acknowledges the press. Without this a click on a button that
+ * changes something off-screen produces no evidence it registered at all.
+ */
+
+button { transition: background var(--fast) var(--ease),
+                     border-color var(--fast) var(--ease),
+                     color var(--fast) var(--ease),
+                     transform var(--fast) var(--ease); }
+
+button:active:not(:disabled) { transform: translateY(1px); }
+
+.tile, .card {
+  transition: border-color var(--med) var(--ease),
+              transform var(--med) var(--ease);
+}
+/* Tiles are the only surface that lifts, and only the ones that lead
+   somewhere. A card that moves without being clickable is a lie. */
+.tile:has(button:hover) { border-color: var(--hairline-strong); }
+
+.row { transition: background var(--fast) var(--ease); }
+
+/* The expanding subject row unfolds rather than appearing. It is the one
+   place in the app where new content pushes existing content down, and
+   without the transition the whole table jumps. */
+.detail td > * { animation: rise var(--fast) var(--ease) both; }
+
+/* --- the splash ----------------------------------------------------------- */
+
+.splash {
+  align-items: center;
+  background: var(--bg);
+  display: flex;
+  height: 100%;
+  justify-content: center;
+}
+.splash-body {
+  animation: fade var(--med) var(--ease) both;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  align-items: center;
+}
+.splash-mark { font-size: var(--text-3xl); margin: 0; }
+.splash-note { color: var(--text-faint); font-size: var(--text-sm); margin: 0; }
+
+/* An indeterminate bar, not a spinner: the check has no measurable progress,
+   and a bar that pretends to fill would be inventing one. */
+.splash-bar {
+  background: var(--surface-2);
+  border-radius: 2px;
+  height: 2px;
+  overflow: hidden;
+  width: 180px;
+}
+.splash-bar i {
+  animation: slide 1.1s var(--ease) infinite;
+  background: var(--brand);
+  display: block;
+  height: 100%;
+  width: 40%;
+}
+@keyframes slide {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(350%); }
+}
+
+/* --- inline busy ---------------------------------------------------------- */
+
+.busy {
+  align-items: center;
+  color: var(--text-dim);
+  display: inline-flex;
+  font-size: var(--text-sm);
+  gap: var(--s2);
+}
+.busy-dots { display: inline-flex; gap: 3px; }
+.busy-dots i {
+  animation: pulse 1s var(--ease) infinite;
+  background: var(--brand);
+  border-radius: 50%;
+  height: 4px;
+  width: 4px;
+}
+.busy-dots i:nth-child(2) { animation-delay: 150ms; }
+.busy-dots i:nth-child(3) { animation-delay: 300ms; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.25; }
+  50%      { opacity: 1; }
+}
+
+/*
+ * Reduced motion.
+ *
+ * The tokens already collapse to 0ms, which handles every transition. These
+ * are the keyframe animations, which do not read those tokens - so they are
+ * switched off explicitly rather than left running at full speed.
+ *
+ * The two indeterminate indicators keep animating deliberately: they are the
+ * only signal that work is still happening, and freezing them would turn a
+ * loading state into what looks like a hang.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .screen,
+  .home .bento > .tile,
+  .splash-body,
+  .detail td > *,
+  .gauge-arc { animation: none; }
+  button:active:not(:disabled) { transform: none; }
+}
