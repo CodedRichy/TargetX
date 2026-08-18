@@ -1,0 +1,12 @@
+ktu_data.json
+ktu_data.json.tmp
+ktu_data.json.corrupt
+etlab_session.json
+exports/
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+targetx-compat-*.json
+_curr.txt
