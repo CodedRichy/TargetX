@@ -13,3 +13,4 @@ _curr.txt
 node_modules/
 app/src-tauri/target/
 .vite/
+app/shots/

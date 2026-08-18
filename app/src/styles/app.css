@@ -1,0 +1,301 @@
+/*
+ * Layout.
+ *
+ * One continuous ledger surface, not a grid of cards. A mark sheet is the
+ * physical object this replaces, and cards would chop a table that the eye
+ * wants to read straight down a column. Separation is done with hairlines and
+ * a single elevation step, the way a printed sheet does it.
+ */
+
+.app {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "head   head"
+    "goal   goal"
+    "ledger drawer";
+  height: 100%;
+}
+
+/* --- header --------------------------------------------------------------- */
+
+.head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  gap: var(--s5);
+  padding: var(--s3) var(--s5);
+  border-bottom: 1px solid var(--hairline);
+  background: var(--surface-1);
+}
+
+.wordmark {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+}
+.wordmark span { color: var(--brand); }
+
+.sems { display: flex; gap: 1px; margin-left: var(--s2); }
+
+.sem {
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: var(--tracking-wide);
+  padding: var(--s1) var(--s3);
+  transition: color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+.sem:hover { color: var(--text); background: var(--surface-3); }
+.sem[aria-current="true"] {
+  background: var(--brand-wash);
+  border-color: var(--brand-deep);
+  color: var(--brand-bright);
+}
+
+.kpis { display: flex; gap: var(--s5); margin-left: auto; align-items: baseline; }
+
+.kpi { display: flex; flex-direction: column; gap: 2px; }
+.kpi-label {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+}
+.kpi-value { font-size: var(--text-xl); font-weight: 600; line-height: 1; }
+.kpi-value.dim { color: var(--text-dim); }
+.kpi-note { color: var(--text-faint); font-size: var(--text-xs); }
+
+.icon-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  padding: var(--s1) var(--s3);
+  transition: color var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+.icon-btn:hover { color: var(--brand-bright); border-color: var(--brand-deep); }
+
+/* --- goal bar ------------------------------------------------------------- */
+
+.goalbar {
+  grid-area: goal;
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: var(--s2) var(--s5);
+  border-bottom: 1px solid var(--hairline);
+  background: var(--bg);
+  font-size: var(--text-sm);
+}
+
+.goalbar label {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+}
+
+.goal-input {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: var(--s1) var(--s2);
+  width: 5.5ch;
+  text-align: center;
+}
+.goal-input:focus { border-color: var(--brand-deep); outline: none; }
+
+.verdict { color: var(--text-dim); }
+.verdict strong { color: var(--brand-bright); font-weight: 600; }
+.verdict.bad strong { color: var(--danger); }
+
+/* --- ledger --------------------------------------------------------------- */
+
+.ledger { grid-area: ledger; overflow: auto; min-width: 0; }
+
+table { border-collapse: collapse; width: 100%; }
+
+thead th {
+  background: var(--bg);
+  border-bottom: 1px solid var(--hairline-strong);
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-widest);
+  padding: var(--s2) var(--s3);
+  position: sticky;
+  text-align: right;
+  text-transform: uppercase;
+  top: 0;
+  white-space: nowrap;
+  z-index: 2;
+}
+thead th.left { text-align: left; }
+
+tbody td {
+  border-bottom: 1px solid var(--hairline);
+  font-size: var(--text-sm);
+  padding: var(--s2) var(--s3);
+  text-align: right;
+  white-space: nowrap;
+}
+tbody td.left { text-align: left; }
+
+/* No zebra striping: it fights the status colour, which is the one thing on
+   the row that has to be read at a glance. Hover carries the row instead. */
+tbody tr.row { transition: background var(--fast) var(--ease); }
+tbody tr.row:hover { background: var(--surface-1); }
+tbody tr.row.open { background: var(--surface-1); }
+
+.code {
+  color: var(--brand-bright);
+  cursor: pointer;
+  font-weight: 500;
+}
+.title { color: var(--text-dim); max-width: 26ch; overflow: hidden;
+         text-overflow: ellipsis; }
+
+.cell-input {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 2px var(--s1);
+  text-align: right;
+  width: 6ch;
+}
+.cell-input:hover { border-color: var(--hairline); }
+.cell-input:focus { background: var(--surface-2); border-color: var(--brand-deep); outline: none; }
+.cell-input.wide { width: 9ch; }
+
+select.cell-input { text-align: left; width: auto; }
+
+/* A grade is a verdict; give it weight. */
+.grade { font-weight: 600; }
+.grade.f { color: var(--danger); }
+.grade.top { color: var(--good); }
+
+.pill {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-wide);
+  padding: 2px var(--s2);
+}
+.pill.safe { background: var(--good-wash); color: var(--good); }
+.pill.tight, .pill.shortage { background: var(--warn-wash); color: var(--warn); }
+.pill.failed, .pill.debarred, .pill.unreachable {
+  background: var(--danger-wash); color: var(--danger);
+}
+.pill.pending { background: var(--surface-2); color: var(--text-faint); }
+
+/* The asterisk that says the 40% ESE minimum is binding, not the aggregate. */
+.bound { color: var(--warn); font-weight: 600; }
+
+.del {
+  background: none; border: 0; color: var(--text-faint);
+  cursor: pointer; opacity: 0; padding: 0 var(--s1);
+  transition: opacity var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+tr.row:hover .del { opacity: 1; }
+.del:hover { color: var(--danger); }
+
+/* --- expanded detail ------------------------------------------------------ */
+
+/* Table cells are nowrap so the grid stays on one line per subject; the
+   detail panel is prose and has to be told otherwise, or every readout
+   collapses onto a single overflowing line. */
+.detail td {
+  background: var(--surface-1);
+  padding: 0;
+  white-space: normal;
+  /* Cells default to right-aligned for the numeric grid; the panel is prose. */
+  text-align: left;
+  box-shadow: inset 2px 0 0 var(--brand-deep);
+}
+
+.detail-grid {
+  display: grid;
+  gap: var(--s5);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 0.34fr));
+  padding: var(--s4) var(--s5) var(--s5);
+}
+
+.panel { max-width: 38ch; }
+
+.panel h4 {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-widest);
+  margin: 0 0 var(--s3);
+  text-transform: uppercase;
+}
+
+.field { align-items: center; display: flex; gap: var(--s2); justify-content: space-between;
+         font-size: var(--text-sm); padding: 2px 0; }
+.field span { color: var(--text-dim); }
+
+.readout {
+  color: var(--text-dim); font-size: var(--text-sm); line-height: 1.7;
+  margin: var(--s3) 0 0; max-width: 46ch;
+}
+.readout strong { color: var(--text); font-weight: 600; }
+.readout .up { color: var(--good); }
+.readout .down { color: var(--warn); }
+.readout .out { color: var(--danger); }
+
+.empty {
+  color: var(--text-faint);
+  padding: var(--s7) var(--s5);
+  text-align: center;
+}
+.empty button { margin-top: var(--s3); }
+
+/* --- drawer --------------------------------------------------------------- */
+
+/*
+ * Non-modal by construction. The old build put the legend in a modal, which
+ * meant the student could read what a column meant OR look at the column, but
+ * never both. This sits beside the table and stays open.
+ */
+.drawer {
+  grid-area: drawer;
+  border-left: 1px solid var(--hairline);
+  background: var(--surface-1);
+  overflow: auto;
+  padding: var(--s4) var(--s5);
+  width: 340px;
+}
+.drawer h3 {
+  font-size: var(--text-sm); font-weight: 600; margin: 0 0 var(--s4);
+  letter-spacing: var(--tracking-wide);
+}
+.drawer dl { margin: 0; }
+.drawer dt {
+  color: var(--brand-bright); font-size: var(--text-xs); font-weight: 600;
+  letter-spacing: var(--tracking-wide); margin-top: var(--s4);
+}
+.drawer dd {
+  color: var(--text-dim); font-size: var(--text-sm); line-height: 1.6;
+  margin: var(--s1) 0 0;
+}
+
+.chart-block { margin-bottom: var(--s6); }
+.chart-block h4 {
+  color: var(--text-faint); font-size: var(--text-xs); font-weight: 600;
+  letter-spacing: var(--tracking-widest); margin: 0 0 var(--s2);
+  text-transform: uppercase;
+}
+.chart-note { color: var(--text-faint); font-size: var(--text-xs); margin: var(--s2) 0 0; }

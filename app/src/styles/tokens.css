@@ -1,0 +1,135 @@
+/*
+ * TargetX design tokens.
+ *
+ * Direction: "Mineral, inverted" - verdigris on warm stone. Oxidised copper
+ * over quarried rock, which is one material in two states rather than two
+ * colours picked to look nice together.
+ *
+ * The palette is chosen around what this app is FOR. Its dominant visual job
+ * is status: which subjects are safe, which are bleeding marks, which are
+ * already lost. That means the semantic trio (danger / warn / good) has to own
+ * the eye, so the brand hue must not compete with it. Verdigris at H:178 sits
+ * clear of danger H:25, warning H:80 and good H:145, so a teal heading never
+ * reads as a warning.
+ *
+ * The ground is warm (neutrals tinted H:70) against a cold primary. That is
+ * the Mineral pairing on purpose, not a temperature mistake.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* --- Ground: elevation by lightness, never by shadow ------------------ */
+  --bg:        oklch(0.145 0.012 68);
+  --surface-1: oklch(0.195 0.013 68);
+  --surface-2: oklch(0.245 0.014 68);
+  --surface-3: oklch(0.30 0.015 68);
+
+  /* Borders need more contrast in dark mode than instinct suggests. */
+  --hairline:  oklch(0.285 0.012 68);
+  --hairline-strong: oklch(0.40 0.014 68);
+
+  /* --- Text ------------------------------------------------------------- */
+  --text:      oklch(0.92 0.010 78);
+  --text-dim:  oklch(0.68 0.012 70);
+  --text-faint: oklch(0.52 0.010 70);
+
+  /* --- Verdigris: the instrument colour --------------------------------- */
+  --brand:       oklch(0.74 0.10 178);
+  --brand-bright: oklch(0.84 0.12 178);
+  --brand-deep:  oklch(0.45 0.07 178);
+  --brand-wash:  oklch(0.74 0.10 178 / 0.12);
+
+  /* --- Semantics: status owns these, nothing else may use them ---------- */
+  --good:      oklch(0.76 0.16 145);
+  --good-wash: oklch(0.76 0.16 145 / 0.14);
+  --warn:      oklch(0.80 0.15 80);
+  --warn-wash: oklch(0.80 0.15 80 / 0.14);
+  --danger:    oklch(0.66 0.21 25);
+  --danger-wash: oklch(0.66 0.21 25 / 0.14);
+
+  /* --- Type ------------------------------------------------------------- */
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  /* Every number in this app is a mark. Marks belong in tabular figures, so
+     a column of them lines up and a changing digit does not shift the row. */
+  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+
+  /* Minor third (1.2) - this is a dense instrument, not a marketing page. */
+  --text-xs: 0.694rem;
+  --text-sm: 0.833rem;
+  --text-base: 1rem;
+  --text-lg: 1.2rem;
+  --text-xl: 1.44rem;
+  --text-2xl: 1.728rem;
+  --text-3xl: 2.074rem;
+
+  --tracking-widest: 0.12em;
+  --tracking-wide: 0.04em;
+  --tracking-tight: -0.02em;
+
+  /* --- Space: 4px base -------------------------------------------------- */
+  --s1: 0.25rem;
+  --s2: 0.5rem;
+  --s3: 0.75rem;
+  --s4: 1rem;
+  --s5: 1.5rem;
+  --s6: 2rem;
+  --s7: 3rem;
+
+  --radius: 3px;
+  --radius-lg: 6px;
+
+  /* Motion stays short and eased-out. A status app that animates for a third
+     of a second feels like it is thinking, and this one already knows. */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 120ms;
+  --med: 200ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --fast: 0ms; --med: 0ms; }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  /* Windows ClearType renders thin geometric sans poorly. Nothing here goes
+     below 400, and the grid runs at 500 so hairline text stays legible. */
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* Tabular figures everywhere a number can change. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+button, input, select {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border: 2px solid var(--bg);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--hairline-strong); }
