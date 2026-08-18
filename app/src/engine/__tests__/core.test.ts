@@ -12,7 +12,7 @@ import {
   eseCutoff, evaluate, nextAttendanceBand, normaliseGrade, parseEtlab,
   planForSgpa, requiredEse, requiredSgpaForCgpa, sgpa, statusFor, summarise,
 } from "../index";
-import type { Course } from "../types";
+import type { Course, TypeKey } from "../types";
 
 describe("CIE scaling", () => {
   it("scales each component onto its weight inside a 40-mark CIE", () => {
@@ -77,8 +77,9 @@ describe("attendance is spent, not just displayed (R 7.5.ii)", () => {
   });
 
   it("spends the duty-leave-adjusted percentage, not the raw one", () => {
-    // 14/18 is 77.78% (3 marks); the two approved DL classes lift it to
-    // 87.78% (5 marks), and the CIE has to move with it.
+    // 14/18 is 77.78% (3 marks). Two DL classes are claimed but only 1.8 are
+    // credited, at the 10% cap on 18 held, which lifts it to 87.78% (5 marks)
+    // - and the CIE has to move with it.
     const raw = computeCie(dsa({ attended: 14, held: 18 }));
     const withDl = computeCie(dsa({ attended: 14, held: 18, dl: 2 }));
     expect(withDl - raw).toBe(2);
@@ -87,6 +88,21 @@ describe("attendance is spent, not just displayed (R 7.5.ii)", () => {
   it("prefers the raw counts over a stale published percentage", () => {
     const stale = computeCie(dsa({ attendance: 60, attended: 14, held: 18, dl: 2 }));
     expect(stale).toBe(computeCie(dsa({ attendance: 87.78 })));
+  });
+
+  it("reports the marks earned on the same scale the CIE spends them", () => {
+    // `attMax` is per-type by design, so the displayed figure has to follow
+    // the spec rather than the module default - a ledger quoting /5 while the
+    // CIE spends out of 10 is the same drift the single derivation kills.
+    // No shipped type differs today, so stand one up and put it back.
+    const key: TypeKey = "TH 40/60";
+    const shipped = COURSE_TYPES[key];
+    COURSE_TYPES[key] = { ...shipped, attMax: 10 };
+    try {
+      expect(evaluate(dsa({ attendance: 90 })).attMarks).toBe(10);
+    } finally {
+      COURSE_TYPES[key] = shipped;
+    }
   });
 
   it("does not top up a published internal total with attendance marks", () => {

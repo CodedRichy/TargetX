@@ -81,7 +81,7 @@ export function evaluate(course: Course): Evaluation {
     eligible,
     assessed,
     plan,
-    attMarks: attendanceMarks(attendance),
+    attMarks: attendanceMarks(attendance, spec.attMax),
     attBand: nextAttendanceBand(course.attended, course.held, course.dl ?? 0),
     credits: clamp(toFloat(course.credits, 0), 0, 20),
     needPass: requiredEse(cie, "P", eseMax),

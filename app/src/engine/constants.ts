@@ -78,8 +78,9 @@ const comp = (
  * repo, and inventing one would be a fabrication dressed as a regulation - so
  * attendance takes the regulation's own number (5) and everything else keeps
  * the proportions already modelled. Whoever obtains the real split replaces
- * the `weight` numbers below and drops this call; the structure around them
- * is already right.
+ * the `weight` numbers below and drops this call, spelling `attMax` out on
+ * each entry instead - `CourseSpec` requires it either way. The structure
+ * around them is already right.
  *
  * Worked example, TH 40/60: 15/15/10 (= 40) becomes 13.125/13.125/8.75
  * (= 35), plus attMax 5 = 40.
