@@ -101,8 +101,13 @@ export interface Evaluation {
   total: number | null;
   grade: Grade | null;
   failedReason: string;
-  attendance: number;
-  eligible: boolean;
+  /** Null when the portal has published nothing yet - not a full 100%. */
+  attendance: number | null;
+  /**
+   * Null when attendance itself is unknown, distinct from `false` (known and
+   * below 75%). Collapsing the two would flag a blank field as a shortage.
+   */
+  eligible: boolean | null;
   /** False when nothing has been marked yet - absence of data, not a zero. */
   assessed: boolean;
   plan: AttendancePlan | null;

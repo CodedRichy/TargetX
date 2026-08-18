@@ -256,9 +256,10 @@ export function Ledger() {
                   <td class="left">
                     <AttendanceBar pct={row.ev.attendance} />{" "}
                     <span class="num" style={{
-                      color: row.ev.attendance < ATTENDANCE_CONDONE ? "var(--danger)"
+                      color: row.ev.attendance === null ? "var(--text-faint)"
+                        : row.ev.attendance < ATTENDANCE_CONDONE ? "var(--danger)"
                         : row.ev.attendance < ATTENDANCE_MIN ? "var(--warn)" : "var(--text-dim)",
-                    }}>{row.ev.attendance.toFixed(0)}%</span>
+                    }}>{row.ev.attendance === null ? dash : `${row.ev.attendance.toFixed(0)}%`}</span>
                   </td>
                   <td class="num" title="CIE marks from attendance">
                     {show(row.ev.attMarks)}<span style={{ color: "var(--text-faint)" }}>/5</span>

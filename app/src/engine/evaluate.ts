@@ -17,13 +17,19 @@ export function evaluate(course: Course): Evaluation {
   let ese = toOptionalFloat(course.ese);
   if (ese !== null) ese = clamp(ese, 0, eseMax);
 
-  let attendance = clamp(toFloat(course.attendance, 100), 0, 100);
+  // A blank field is not a full attendance record - the college simply has
+  // not published one yet, and defaulting it to 100 is the exact lie
+  // absence-is-not-zero exists to forbid.
+  let attendance = toOptionalFloat(course.attendance);
+  if (attendance !== null) attendance = clamp(attendance, 0, 100);
   const plan = attendancePlan(course.attended, course.held, course.dl ?? 0);
   // Duty leave changes eligibility, so the effective figure governs once raw
   // counts are known. Flagging a student short when their approved DL already
   // covers it is the exact false alarm this replaces.
   if (plan !== null) attendance = plan.current;
-  const eligible = attendance >= ATTENDANCE_MIN;
+  // Unknown stays unknown: `null` here must never read as "below 75%" (that
+  // is `false`) or "fine" (`true`) to any consumer.
+  const eligible = attendance === null ? null : attendance >= ATTENDANCE_MIN;
 
   // A grade published by the university is final. It outranks anything this
   // app could derive, and it arrives WITHOUT an ESE mark - portals publish the
@@ -92,15 +98,16 @@ export function evaluate(course: Course): Evaluation {
 export function statusFor(ev: Evaluation): Status {
   if (!ev.assessed && ev.total === null) {
     // No internal assessment published yet. Attendance is still real and still
-    // worth flagging, but nothing can be said about the marks.
-    if (ev.attendance < ATTENDANCE_CONDONE) return "DEBARRED";
-    if (ev.attendance < ATTENDANCE_MIN) return "SHORTAGE";
+    // worth flagging, but nothing can be said about the marks - and nothing
+    // can be said about attendance itself when that field is also blank.
+    if (ev.attendance !== null && ev.attendance < ATTENDANCE_CONDONE) return "DEBARRED";
+    if (ev.eligible === false) return "SHORTAGE";
     return "PENDING";
   }
   if (!ev.needPass.possible) return "UNREACHABLE";
   if (ev.grade === "F") return "FAILED";
-  if (ev.attendance < ATTENDANCE_CONDONE) return "DEBARRED";
-  if (ev.attendance < ATTENDANCE_MIN) return "SHORTAGE";
+  if (ev.attendance !== null && ev.attendance < ATTENDANCE_CONDONE) return "DEBARRED";
+  if (ev.eligible === false) return "SHORTAGE";
   if (ev.eseMax && ev.needPass.value / ev.eseMax > 0.7) return "TIGHT";
   return "SAFE";
 }
@@ -146,7 +153,9 @@ export function summarise(courses: Course[]): Summary {
     // data, which is the failure mode this app exists to avoid.
     if (ev.grade === null && !ev.assessed) {
       pending += 1;
-      if (!ev.eligible) lowAttendance.push(label);
+      // Only a known shortage counts as a warning - an unknown attendance
+      // field is not evidence of one.
+      if (ev.eligible === false) lowAttendance.push(label);
       continue;
     }
 
@@ -168,7 +177,7 @@ export function summarise(courses: Course[]): Summary {
     } else if (ev.grade === "F") {
       atRisk.push(label);
     }
-    if (!ev.eligible) lowAttendance.push(label);
+    if (ev.eligible === false) lowAttendance.push(label);
   }
 
   return {

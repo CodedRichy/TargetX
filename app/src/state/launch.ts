@@ -64,10 +64,7 @@ export function reconcileFailures(): string[] {
 /** Subjects in the active semester that cannot sit the exam as things stand. */
 export function ineligibleCount(): number {
   const courses = state.semesters[state.activeSemester]?.courses ?? [];
-  return courses.filter((c) => {
-    const ev = evaluate(c);
-    return ev.attendance > 0 && !ev.eligible;
-  }).length;
+  return courses.filter((c) => evaluate(c).eligible === false).length;
 }
 
 export function runLaunchCheck(): Finding[] {

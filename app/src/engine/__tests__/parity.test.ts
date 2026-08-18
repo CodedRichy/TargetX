@@ -8,6 +8,13 @@
  *
  * Regenerate the fixture whenever the Python engine changes, and never edit it
  * by hand - a fixture edited to make a test pass proves nothing.
+ *
+ * `attendance`, `eligible` and `attMarks` are excluded from the comparison
+ * below (task 3, p0-engine-correctness). The Python oracle carries the same
+ * defect this task fixes - a blank attendance field reads as a full 100% -
+ * so its fixture values for these three fields are the wrong answer, not the
+ * spec. Direct coverage lives in `core.test.ts`. Every other field here still
+ * has to match exactly.
  */
 import { describe, expect, it } from "vitest";
 import fixture from "./parity.json";
@@ -32,21 +39,32 @@ const semesters = fixture.semesters as unknown as Array<{
   summary: Record<string, unknown>;
 }>;
 
-/** Reduce an Evaluation to exactly the fields the fixture records. */
+/**
+ * Reduce an Evaluation to exactly the fields the fixture records, minus the
+ * three the Python oracle gets wrong (see file header).
+ */
 function slim(ev: Evaluation) {
   const need = (r: Evaluation["needPass"]) =>
     ({ value: r.value, possible: r.possible, text: r.text, binding: r.binding });
   return {
     cie: ev.cie, cieMax: ev.cieMax, eseMax: ev.eseMax, ese: ev.ese,
     eseCutoff: ev.eseCutoff, total: ev.total, grade: ev.grade,
-    failedReason: ev.failedReason, attendance: ev.attendance,
-    eligible: ev.eligible, assessed: ev.assessed, attMarks: ev.attMarks,
+    failedReason: ev.failedReason,
+    assessed: ev.assessed,
     credits: ev.credits, needPass: need(ev.needPass),
     needTarget: need(ev.needTarget), target: ev.target,
     maxPossibleGrade: ev.maxPossibleGrade, status: statusFor(ev),
     plan: ev.plan === null ? null : { ...ev.plan },
     attBand: ev.attBand === null ? null : { ...ev.attBand },
   };
+}
+
+/** Same fields as `slim`, pulled off the Python fixture's recorded shape. */
+function slimExpected(expected: Expected) {
+  const {
+    attendance: _attendance, eligible: _eligible, attMarks: _attMarks, ...rest
+  } = expected;
+  return rest;
 }
 
 describe("parity with the Python engine", () => {
@@ -63,7 +81,7 @@ describe("parity with the Python engine", () => {
     courses.forEach(({ course, expected }, i) => {
       const got = slim(evaluate(course));
       const a = JSON.stringify(got);
-      const b = JSON.stringify(expected);
+      const b = JSON.stringify(slimExpected(expected));
       if (a !== b) mismatches.push(`case ${i}\n  ts: ${a}\n  py: ${b}`);
     });
     expect(mismatches.slice(0, 3).join("\n")).toBe("");

@@ -26,9 +26,11 @@ export function Drawer() {
   const [tab, setTab] = createSignal<"analytics" | "legend">("analytics");
 
   const scatter = () => rows()
-    .filter((r) => r.ev.assessed && r.course.code)
+    // Attendance is the X axis, so a subject with none on record has no point
+    // to plot - not a point sitting at 0% or 100%.
+    .filter((r) => r.ev.assessed && r.course.code && r.ev.attendance !== null)
     .map((r) => ({
-      code: r.course.code!, attendance: r.ev.attendance,
+      code: r.course.code!, attendance: r.ev.attendance!,
       cie: r.ev.cie, cieMax: r.ev.cieMax,
     }));
 

@@ -10,7 +10,7 @@ import {
   ATTENDANCE_CONDONE, DL_CAP_PCT,
   attendanceMarks, attendancePlan, blankCourse, cgpaFromSemesters, computeCie,
   eseCutoff, evaluate, nextAttendanceBand, normaliseGrade, parseEtlab,
-  planForSgpa, requiredEse, requiredSgpaForCgpa, sgpa,
+  planForSgpa, requiredEse, requiredSgpaForCgpa, sgpa, statusFor, summarise,
 } from "../index";
 import type { Course } from "../types";
 
@@ -95,6 +95,50 @@ describe("grade and fail paths", () => {
     const ev = evaluate(blankCourse("PCCST999", "New", 4));
     expect(ev.assessed).toBe(false);
     expect(ev.grade).toBeNull();
+  });
+});
+
+describe("a blank attendance field is not invented as 100%", () => {
+  it("leaves attendance, eligibility and attendance marks unknown", () => {
+    const ev = evaluate(blankCourse("PCCST777", "Blank Att", 4));
+    expect(ev.attendance).toBeNull();
+    expect(ev.eligible).toBeNull();
+    expect(ev.attMarks).toBeNull();
+  });
+
+  it("reports PENDING, not SAFE and not DEBARRED", () => {
+    const ev = evaluate(blankCourse("PCCST777", "Blank Att", 4));
+    expect(statusFor(ev)).toBe("PENDING");
+  });
+
+  it("keeps an unassessed, unknown-attendance course out of lowAttendance", () => {
+    const summary = summarise([blankCourse("PCCST777", "Blank Att", 4)]);
+    expect(summary.lowAttendance).not.toContain("PCCST777");
+    expect(summary.pending).toBe(1);
+  });
+
+  it("does not report SHORTAGE or DEBARRED once the course is graded, if attendance is still unknown", () => {
+    const course: Course = {
+      ...blankCourse("PCCST778", "Graded, No Att", 4, "TH 40/60"),
+      s1: 50, s2: 50, other: 10, ese: 50,
+    };
+    const ev = evaluate(course);
+    expect(ev.attendance).toBeNull();
+    expect(ev.eligible).toBeNull();
+    const status = statusFor(ev);
+    expect(status).not.toBe("SHORTAGE");
+    expect(status).not.toBe("DEBARRED");
+  });
+
+  it("does not let duty-leave-adjusted attendance stay hidden behind a blank raw field", () => {
+    // The percentage field is blank, but attended/held counts are present -
+    // the plan.current figure must still surface, exactly as it does when the
+    // portal also published a raw percentage.
+    const ev = evaluate({
+      ...blankCourse("PCCST779", "DL Only", 4), attendance: "", attended: 30, held: 40,
+    });
+    expect(ev.attendance).toBe(75);
+    expect(ev.eligible).toBe(true);
   });
 });
 

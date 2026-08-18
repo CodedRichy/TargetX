@@ -86,7 +86,7 @@ export function Home() {
       } else if (ev.grade === null && !ev.needPass.possible) {
         out.push({ code, severity: "bad", rank: 1,
                    detail: "a pass is no longer reachable from the internals" });
-      } else if (!ev.eligible) {
+      } else if (ev.eligible === false) {
         const plan = ev.plan;
         out.push({ code, severity: "warn", rank: 2,
                    detail: plan?.attend

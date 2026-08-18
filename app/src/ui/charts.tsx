@@ -270,15 +270,21 @@ export function AttendanceScatter(props: { points: ScatterPoint[] }) {
  * Deliberately not a chart-library canvas: one canvas instance per row janks a
  * 40-row table, and this is nine SVG elements.
  */
-export function AttendanceBar(props: { pct: number }) {
-  const tone = () => props.pct >= ATTENDANCE_MIN ? "var(--good)"
-    : props.pct >= ATTENDANCE_CONDONE ? "var(--warn)" : "var(--danger)";
+export function AttendanceBar(props: { pct: number | null }) {
+  const tone = () => {
+    const pct = props.pct;
+    if (pct === null) return "var(--text-faint)";
+    return pct >= ATTENDANCE_MIN ? "var(--good)"
+      : pct >= ATTENDANCE_CONDONE ? "var(--warn)" : "var(--danger)";
+  };
+  // An unknown attendance draws an empty track rather than a full or empty
+  // bar - either would read as a percentage nobody has actually recorded.
+  const fill = () => props.pct === null ? 0 : Math.max(0, Math.min(100, props.pct)) / 100 * 52;
   return (
     <svg width="52" height="8" viewBox="0 0 52 8" aria-hidden="true"
          style={{ "vertical-align": "middle" }}>
       <rect x="0" y="3" width="52" height="2" fill="var(--surface-3)" rx="1" />
-      <rect x="0" y="3" width={Math.max(0, Math.min(100, props.pct)) / 100 * 52}
-            height="2" fill={tone()} rx="1" />
+      <rect x="0" y="3" width={fill()} height="2" fill={tone()} rx="1" />
       <line x1={0.75 * 52} x2={0.75 * 52} y1="0" y2="8"
             stroke="var(--text-faint)" stroke-width="1" />
     </svg>

@@ -230,7 +230,7 @@ export function reportText(rows: Array<{ course: Course; ev: Record<string, unkn
       (row.course.code || "?").padEnd(10),
       String(ev["credits"] ?? "").padStart(2),
       String(ev["assessed"] ? `${ev["cie"]}/${ev["cieMax"]}` : "-").padStart(7),
-      String(Math.round(Number(ev["attendance"] ?? 0))).padStart(5),
+      String(ev["attendance"] == null ? "-" : Math.round(Number(ev["attendance"]))).padStart(5),
       String(ev["assessed"] ? need.text : "-").padStart(10),
       String(ev["assessed"] ? target.text : "-").padStart(12),
       String(ev["grade"] ?? "-").padStart(6),
