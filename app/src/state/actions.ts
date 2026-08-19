@@ -237,13 +237,17 @@ export function reportText(rows: Array<{ course: Course; ev: Record<string, unkn
     const ev = row.ev as Record<string, never>;
     const need = ev["needPass"] as unknown as { text: string };
     const target = ev["needTarget"] as unknown as { text: string };
+    // An internal missing its attendance component is a floor, not a total:
+    // ">=" marks it, and the required-mark columns say nothing rather than
+    // quoting a figure priced off it. See `Evaluation.cieIncomplete`.
+    const settled = ev["assessed"] && !ev["cieIncomplete"];
     lines.push([
       (row.course.code || "?").padEnd(10),
       String(ev["credits"] ?? "").padStart(2),
-      String(ev["assessed"] ? `${ev["cie"]}/${ev["cieMax"]}` : "-").padStart(7),
+      String(ev["assessed"] ? `${settled ? "" : ">="}${ev["cie"]}/${ev["cieMax"]}` : "-").padStart(7),
       String(ev["attendance"] == null ? "-" : Math.round(Number(ev["attendance"]))).padStart(5),
-      String(ev["assessed"] ? need.text : "-").padStart(10),
-      String(ev["assessed"] ? target.text : "-").padStart(12),
+      String(settled ? need.text : "-").padStart(10),
+      String(settled ? target.text : "-").padStart(12),
       String(ev["grade"] ?? "-").padStart(6),
       "  " + row.status,
     ].join(" "));

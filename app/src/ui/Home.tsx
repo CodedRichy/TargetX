@@ -88,6 +88,13 @@ export function Home() {
       if (ev.grade === "F") {
         out.push({ code, severity: "bad", rank: 0,
                    detail: "failed — needs a supplementary attempt" });
+      } else if (ev.grade === null && ev.cieIncomplete && ev.assessed) {
+        // Marks are in but attendance is not, so the internal is short of its
+        // R 7.5.ii component and every figure below it would be priced off a
+        // floor. One field fixes it, so say which field.
+        out.push({ code, severity: "warn", rank: 2,
+                   detail: "attendance not recorded — its internal is incomplete, "
+                     + "so no grade is being read off it" });
       } else if (ev.grade === null && !ev.needPass.possible) {
         out.push({ code, severity: "bad", rank: 1,
                    detail: "a pass is no longer reachable from the internals" });

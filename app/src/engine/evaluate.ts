@@ -29,6 +29,14 @@ export function evaluate(course: Course): Evaluation {
   // is `false`) or "fine" (`true`) to any consumer.
   const eligible = attendance === null ? null : attendance >= ATTENDANCE_MIN;
   const cie = computeCie(course, attendance);
+  // The internal is short of one component and nobody knows by how much.
+  // `computeCie` could only sum what is marked, so `cie` is a lower bound
+  // missing up to `spec.attMax` marks - enough to move a grade band. A
+  // published internal total is not affected: it already contains the
+  // college's own attendance marks, so an unknown percentage costs it
+  // nothing.
+  const published = toOptionalFloat(course.cie_override);
+  const cieIncomplete = published === null && attendance === null && spec.attMax > 0;
 
   // A grade published by the university is final. It outranks anything this
   // app could derive, and it arrives WITHOUT an ESE mark - portals publish the
@@ -43,7 +51,7 @@ export function evaluate(course: Course): Evaluation {
   // because an eseMax === 0 course with no data must not fall through to it.
   const assessed =
     publishedGrade !== null ||
-    toOptionalFloat(course.cie_override) !== null ||
+    published !== null ||
     spec.components.some(
       ({ key }) => toOptionalFloat((course as Record<string, MarkInput>)[key]) !== null,
     );
@@ -58,7 +66,13 @@ export function evaluate(course: Course): Evaluation {
     // adding a CIE to an exam mark for a course that was never completed
     // would manufacture one.
     if (!isIncomplete(publishedGrade) && ese !== null) total = round(cie + ese, 2);
-  } else if (ese !== null || (eseMax === 0 && assessed)) {
+  } else if (!cieIncomplete && (ese !== null || (eseMax === 0 && assessed))) {
+    // `cieIncomplete` blocks this branch and only this one: a grade derived
+    // from a CIE that is short of its attendance component would state a band
+    // the data cannot support. Absence is not zero, so the course waits at
+    // `grade: null` - the same place a course whose exam is unwritten waits -
+    // until the attendance figure arrives. The published-grade branch above is
+    // untouched: what the university printed outranks anything derived here.
     total = round(cie + (ese ?? 0), 2);
     if (eseMax && ese !== null && ese < cutoff) {
       grade = "F";
@@ -86,6 +100,7 @@ export function evaluate(course: Course): Evaluation {
     attendance,
     eligible,
     assessed,
+    cieIncomplete,
     plan,
     attMarks: attendanceMarks(attendance, spec.attMax),
     attBand: nextAttendanceBand(course.attended, course.held, course.dl ?? 0),
@@ -121,10 +136,13 @@ export function statusFor(ev: Evaluation): Status {
   // be sitting - including the attendance verdicts, which describe admission
   // to an exam that is no longer theirs to be admitted to.
   if (isIncomplete(ev.grade)) return "INCOMPLETE";
-  if (!ev.assessed && ev.total === null) {
-    // No internal assessment published yet. Attendance is still real and still
-    // worth flagging, but nothing can be said about the marks - and nothing
-    // can be said about attendance itself when that field is also blank.
+  if (ev.grade === null && ev.total === null && (!ev.assessed || ev.cieIncomplete)) {
+    // Nothing to report yet, for one of two reasons: no internal assessment
+    // has been published, or one has but its attendance component is unknown,
+    // so the CIE is a lower bound and no grade may be derived from it
+    // (`cieIncomplete`). Attendance is still real and still worth flagging,
+    // but nothing can be said about the marks - and nothing can be said about
+    // attendance itself when that field is also blank.
     if (isDebarred(ev)) return "DEBARRED";
     if (ev.eligible === false) return "SHORTAGE";
     return "PENDING";

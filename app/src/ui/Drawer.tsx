@@ -100,12 +100,12 @@ export function Drawer() {
                             </span>
                           }>
                             <span class="num" style={{ color: "var(--text-dim)" }}>
-                              {" "}· {row.unassessed ? "at least " : ""}{row.ese} in the exam
+                              {" "}· {row.cieUnknown ? "at least " : ""}{row.ese} in the exam
                             </span>
                           </Show>
                         </Show>
-                        <Show when={row.unassessed}>
-                          <span style={{ color: "var(--warn)" }}> · internals not marked yet</span>
+                        <Show when={row.cieUnknown}>
+                          <span style={{ color: "var(--warn)" }}> · internals not settled yet</span>
                         </Show>
                       </span>
                     </div>

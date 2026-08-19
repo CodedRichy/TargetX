@@ -172,11 +172,13 @@ export interface CourseOption {
   credits: number;
   eseMax: number;
   /**
-   * Priced from a full CIE because nothing has been marked yet, so `ese` is
-   * the least this grade could cost rather than what it will cost. Whoever
-   * shows this row has to say so.
+   * Priced from a full CIE because the course's internal is not settled, so
+   * `ese` is the least this grade could cost rather than what it will cost.
+   * Whoever shows this row has to say so. Two ways in: nothing has been
+   * marked at all, or marks exist but attendance does not, which leaves the
+   * CIE short of its R 7.5.ii component (`Evaluation.cieIncomplete`).
    */
-  unassessed: boolean;
+  cieUnknown: boolean;
 }
 
 /**
@@ -186,14 +188,16 @@ export interface CourseOption {
  * Grades already impossible are omitted rather than shown greyed out, because
  * a plan built on them is not a plan.
  *
- * An unassessed course has no CIE to price against: its components are
- * unmarked, and the attendance marks R 7.5.ii may already have earned are not
- * a CIE. Reverse-solving off that near-zero would call every letter impossible
- * and drop the course - one ungraded lab would then take the whole semester's
- * plan with it. So the ladder is priced from a full CIE bucket instead, which
- * is the strongest bound that is actually true: whatever the internals turn
- * out to be, the grade cannot cost less than this. `unassessed` is set on
- * every such row so the figure is never read as a settled requirement.
+ * A course whose CIE is not settled has nothing exact to price against - its
+ * components are unmarked, or they are marked and its attendance is not, so
+ * the figure `evaluate` reports is a floor rather than the internal. Reverse-
+ * solving off a floor overstates every rung, and off a near-zero it calls
+ * every letter impossible and drops the course - one ungraded lab would then
+ * take the whole semester's plan with it. So the ladder is priced from a full
+ * CIE bucket instead, which is the strongest bound that is actually true:
+ * whatever the internal turns out to be, the grade cannot cost less than
+ * this. `cieUnknown` is set on every such row so the figure is never read as
+ * a settled requirement.
  *
  * On an internal-only course that bound is zero for every letter, since there
  * is no exam to spend anything in. True, and useless to a planner - see
@@ -214,18 +218,19 @@ export function courseOptions(course: Course): CourseOption[] {
     // Already decided by a published grade.
     return [{
       grade: ev.grade, gp: GRADE_POINTS[ev.grade], ese: ev.ese ?? 0,
-      locked: true, credits: ev.credits, eseMax: ev.eseMax, unassessed: false,
+      locked: true, credits: ev.credits, eseMax: ev.eseMax, cieUnknown: false,
     }];
   }
 
   const options: CourseOption[] = [];
-  const cie = ev.assessed ? ev.cie : ev.cieMax;
+  const cieUnknown = !ev.assessed || ev.cieIncomplete;
+  const cie = cieUnknown ? ev.cieMax : ev.cie;
   for (const [letter, , gp] of GRADE_BANDS) {
     const need = requiredEse(cie, letter, ev.eseMax);
     if (need.possible) {
       options.push({
         grade: letter, gp, ese: need.value, locked: false,
-        credits: ev.credits, eseMax: ev.eseMax, unassessed: !ev.assessed,
+        credits: ev.credits, eseMax: ev.eseMax, cieUnknown,
       });
     }
   }
@@ -245,8 +250,8 @@ export interface PlanRow {
    * mark in that case.
    */
   eseMax: number;
-  /** `ese` is a floor priced from an unmarked CIE. See `CourseOption`. */
-  unassessed: boolean;
+  /** `ese` is a floor priced from an unsettled CIE. See `CourseOption`. */
+  cieUnknown: boolean;
 }
 
 export interface SgpaPlan {
@@ -278,7 +283,9 @@ export interface SgpaPlan {
  *     because there is no exam - but the greedy below buys rungs by cost, and
  *     a whole ladder priced at zero is free grade points. It would climb that
  *     one course to an S before asking a single mark of any other and call the
- *     target met with every real paper left at P.
+ *     target met with every real paper left at P. An unrecorded attendance
+ *     leaves the internal unsettled the same way (`cieIncomplete`), so the
+ *     same free ladder appears and the same exclusion applies.
  *
  * A published GRADE decides the course whatever else is true of it, so it is
  * plannable - as a locked row that costs nothing because it is already earned.
@@ -291,7 +298,11 @@ function unplannable(ev: Evaluation): string | null {
   if (isIncomplete(ev.grade)) return ev.grade === "W" ? "withdrawn" : "incomplete";
   if (ev.grade !== null) return null;
   if (isDebarred(ev)) return `attendance below ${ATTENDANCE_CONDONE}%`;
-  if (ev.eseMax === 0 && !ev.assessed) return "no exam to aim at, and no internals marked yet";
+  if (ev.eseMax === 0 && (!ev.assessed || ev.cieIncomplete)) {
+    return ev.assessed
+      ? "no exam to aim at, and attendance is not recorded"
+      : "no exam to aim at, and no internals marked yet";
+  }
   return null;
 }
 
@@ -389,7 +400,7 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
     const pick = ladders[i]![at]!;
     return {
       code: labels[i]!, grade: pick.grade, ese: pick.ese, credits: pick.credits,
-      locked: pick.locked, eseMax: pick.eseMax, unassessed: pick.unassessed,
+      locked: pick.locked, eseMax: pick.eseMax, cieUnknown: pick.cieUnknown,
     };
   });
   plan.sort((a, b) => b.ese - a.ese);

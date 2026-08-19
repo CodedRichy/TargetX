@@ -131,6 +131,17 @@ export interface Evaluation {
   eligible: boolean | null;
   /** False when nothing has been marked yet - absence of data, not a zero. */
   assessed: boolean;
+  /**
+   * True when `cie` is a lower bound rather than the CIE.
+   *
+   * Attendance is worth `CourseSpec.attMax` marks of the internal (R 7.5.ii),
+   * and an unknown percentage cannot be priced - so those marks are neither
+   * spent nor awarded and `cie` is short by up to `attMax`. Absence is not
+   * zero: no grade is derived while this is true, because a band read off a
+   * bound is a band the data does not support. A published `cie_override`
+   * clears it, that total already being the college's own arithmetic.
+   */
+  cieIncomplete: boolean;
   plan: AttendancePlan | null;
   attMarks: number | null;
   attBand: AttendanceBand | null;

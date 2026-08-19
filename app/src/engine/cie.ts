@@ -52,8 +52,13 @@ export function computeCie(
     total += limit ? (raw / limit) * weight : 0;
   }
   // R 7.5.ii: attendance is the fourth component of the internal, not just an
-  // eligibility gate. Unknown attendance earns nothing - the regulation pays
-  // for attendance recorded, and a blank field records none.
+  // eligibility gate. When the percentage is unknown that component cannot be
+  // priced at all, so the sum returned here is a LOWER BOUND - the components
+  // that are marked, and none of the `spec.attMax` marks attendance may still
+  // be worth. It is not a claim that the student earned zero of them.
+  // `evaluate` flags a sum reached this way as `cieIncomplete` and withholds
+  // the grade rather than deriving one from a bound; nothing else may read
+  // this number as a settled CIE.
   total += attendanceMarks(attendancePct, spec.attMax) ?? 0;
   return round(clamp(total, 0, spec.cieMax), 2);
 }

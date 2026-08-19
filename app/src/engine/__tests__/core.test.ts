@@ -180,6 +180,121 @@ describe("grade and fail paths", () => {
   });
 });
 
+describe("an unknown attendance is not spent as a zero inside the CIE", () => {
+  /**
+   * The seam between two rules: attendance is worth 5 CIE marks (R 7.5.ii),
+   * and a blank field is unknown rather than zero. Summing them as zero grades
+   * the course a whole band low and files the result as confirmed - a number
+   * the app does not have the data to state.
+   */
+  const os = (extra: Partial<Course> = {}): Course => ({
+    ...blankCourse("PCCST504", "OS", 4, "TH 40/60"),
+    s1: 45, s2: 45, other: 9, ese: 42, ...extra,
+  });
+
+  it("withholds the grade instead of deriving one from a floor", () => {
+    const unknown = evaluate(os());
+    const known = evaluate(os({ attendance: 90 }));
+
+    // Components alone: 45/50*13.125 + 45/50*13.125 + 9/10*8.75 = 31.5. The
+    // same 31.5 either way - what changes is whether the missing 5 marks are
+    // spent as earned-nothing or left unpriced.
+    expect(unknown.cie).toBe(31.5);
+    expect(known.cie).toBe(36.5);
+    expect(unknown.cieIncomplete).toBe(true);
+    expect(known.cieIncomplete).toBe(false);
+
+    // 31.5 + 42 = 73.5 is a B and 36.5 + 42 = 78.5 is a B+. One band apart on
+    // marks nobody has recorded, so neither total nor grade may be stated.
+    expect(unknown.total).toBeNull();
+    expect(unknown.grade).toBeNull();
+    expect(statusFor(unknown)).toBe("PENDING");
+    expect(known.total).toBe(78.5);
+    expect(known.grade).toBe("B+");
+    expect(statusFor(known)).toBe("SAFE");
+  });
+
+  it("keeps the withheld course out of the confirmed SGPA, and out of lowAttendance", () => {
+    const withheld = summarise([os()]);
+    expect(withheld.sgpaConfirmed).toBe(0);
+    expect(withheld.creditsConfirmed).toBe(0);
+    // Registered credits do not leave the semester - only the grade point does.
+    expect(withheld.credits).toBe(4);
+    // Unknown is not a shortage. Task 3's rule, and it still holds here.
+    expect(withheld.lowAttendance).toEqual([]);
+    // Still projected against its target, exactly like an unwritten exam.
+    expect(withheld.sgpaProjected).toBe(8.0);
+
+    expect(summarise([os({ attendance: 90 })]).sgpaConfirmed).toBe(8.0);
+  });
+
+  it("tells a recorded 0% apart from an unrecorded attendance", () => {
+    // 0% is evidence. It earns no attendance marks, and the grade that
+    // follows is real - the same B the unknown case was wrongly reporting.
+    const zero = evaluate(os({ attendance: 0 }));
+    expect(zero.cieIncomplete).toBe(false);
+    expect(zero.attMarks).toBe(0);
+    expect(zero.cie).toBe(31.5);
+    expect(zero.total).toBe(73.5);
+    expect(zero.grade).toBe("B");
+    // Below the condonation floor, so it is debarred rather than safe.
+    expect(statusFor(zero)).toBe("DEBARRED");
+
+    expect(evaluate(os()).attMarks).toBeNull();
+    expect(evaluate(os()).grade).toBeNull();
+  });
+
+  it("leaves a published grade and a published internal total alone", () => {
+    // Published beats derived. Neither of these needs the attendance figure:
+    // the university's letter is final, and a college's internal total
+    // already contains its own attendance marks.
+    const graded = evaluate(os({ portal_grade: "A" }));
+    expect(graded.cieIncomplete).toBe(true);
+    expect(graded.grade).toBe("A");
+    expect(statusFor(graded)).toBe("SAFE");
+    expect(summarise([os({ portal_grade: "A" })]).sgpaConfirmed).toBe(8.5);
+
+    const override = evaluate(os({ cie_override: 30 }));
+    expect(override.cieIncomplete).toBe(false);
+    expect(override.total).toBe(72);
+    expect(override.grade).toBe("B");
+  });
+
+  it("still plans a semester whose attendance has not been synced", () => {
+    // The core loop must survive a failed attendance scrape: every course
+    // unplannable would leave the student with no route at all.
+    const plan = planForSgpa([
+      { ...os(), ese: null },
+      { ...os(), code: "PCCST505", ese: null },
+    ], 7.0);
+    expect(plan.reachable).toBe(true);
+    expect(plan.plan.length).toBe(2);
+    expect(plan.credits).toBe(8);
+    // Priced from a full CIE bucket, so every rung is a floor and says so.
+    expect(plan.plan.every((row) => row.cieUnknown)).toBe(true);
+  });
+
+  it("does not climb an internal-only course whose attendance is missing", () => {
+    // PRJ 100/0 has no exam, so an unsettled CIE would offer every letter at
+    // zero marks and the greedy would buy an S with nothing.
+    const project: Course = {
+      ...blankCourse("PRJST501", "Project", 4, "PRJ 100/0"), s1: 50, s2: 50, other: 10,
+    };
+    const ev = evaluate(project);
+    expect(ev.cieIncomplete).toBe(true);
+    expect(ev.grade).toBeNull();
+
+    const plan = planForSgpa([
+      { ...blankCourse("PCCST501", "CN", 4), cie_override: 25 },
+      { ...blankCourse("PCCST502", "DAA", 4), cie_override: 25 },
+      project,
+    ], 7.5);
+    expect(plan.plan.map((row) => row.code)).not.toContain("PRJST501");
+    expect(plan.reason).toContain("attendance is not recorded");
+    expect(plan.credits).toBe(8);
+  });
+});
+
 describe("a blank attendance field is not invented as 100%", () => {
   it("leaves attendance, eligibility and attendance marks unknown", () => {
     const ev = evaluate(blankCourse("PCCST777", "Blank Att", 4));
@@ -645,7 +760,7 @@ describe("an ungraded course is not a zero-CIE course", () => {
   it("prices its ladder from a full CIE, as the least each grade could cost", () => {
     const options = courseOptions(blankCourse("PBLST506", "Mini Project", 2, "PBL 60/40"));
     expect(options.map((o) => o.grade)).toEqual(["P", "D", "C", "C+", "B", "B+", "A", "A+", "S"]);
-    expect(options.every((o) => o.unassessed)).toBe(true);
+    expect(options.every((o) => o.cieUnknown)).toBe(true);
     // A full 60-mark CIE leaves 30 of the 40-mark ESE for the 90 an S needs...
     expect(options.find((o) => o.grade === "S")!.ese).toBe(30);
     // ...while a pass still costs the 40% ESE cutoff, which no CIE can buy off.
@@ -654,7 +769,7 @@ describe("an ungraded course is not a zero-CIE course", () => {
 
   it("prices an assessed course from its real CIE, and says so", () => {
     const options = courseOptions({ ...blankCourse("PCCST501", "CN", 4), cie_override: 30 });
-    expect(options.some((o) => o.unassessed)).toBe(false);
+    expect(options.some((o) => o.cieUnknown)).toBe(false);
     // CIE 30 of 40: a pass needs 20 more, above the 24-mark cutoff it is not.
     expect(options.find((o) => o.grade === "P")!.ese).toBe(24);
   });
@@ -662,8 +777,8 @@ describe("an ungraded course is not a zero-CIE course", () => {
   it("carries the assumption into the plan rather than burying it", () => {
     const plan = planForSgpa(semester(), 7.5);
     const pbl = plan.plan.find((row) => row.code === "PBLST506")!;
-    expect(pbl.unassessed).toBe(true);
-    expect(plan.plan.filter((row) => row.unassessed).length).toBe(1);
+    expect(pbl.cieUnknown).toBe(true);
+    expect(plan.plan.filter((row) => row.cieUnknown).length).toBe(1);
   });
 });
 
@@ -726,7 +841,7 @@ describe("an internal-only course is not free grade points", () => {
     // Truthful - and useless to the planner, which is why it excludes these.
     const options = courseOptions(project());
     expect(options.length).toBe(9);
-    expect(options.every((o) => o.ese === 0 && o.eseMax === 0 && o.unassessed)).toBe(true);
+    expect(options.every((o) => o.ese === 0 && o.eseMax === 0 && o.cieUnknown)).toBe(true);
   });
 
   it("does not climb an unmarked one to an S and call the target met", () => {
@@ -746,7 +861,7 @@ describe("an internal-only course is not free grade points", () => {
     expect(row.grade).toBe("A+");
     // eseMax 0 is what tells the screen not to call this an exam mark.
     expect(row.eseMax).toBe(0);
-    expect(row.unassessed).toBe(false);
+    expect(row.cieUnknown).toBe(false);
   });
 });
 
