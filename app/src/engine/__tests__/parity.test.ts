@@ -23,8 +23,18 @@
  *     attendance inside the CIE, so every number derived from the CIE differs
  *     by up to the 5 marks of R 7.5.ii. The same goes for the semester
  *     rollup's SGPA, percentage, at-risk and impossible fields.
+ *   - `plan`, `attBand` (task 8): the oracle credits duty leave once against
+ *     today's `held`, then asks how many classes may be skipped or must be
+ *     attended - questions whose `held`, and so whose 10% relaxation, is
+ *     larger. Its `skip` and `attend` are answers to a denominator that no
+ *     longer applies. `core.test.ts` covers both branches directly, under
+ *     "duty leave", against figures derived by hand from R 6.3.ii.
  *
- * Every other field here still has to match exactly.
+ * What is left is thin, and worth saying plainly: after this narrowing the
+ * comparison is the maxima, the raw ESE, the credits, the assessed flag and
+ * the chosen target - the fields no p0 fix touches. It is a guard against
+ * regressing the parts nobody set out to change, not evidence the engine is
+ * right. The evidence for that lives in `core.test.ts`.
  */
 import { describe, expect, it } from "vitest";
 import fixture from "./parity.json";
@@ -57,8 +67,6 @@ function slim(ev: Evaluation) {
   return {
     cieMax: ev.cieMax, eseMax: ev.eseMax, ese: ev.ese, eseCutoff: ev.eseCutoff,
     assessed: ev.assessed, credits: ev.credits, target: ev.target,
-    plan: ev.plan === null ? null : { ...ev.plan },
-    attBand: ev.attBand === null ? null : { ...ev.attBand },
   };
 }
 
@@ -68,7 +76,8 @@ function slimExpected(expected: Expected) {
     attendance: _attendance, eligible: _eligible, attMarks: _attMarks,
     cie: _cie, total: _total, grade: _grade, failedReason: _failedReason,
     needPass: _needPass, needTarget: _needTarget,
-    maxPossibleGrade: _maxPossibleGrade, status: _status, ...rest
+    maxPossibleGrade: _maxPossibleGrade, status: _status,
+    plan: _plan, attBand: _attBand, ...rest
   } = expected;
   return rest;
 }

@@ -116,11 +116,18 @@ function Detail(props: { index: number; course: Course; ev: Evaluation }) {
                     <Show when={plan().dlCredited > 0}>
                       Duty leave lifts {plan().raw.toFixed(1)}% to{" "}
                       <strong>{plan().current.toFixed(1)}%</strong>.{" "}
-                      <Show when={plan().dlWasted > 0}>
-                        <span class="down">
-                          {plan().dlWasted} day{plan().dlWasted === 1 ? "" : "s"} is above
-                          the 10% cap and does not count.
-                        </span>{" "}
+                      {/* Classes, not days, and a whole number of them: the
+                          cap is a fraction of held, so the leftover comes out
+                          fractional even though nobody misses half a class. */}
+                      <Show when={Math.round(plan().dlWasted)}>
+                        {(wasted) => (
+                          <>
+                            <span class="down">
+                              {wasted()} class{wasted() === 1 ? "" : "es"} of it landed
+                              above the 10% cap and went uncounted.
+                            </span>{" "}
+                          </>
+                        )}
                       </Show>
                     </Show>
                     <Show when={plan().state === "surplus"} fallback={

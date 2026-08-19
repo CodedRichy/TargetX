@@ -20,11 +20,75 @@ export function attendanceMarks(
   return 0;
 }
 
-/** Duty leave credited toward attendance, capped at `dlCapPct` of classes held. */
+/**
+ * Duty leave credited toward attendance today, capped at `dlCapPct` of held.
+ *
+ * Today only. Every forward-looking question moves `held`, and the cap moves
+ * with it - see `skipBudget` and `consecutiveNeed`, which solve for the cap
+ * and the target together rather than spending this figure on a denominator
+ * that no longer applies.
+ */
 function creditDutyLeave(held: number, dutyLeave: MarkInput, dlCapPct: number) {
   const claimed = Math.max(0, toFloat(dutyLeave, 0));
   const allowed = held * (dlCapPct / 100);
   return { claimed, allowed, credited: Math.min(claimed, allowed) };
+}
+
+/**
+ * Classes that may still be skipped before attendance falls under `fraction`.
+ *
+ * A skipped class raises `held`, and R 6.3.ii's relaxation is a percentage of
+ * held, so the duty leave a student may spend grows as they spend it. After
+ * `s` skips, with cap `c` and `k` classes of DL claimed, the figure the
+ * college would compute is
+ *
+ *     min(attended + k, attended + c*(held+s), held+s) / (held+s)
+ *
+ * The numerator is a minimum of three terms, so all three have to clear
+ * `fraction`, and the budget is the tightest bound they give:
+ *
+ *   claim fits under the cap:  (attended+k)/(held+s) >= f
+ *                                ->  s <= (attended+k)/f - held
+ *   cap binds:                 (attended + c*(held+s))/(held+s) >= f
+ *                                ->  s <= attended/(f-c) - held
+ *   never above 100%:          1 >= f, which any f <= 1 clears for free.
+ *
+ * The cap bound is the one crediting DL up front gets wrong: it holds the
+ * relaxation at 10% of today's held for a question asked about a larger one,
+ * and so understates the room a student on heavy duty leave actually has.
+ */
+function skipBudget(
+  attended: number, held: number, claimed: number, cap: number, fraction: number,
+): number {
+  const underCap = (attended + claimed) / fraction - held;
+  // f <= c means the relaxation alone clears the floor: that bound never binds.
+  const atCap = fraction > cap ? attended / (fraction - cap) - held : Infinity;
+  return Math.max(0, floor(Math.min(underCap, atCap)));
+}
+
+/**
+ * Consecutive classes needed to reach `fraction`, with the cap growing too.
+ *
+ * The same solve from below the line. Attending `n` raises numerator and
+ * denominator together and lifts the cap along with them:
+ *
+ *     min(attended + n + k, attended + n + c*(held+n), held+n) / (held+n)
+ *
+ * Each term must clear `fraction`, so the requirement is the loosest bound:
+ *
+ *   claim fits under the cap:  n >= (f*held - attended - k)/(1 - f)
+ *   cap binds:                 n >= ((f-c)*held - attended)/(1 - f + c)
+ *
+ * Callers guarantee f < 1, which keeps both denominators positive. Charging
+ * the whole climb against a cap frozen at today's held overstates it: the
+ * traced case (60/100, 100 claimed) asks for 20 classes where 15 suffice.
+ */
+function consecutiveNeed(
+  attended: number, held: number, claimed: number, cap: number, fraction: number,
+): number {
+  const underCap = (fraction * held - attended - claimed) / (1 - fraction);
+  const atCap = ((fraction - cap) * held - attended) / (1 - fraction + cap);
+  return Math.max(0, ceil(Math.max(underCap, atCap)));
 }
 
 /**
@@ -41,10 +105,11 @@ export function nextAttendanceBand(
   const held = toOptionalFloat(heldIn);
   if (attended === null || held === null || held <= 0) return null;
 
-  const { credited } = creditDutyLeave(held, dutyLeave, dlCapPct);
+  const { claimed, credited } = creditDutyLeave(held, dutyLeave, dlCapPct);
   const effective = Math.min(attended + credited, held);
   const current = (effective / held) * 100;
   const earned = attendanceMarks(current) ?? 0;
+  const cap = dlCapPct / 100;
 
   for (let i = ATTENDANCE_MARK_BANDS.length - 1; i >= 0; i -= 1) {
     const band = ATTENDANCE_MARK_BANDS[i]!;
@@ -52,9 +117,7 @@ export function nextAttendanceBand(
     if (marks <= earned) continue;
     const fraction = floorPct / 100;
     if (fraction >= 1) continue;
-    // Consecutive attendance: each class attended raises both numerator and
-    // denominator, so the requirement is (f*held - effective)/(1 - f).
-    const need = ceil((fraction * held - effective) / (1 - fraction));
+    const need = consecutiveNeed(attended, held, claimed, cap, fraction);
     if (need > 0) {
       return { earned, nextMarks: marks, attend: need, atPct: floorPct };
     }
@@ -70,9 +133,13 @@ export function nextAttendanceBand(
  * not symmetric:
  *
  *   - Above the line: how many classes can be skipped and still stay above
- *     it.  attended / (held + skip) >= f   ->   skip <= attended/f - held
- *   - Below the line: how many must be attended CONSECUTIVELY to climb back.
- *     (attended + n) / (held + n) >= f     ->   n >= (f*held - attended)/(1-f)
+ *     it, which grows `held` alone.        -> `skipBudget`
+ *   - Below the line: how many must be attended CONSECUTIVELY to climb back,
+ *     which grows both counts.             -> `consecutiveNeed`
+ *
+ * Both move `held`, and duty leave is capped at a percentage of it, so both
+ * solve for the cap and the target at once rather than reusing the credit
+ * computed for today.
  *
  * Returns null when the portal gave no raw counts - a percentage alone cannot
  * answer either question.
@@ -92,6 +159,7 @@ export function attendancePlan(
   const { claimed, allowed, credited } = creditDutyLeave(held, dutyLeave, dlCapPct);
   const effective = Math.min(attended + credited, held);
 
+  const cap = dlCapPct / 100;
   const fraction = floorPct / 100;
   const base = {
     raw: round((attended / held) * 100, 2),
@@ -102,13 +170,18 @@ export function attendancePlan(
   };
 
   if (base.current >= floorPct) {
-    return { ...base, state: "surplus", skip: Math.max(0, floor(effective / fraction - held)), attend: 0 };
+    return {
+      ...base, state: "surplus", attend: 0,
+      skip: skipBudget(attended, held, claimed, cap, fraction),
+    };
   }
   if (fraction >= 1) {
     return { ...base, state: "deficit", skip: 0, attend: null };
   }
-  const need = ceil((fraction * held - effective) / (1 - fraction));
-  return { ...base, state: "deficit", skip: 0, attend: Math.max(0, need) };
+  return {
+    ...base, state: "deficit", skip: 0,
+    attend: consecutiveNeed(attended, held, claimed, cap, fraction),
+  };
 }
 
 /**

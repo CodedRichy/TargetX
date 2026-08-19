@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  ATTENDANCE_CONDONE, ATTENDANCE_MARK_MAX, COURSE_TYPES, DL_CAP_PCT, NO_HORIZON,
+  ATTENDANCE_CONDONE, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN, COURSE_TYPES, DL_CAP_PCT, NO_HORIZON,
   TYPE_KEYS, attendanceMarks, attendancePlan, blankCourse, cgpaFromSemesters,
   computeCie, courseOptions, eseCutoff, evaluate, horizonToGraduation,
   nextAttendanceBand, normaliseGrade, parseEtlab, historyCredits, planForSgpa, requiredEse,
@@ -342,6 +342,76 @@ describe("duty leave", () => {
     const plan = attendancePlan(30, 50)!;   // 60%
     expect(plan.state).toBe("deficit");
     expect(plan.attend).toBe(30);          // 60/80 = 75%
+  });
+
+  it("grows the cap with the classes attended, when climbing back", () => {
+    // 60/100 with 100 days of DL claimed: today only 10 are creditable, so the
+    // portal reads 70%. Attend n and the cap is 10% of (100+n), not of 100.
+    // At n=15: 75/115 attended, 11.5 creditable, 86.5/115 = 75.2%. At n=14 it
+    // is 85.4/114 = 74.9%. Crediting 10 up front asks for 20.
+    const plan = attendancePlan(60, 100, 100)!;
+    expect(plan.current).toBe(70);
+    expect(plan.state).toBe("deficit");
+    expect(plan.attend).toBe(15);
+  });
+
+  it("grows the cap with the classes held, when spending a surplus", () => {
+    // 140/200 with 30 days claimed: 20 creditable today, so 160/200 = 80%.
+    // Skipping raises held, which raises the cap - at 15 skips the cap is 21.5
+    // and 161.5/215 = 75.1%; at 16 it is 161.6/216 = 74.8%. Holding the credit
+    // at today's 20 would say 13.
+    const plan = attendancePlan(140, 200, 30)!;
+    expect(plan.current).toBe(80);
+    expect(plan.state).toBe("surplus");
+    expect(plan.skip).toBe(15);
+  });
+
+  it("leaves the budget alone when the claim already fits under the cap", () => {
+    // 5 days claimed against 200 held is nowhere near the 20 allowed, so the
+    // growing cap never binds and the answer is the plain 155/(200+s) >= 75%.
+    const plan = attendancePlan(150, 200, 5)!;
+    expect(plan.current).toBe(77.5);
+    expect(plan.skip).toBe(6);
+  });
+
+  it("grows the cap when pricing the next attendance mark too", () => {
+    // Same 60/100 with 100 claimed: 70% earns 2 marks, and the 75% band that
+    // pays 3 is 15 consecutive classes away, not 20.
+    const band = nextAttendanceBand(60, 100, 100)!;
+    expect([band.earned, band.nextMarks, band.atPct]).toEqual([2, 3, 75]);
+    expect(band.attend).toBe(15);
+  });
+
+  it("gives an answer that survives being played out", () => {
+    // The algebra above is worth only as much as the semester it predicts, so
+    // this replays every plan against the arithmetic the college would do at
+    // the end of it: the answer must clear 75%, and one class cheaper must
+    // not. Both directions matter - an answer that is merely safe is the
+    // failure the fix is about.
+    const played = (attended: number, held: number, claimed: number) =>
+      (Math.min(attended + Math.min(claimed, held * (DL_CAP_PCT / 100)), held) / held) * 100;
+
+    const wrong: string[] = [];
+    for (let held = 1; held <= 120; held += 1) {
+      for (let attended = 0; attended <= held; attended += 1) {
+        for (const dl of [0, 1, 3, 7, 12, 40, 500]) {
+          const plan = attendancePlan(attended, held, dl)!;
+          const at = `${attended}/${held} dl ${dl}`;
+          if (plan.state === "surplus") {
+            const s = plan.skip;
+            if (played(attended, held + s, dl) < ATTENDANCE_MIN) wrong.push(`${at}: skip ${s} drops below`);
+            if (played(attended, held + s + 1, dl) >= ATTENDANCE_MIN) wrong.push(`${at}: skip ${s} leaves room`);
+          } else {
+            const n = plan.attend!;
+            if (played(attended + n, held + n, dl) < ATTENDANCE_MIN) wrong.push(`${at}: attend ${n} falls short`);
+            if (n > 0 && played(attended + n - 1, held + n - 1, dl) >= ATTENDANCE_MIN) {
+              wrong.push(`${at}: attend ${n} is one too many`);
+            }
+          }
+        }
+      }
+    }
+    expect(wrong.slice(0, 5)).toEqual([]);
   });
 
   it("returns null when the portal gave no raw counts", () => {
