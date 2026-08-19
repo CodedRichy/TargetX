@@ -1,5 +1,5 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
-import { evaluate, sgpa as computeSgpa, GRADE_POINTS } from "../engine";
+import { evaluate, isGraded, sgpa as computeSgpa, GRADE_POINTS } from "../engine";
 import type { SemesterHistory } from "../engine";
 import { overall, setHistory, state, edit, trend } from "../state/store";
 import { TrendChart } from "./charts";
@@ -28,11 +28,13 @@ export function History() {
       .map((name) => {
         const published = state.history[name];
         const courses = state.semesters[name]?.courses ?? [];
-        // Recompute only from courses the university has actually graded.
-        const graded = courses
-          .map((c) => evaluate(c))
-          .filter((ev) => ev.grade !== null)
-          .map((ev) => [ev.credits, GRADE_POINTS[ev.grade!]] as [number, number]);
+        // Recompute only from courses the university has actually graded - a
+        // withdrawn or incomplete one is published but carries no grade point.
+        const graded: Array<[number, number]> = [];
+        for (const course of courses) {
+          const ev = evaluate(course);
+          if (isGraded(ev.grade)) graded.push([ev.credits, GRADE_POINTS[ev.grade]]);
+        }
         const recomputed = graded.length ? computeSgpa(graded) : null;
         const credits = graded.reduce((sum, [c]) => sum + c, 0);
 

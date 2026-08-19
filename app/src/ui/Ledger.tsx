@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from "solid-js";
 import {
   ATTENDANCE_CONDONE, ATTENDANCE_MIN, COURSE_TYPES, TARGET_CHOICES, TYPE_KEYS,
+  isIncomplete,
 } from "../engine";
 import type { Course, Evaluation, Letter, RequiredEse, TypeKey } from "../engine";
 import { addCourse, removeCourse, rows, updateCourse } from "../state/store";
@@ -17,10 +18,14 @@ const show = (v: number | null | undefined, places = 0) =>
  * minimum is the binding constraint rather than the aggregate. Without it a
  * student sees "24/60" for a pass on a CIE of 38 and concludes the internals
  * bought them room, when in fact no amount of CIE moves that number.
+ *
+ * `applies` is false wherever the number would be advice about an exam this
+ * course is not headed for: nothing assessed yet, so the figure would be
+ * invented, or a withdrawal, so there is no exam of theirs to sit.
  */
-function Need(props: { need: RequiredEse; assessed: boolean }) {
+function Need(props: { need: RequiredEse; applies: boolean }) {
   return (
-    <Show when={props.assessed} fallback={<span style={{ color: "var(--text-faint)" }}>{dash}</span>}>
+    <Show when={props.applies} fallback={<span style={{ color: "var(--text-faint)" }}>{dash}</span>}>
     <Show when={props.need.possible}
           fallback={<span class="grade f">{props.need.text}</span>}>
       <span class="num">
@@ -33,6 +38,9 @@ function Need(props: { need: RequiredEse; assessed: boolean }) {
     </Show>
   );
 }
+
+/** See `Need`. */
+const needApplies = (ev: Evaluation) => ev.assessed && !isIncomplete(ev.grade);
 
 function Cell(props: {
   value: unknown; onInput: (v: string) => void; wide?: boolean; placeholder?: string;
@@ -274,7 +282,7 @@ export function Ledger() {
                     row.ev.grade === "S" || row.ev.grade === "A+" ? " top" : ""}`}>
                     {row.ev.grade ?? dash}
                   </td>
-                  <td><Need need={row.ev.needPass} assessed={row.ev.assessed} /></td>
+                  <td><Need need={row.ev.needPass} applies={needApplies(row.ev)} /></td>
                   <td class="left">
                     <select class="cell-input" value={row.ev.target}
                             onChange={(e) => updateCourse(row.index, {
@@ -282,7 +290,7 @@ export function Ledger() {
                       <For each={TARGET_CHOICES}>{(g) => <option value={g}>{g}</option>}</For>
                     </select>
                   </td>
-                  <td><Need need={row.ev.needTarget} assessed={row.ev.assessed} /></td>
+                  <td><Need need={row.ev.needTarget} applies={needApplies(row.ev)} /></td>
                   <td class="left">
                     <span class={`pill ${row.status.toLowerCase()}`}>{row.status}</span>
                   </td>

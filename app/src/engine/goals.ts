@@ -1,6 +1,6 @@
 import { ATTENDANCE_CONDONE, GRADE_BANDS, GRADE_POINTS } from "./constants";
 import { evaluate, isDebarred } from "./evaluate";
-import { requiredEse } from "./grade";
+import { isIncomplete, requiredEse } from "./grade";
 import type { Course, Evaluation, Grade, SemesterHistory } from "./types";
 import { round, toFloat } from "./util";
 
@@ -198,9 +198,18 @@ export interface CourseOption {
  * On an internal-only course that bound is zero for every letter, since there
  * is no exam to spend anything in. True, and useless to a planner - see
  * `unplannable`.
+ *
+ * A withdrawn or incomplete course yields no rows at all: there is no ladder
+ * to climb in a course that is not being sat this semester.
  */
 export function courseOptions(course: Course): CourseOption[] {
   const ev = evaluate(course);
+  if (isIncomplete(ev.grade)) {
+    // Withdrawn or incomplete. No grade is on offer in a course nobody is
+    // sitting, and a locked row would price it into the plan at a grade point
+    // it does not have.
+    return [];
+  }
   if (ev.grade !== null) {
     // Already decided by a published grade.
     return [{
@@ -260,6 +269,8 @@ export interface SgpaPlan {
  * The plan is denominated in ESE marks, so a course with no exam left to sit
  * is not something a student can be told to do anything about:
  *
+ *   - Withdrawn or incomplete. There is no exam of theirs left this semester,
+ *     and the course is out of the SGPA being solved for.
  *   - Debarred. Instructing a mark in an exam they will not be admitted to is
  *     worse than saying nothing.
  *   - Internal-only (`eseMax === 0`) with nothing marked yet. `courseOptions`
@@ -269,11 +280,15 @@ export interface SgpaPlan {
  *     one course to an S before asking a single mark of any other and call the
  *     target met with every real paper left at P.
  *
- * A published grade decides the course whatever else is true of it, so it is
- * always plannable - as a locked row that costs nothing because it is already
- * earned.
+ * A published GRADE decides the course whatever else is true of it, so it is
+ * plannable - as a locked row that costs nothing because it is already earned.
+ * A published I or W is not a grade and does not: it is the first case above.
  */
 function unplannable(ev: Evaluation): string | null {
+  // Withdrawn or incomplete. Out of the SGPA the plan is solving for, so its
+  // credits have to leave the plan's denominator with it - exactly what
+  // `summarise` does with them - and there is no exam of its own to aim at.
+  if (isIncomplete(ev.grade)) return ev.grade === "W" ? "withdrawn" : "incomplete";
   if (ev.grade !== null) return null;
   if (isDebarred(ev)) return `attendance below ${ATTENDANCE_CONDONE}%`;
   if (ev.eseMax === 0 && !ev.assessed) return "no exam to aim at, and no internals marked yet";

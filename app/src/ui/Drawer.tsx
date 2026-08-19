@@ -19,6 +19,7 @@ const GLOSSARY: Array<[string, string]> = [
   ["SHORTAGE", "Below 75% attendance. Condonation may be possible down to 60%, for at most two semesters, against a fee."],
   ["DEBARRED", "Below 60%. There is no appeal path under R 6.2."],
   ["UNREACHABLE", "Even a full ESE paper cannot get this course to a pass. Better to know now."],
+  ["INCOMPLETE", "Published as I or W - withdrawn, or not completed. KTU leaves it out of the SGPA entirely, credits included, until you complete it. It is not a fail and is not scored as one."],
   ["Duty leave", "Approved absence for NSS, sports, fests or placement drives. It counts as present, but only up to 10% of classes held (R 6.3.ii) - anything beyond that is wasted, and this app says so."],
 ];
 

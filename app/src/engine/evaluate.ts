@@ -5,8 +5,10 @@ import {
   attendanceMarks, attendancePlan, effectiveAttendance, nextAttendanceBand,
 } from "./attendance";
 import { computeCie, eseCutoff, specFor } from "./cie";
-import { gradeForTotal, normaliseGrade, requiredEse } from "./grade";
-import type { Course, Evaluation, Grade, Letter, MarkInput, Status } from "./types";
+import { gradeForTotal, isIncomplete, normaliseGrade, requiredEse } from "./grade";
+import type {
+  Course, Evaluation, Grade, Incomplete, Letter, MarkInput, Status,
+} from "./types";
 import { clamp, round, toFloat, toOptionalFloat } from "./util";
 
 /** Full per-course verdict: CIE, projected total, grade, targets, flags. */
@@ -47,12 +49,15 @@ export function evaluate(course: Course): Evaluation {
     );
 
   let total: number | null = null;
-  let grade: Grade | null = null;
+  let grade: Grade | Incomplete | null = null;
   let failedReason = "";
 
   if (publishedGrade !== null) {
     grade = publishedGrade;
-    if (ese !== null) total = round(cie + ese, 2);
+    // An I or a W has no result behind it, so there is no total to state -
+    // adding a CIE to an exam mark for a course that was never completed
+    // would manufacture one.
+    if (!isIncomplete(publishedGrade) && ese !== null) total = round(cie + ese, 2);
   } else if (ese !== null || (eseMax === 0 && assessed)) {
     total = round(cie + (ese ?? 0), 2);
     if (eseMax && ese !== null && ese < cutoff) {
@@ -110,6 +115,12 @@ export function isDebarred(ev: Evaluation): boolean {
 
 /** Single verdict per subject. Worst condition wins. */
 export function statusFor(ev: Evaluation): Status {
+  // Withdrawn or incomplete, and the university published it: the course is
+  // neither passed nor failed nor waiting on a mark this semester. It comes
+  // first because everything below asks about an exam this student will not
+  // be sitting - including the attendance verdicts, which describe admission
+  // to an exam that is no longer theirs to be admitted to.
+  if (isIncomplete(ev.grade)) return "INCOMPLETE";
   if (!ev.assessed && ev.total === null) {
     // No internal assessment published yet. Attendance is still real and still
     // worth flagging, but nothing can be said about the marks - and nothing
@@ -162,6 +173,15 @@ export function summarise(courses: Course[]): Summary {
 
   for (const course of courses) {
     const ev = evaluate(course);
+
+    // Withdrawn or incomplete: KTU keeps the course out of the SGPA until it
+    // is completed, denominator included. Its credits leave with it rather
+    // than staying in `credits` the way a debarred course's do - `credits` is
+    // what this semester is weighed by, in the plan and in the CGPA once the
+    // semester is archived, and weighing it by a course that will never be
+    // graded here hands those credits the semester's own average.
+    if (isIncomplete(ev.grade)) continue;
+
     const label = course.code || course.name || "?";
     totalCredits += ev.credits;
 

@@ -660,3 +660,69 @@ describe("an internal-only course is not free grade points", () => {
     expect(row.unassessed).toBe(false);
   });
 });
+
+describe("a withdrawn or incomplete course is not a failure", () => {
+  /**
+   * Three graded papers and one the student withdrew from. KTU leaves a
+   * withdrawn course out of the SGPA until it is completed - out of the
+   * denominator too, which is the part that scoring it as an F gets wrong.
+   */
+  const semester = (): Course[] => [
+    { ...blankCourse("PCCST301", "DBMS", 4), portal_grade: "A" },
+    { ...blankCourse("PCCST302", "DSA", 4), portal_grade: "B" },
+    { ...blankCourse("PCCST303", "OOP", 3), portal_grade: "C" },
+    { ...blankCourse("PCCST304", "Economics", 3), portal_grade: "W" },
+  ];
+
+  it("reads I and W as themselves, and AB as the fail it is", () => {
+    expect(normaliseGrade("W")).toBe("W");
+    expect(normaliseGrade("i")).toBe("I");
+    // A student marked absent was admitted to the exam and did not appear.
+    // That is a real fail and stays one.
+    expect(normaliseGrade("AB")).toBe("F");
+    expect(normaliseGrade("FE")).toBe("F");
+  });
+
+  it("neither grades nor totals the course, and says INCOMPLETE", () => {
+    const ev = evaluate({ ...blankCourse("PCCST304", "Economics", 3), portal_grade: "W",
+                          cie_override: 30, attendance: 40 });
+    expect(ev.grade).toBe("W");
+    expect(ev.total).toBeNull();
+    expect(ev.failedReason).toBe("");
+    // Withdrawal outranks the attendance the course was carrying when the
+    // student left it - there is no exam to be debarred from any more.
+    expect(statusFor(ev)).toBe("INCOMPLETE");
+  });
+
+  it("computes the SGPA over the other three courses' credits only", () => {
+    const sum = summarise(semester());
+    // (4*8.5 + 4*7.5 + 3*6.5) / 11 = 83.5 / 11. Scored as an F over 14
+    // credits it would read 5.964, which is a different student.
+    expect(sum.sgpaConfirmed).toBe(7.591);
+    expect(sum.sgpaProjected).toBe(7.591);
+    expect(sum.credits).toBe(11);
+    expect(sum.creditsConfirmed).toBe(11);
+    expect(sum.assessed).toBe(3);
+    expect(sum.pending).toBe(0);
+    expect(sum.atRisk).toEqual([]);
+  });
+
+  it("offers no grades in a course nobody is sitting", () => {
+    expect(courseOptions({ ...blankCourse("PCCST304", "Economics", 3),
+                           portal_grade: "W" })).toEqual([]);
+  });
+
+  it("leaves it out of the plan, credits and all, and names why", () => {
+    const plan = planForSgpa(semester(), 7.5);
+    expect(plan.plan.map((row) => row.code).sort())
+      .toEqual(["PCCST301", "PCCST302", "PCCST303"]);
+    expect(plan.credits).toBe(11);
+    expect(plan.reason).toContain("PCCST304 left out: withdrawn");
+  });
+
+  it("names an incomplete course as incomplete rather than as withdrawn", () => {
+    const plan = planForSgpa(
+      [semester()[0]!, { ...blankCourse("PCCST305", "Physics", 3), portal_grade: "I" }], 7.5);
+    expect(plan.reason).toContain("PCCST305 left out: incomplete");
+  });
+});

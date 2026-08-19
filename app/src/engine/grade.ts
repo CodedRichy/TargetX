@@ -1,15 +1,33 @@
 import { GRADE_BANDS, GRADE_MIN, GRADE_POINTS } from "./constants";
 import { eseCutoff } from "./cie";
-import type { Grade, Letter, RequiredEse } from "./types";
+import type { Grade, Incomplete, Letter, RequiredEse } from "./types";
 import { ceil } from "./util";
+
+/** A published non-completion, told apart from a grade that scores. */
+export function isIncomplete(grade: Grade | Incomplete | null): grade is Incomplete {
+  return grade === "I" || grade === "W";
+}
+
+/** A published or derived grade, i.e. one that carries a grade point. */
+export function isGraded(grade: Grade | Incomplete | null): grade is Grade {
+  return grade !== null && !isIncomplete(grade);
+}
 
 /**
  * Accept the many ways a portal writes a grade, or reject it cleanly.
  *
  * Result columns say PASSED/FAILED while grade columns say B+ or P, and the
  * two get mixed up in scraped rows - so only real grade letters survive.
+ *
+ * Three outcomes, not two. I and W are published and must not be discarded as
+ * "nothing published" - a published verdict outranks anything derived, and
+ * deriving a grade for a course the student withdrew from would be exactly
+ * that mistake - but they are not grades either, so they come back as
+ * themselves. See `Incomplete`.
  */
-export function normaliseGrade(value: string | null | undefined): Grade | null {
+export function normaliseGrade(
+  value: string | null | undefined,
+): Grade | Incomplete | null {
   if (value === null || value === undefined) return null;
   const text = String(value).trim().toUpperCase();
   if (text === "" || text === "-" || text === "--") return null;
@@ -18,7 +36,11 @@ export function normaliseGrade(value: string | null | undefined): Grade | null {
   // and solving S2's published SGPA only works when they are included. An
   // earlier version excluded them and was wrong.
   if (["PASS", "PASSED", "P/F", "PF", "COMPLETED"].includes(text)) return "P";
-  if (["FAIL", "FAILED", "F", "FE", "AB", "I", "W"].includes(text)) return "F";
+  // Not in the fail list below: I and W were there once, and scored a
+  // withdrawn course zero against its full credits.
+  if (text === "I" || text === "W") return text;
+  // AB stays: the student was admitted to the exam and did not appear.
+  if (["FAIL", "FAILED", "F", "FE", "AB"].includes(text)) return "F";
   return text in GRADE_POINTS ? (text as Grade) : null;
 }
 

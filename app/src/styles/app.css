@@ -215,7 +215,8 @@ select.cell-input { text-align: left; width: auto; }
 .pill.failed, .pill.debarred, .pill.unreachable {
   background: var(--danger-wash); color: var(--danger);
 }
-.pill.pending { background: var(--surface-2); color: var(--text-faint); }
+/* Neither good news nor bad: nothing is riding on these this semester. */
+.pill.pending, .pill.incomplete { background: var(--surface-2); color: var(--text-faint); }
 
 /* The asterisk that says the 40% ESE minimum is binding, not the aggregate. */
 .bound { color: var(--warn); font-weight: 600; }

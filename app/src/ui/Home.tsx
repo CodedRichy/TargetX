@@ -1,5 +1,5 @@
 import { For, Show, createMemo } from "solid-js";
-import { ATTENDANCE_MARK_MAX } from "../engine";
+import { ATTENDANCE_MARK_MAX, isIncomplete } from "../engine";
 import {
   goalRequirement, overall, rows, state, summary, trend,
 } from "../state/store";
@@ -79,6 +79,11 @@ export function Home() {
     for (const row of rows()) {
       const ev = row.ev;
       const code = row.course.code || row.course.name || "?";
+
+      // Withdrawn or incomplete: nothing below applies to a course the
+      // student is not sitting, least of all an attendance shortage that
+      // would warn them off an exam that is no longer theirs.
+      if (isIncomplete(ev.grade)) continue;
 
       if (ev.grade === "F") {
         out.push({ code, severity: "bad", rank: 0,

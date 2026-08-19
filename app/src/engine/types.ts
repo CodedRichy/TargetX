@@ -20,6 +20,20 @@ export type TypeKey =
 export type Letter = "S" | "A+" | "A" | "B+" | "B" | "C+" | "C" | "D" | "P";
 export type Grade = Letter | "F";
 
+/**
+ * A published mark of non-completion: I (Incomplete) or W (Withdrawn).
+ *
+ * The university has said something about the course, and what it said is
+ * that there is no result yet - so KTU leaves it out of the SGPA entirely,
+ * denominator included, until the course is completed. It carries no grade
+ * point, which is why it is kept out of `Grade` rather than added to it: a
+ * grade point of 0 is the F this is not.
+ *
+ * AB is not one of these. A student marked absent was admitted to the exam
+ * and did not appear, and that is a real fail.
+ */
+export type Incomplete = "I" | "W";
+
 /** (json key, column header, raw maximum, weight inside the CIE bucket) */
 export interface Component {
   key: "s1" | "s2" | "other";
@@ -101,7 +115,12 @@ export interface Evaluation {
   ese: number | null;
   eseCutoff: number;
   total: number | null;
-  grade: Grade | null;
+  /**
+   * Three distinct states: a `Grade` (published or derived), an `Incomplete`
+   * (published, but no result to score), or null (nothing published and
+   * nothing derivable yet).
+   */
+  grade: Grade | Incomplete | null;
   failedReason: string;
   /** Null when the portal has published nothing yet - not a full 100%. */
   attendance: number | null;
@@ -123,7 +142,7 @@ export interface Evaluation {
 }
 
 export type Status =
-  | "SAFE" | "TIGHT" | "PENDING"
+  | "SAFE" | "TIGHT" | "PENDING" | "INCOMPLETE"
   | "SHORTAGE" | "DEBARRED" | "FAILED" | "UNREACHABLE";
 
 /**

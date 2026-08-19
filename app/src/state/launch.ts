@@ -1,4 +1,4 @@
-import { GRADE_POINTS, evaluate, sgpa as computeSgpa } from "../engine";
+import { GRADE_POINTS, evaluate, isGraded, sgpa as computeSgpa } from "../engine";
 import { state } from "./store";
 
 /**
@@ -51,10 +51,13 @@ export function reconcileFailures(): string[] {
     const registered = published?.creditsRegistered ?? 0;
     if (!published || registered <= 0) continue;
     const courses = state.semesters[name]?.courses ?? [];
-    const graded = courses
-      .map((c) => evaluate(c))
-      .filter((ev) => ev.grade !== null)
-      .map((ev) => [ev.credits, GRADE_POINTS[ev.grade!]] as [number, number]);
+    // A withdrawn or incomplete course is not one of the graded ones, and its
+    // credits are not part of the total they are checked against.
+    const graded: Array<[number, number]> = [];
+    for (const course of courses) {
+      const ev = evaluate(course);
+      if (isGraded(ev.grade)) graded.push([ev.credits, GRADE_POINTS[ev.grade]]);
+    }
     if (!graded.length) continue;
 
     const credits = graded.reduce((sum, [c]) => sum + c, 0);
