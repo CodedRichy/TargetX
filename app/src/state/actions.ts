@@ -1,7 +1,7 @@
 import { unwrap } from "solid-js/store";
 import {
-  CATALOGUE_URL, blankCourse, catalogueVersion, courseFromCode, defaultTargets,
-  normaliseTargets, parseEtlab, requiredEseCell, setCatalogue,
+  CATALOGUE_URL, blankCourse, catalogueVersion, courseFromCode, defaultState,
+  defaultTargets, normaliseTargets, parseEtlab, requiredEseCell, setCatalogue,
 } from "../engine";
 import type { Course, PresetCourse, RequiredEse } from "../engine";
 import type { SyncResult } from "../sync/etlab";
@@ -139,23 +139,37 @@ export function applyGradeCard(card: GradeCard): CardOutcome {
     for (const [name, entry] of Object.entries(card.semesters)) {
       if (!entry.courses.length) continue;
       const existing = s.semesters[name]?.courses ?? [];
-      const byCode = new Map(existing.map((c) => [(c.code || "").toUpperCase(), c]));
 
-      s.semesters[name] = {
-        courses: entry.courses.map((c) => {
-          const previous = byCode.get(c.code.toUpperCase());
-          // Attendance and series marks are never on a grade card. Dropping a
-          // synced semester's working data because its final grades arrived
-          // would be a loss the student never asked for, so the card writes
-          // only the three columns it actually carries.
-          return {
-            ...(previous ?? courseFromCode(c.code)),
-            name: c.name || previous?.name || "",
-            credits: c.credits,
-            portal_grade: c.grade,
-          };
-        }),
-      };
+      // The card is authoritative for the courses it LISTS and silent about
+      // every other one. A supplementary card carries one or two subjects, so
+      // rebuilding the semester out of its contents deleted the rest of it -
+      // attendance, series marks, targets and all - for precisely the students
+      // most likely to import one. Merge by code instead: update what the card
+      // names, keep what it does not, append what is new.
+      const fromCard = new Map(entry.courses.map((c) => [c.code.toUpperCase(), c]));
+      const merged: Course[] = existing.map((course) => {
+        const key = (course.code || "").toUpperCase();
+        const c = fromCard.get(key);
+        if (!c) return course;
+        fromCard.delete(key);
+        // Attendance and series marks are never on a grade card, so only the
+        // three columns it actually carries are written.
+        return {
+          ...course,
+          name: c.name || course.name || "",
+          credits: c.credits,
+          portal_grade: c.grade,
+        };
+      });
+      for (const c of fromCard.values()) {
+        merged.push({
+          ...courseFromCode(c.code),
+          name: c.name,
+          credits: c.credits,
+          portal_grade: c.grade,
+        });
+      }
+      s.semesters[name] = { ...s.semesters[name], courses: merged };
       courses += entry.courses.length;
       if (entry.sgpaPrinted !== undefined) {
         s.history[name] = {
@@ -283,14 +297,38 @@ export function importJson(text: string) {
   if (!parsed || typeof parsed !== "object" || !parsed.semesters) {
     throw new Error("That file is not a TargetX backup.");
   }
+  // A file from a LATER build may carry fields this one does not understand
+  // and would silently drop on the next save, so it is refused outright rather
+  // than half-read.
+  const here = defaultState().version;
+  const there = Number(parsed.version ?? 1);
+  if (Number.isFinite(there) && there > here) {
+    throw new Error(
+      `That backup was written by a newer version of TargetX (file v${there}, ` +
+      `this build reads v${here}). Update TargetX and try again.`);
+  }
+
+  // A restore REPLACES the document; it does not merge into it. Building on
+  // defaultState() and then dropping any key the incoming file does not define
+  // is what makes that true: merging left every field the backup omitted -
+  // history above all - sitting there from the session being replaced, and the
+  // result was a hybrid that belonged to neither.
+  //
   // A backup written before the registered/earned credit split, or before the
   // goal widened from a lone CGPA into the full target set, is the same old
-  // shape arriving later - so it goes through the same migrations as a load
-  // rather than a second reading of what those shapes mean.
-  edit((s) => Object.assign(s, parsed, {
-    history: migrateHistory(parsed.history),
-    goal: normaliseTargets(parsed.goal),
-  }));
+  // shape arriving later - so both migrations run here exactly as they do on a
+  // load. `normaliseTargets` is applied AFTER the spread: `defaultState()`
+  // seeds a valid target set, but the incoming file's own `goal` overwrites it
+  // and is the one that has to be migrated.
+  edit((s) => {
+    const next = { ...defaultState(), ...parsed,
+                   history: migrateHistory(parsed.history),
+                   goal: normaliseTargets(parsed.goal) };
+    for (const key of Object.keys(s)) {
+      if (!(key in next)) delete (s as unknown as Record<string, unknown>)[key];
+    }
+    Object.assign(s, next);
+  });
 }
 
 export function resetEverything() {
