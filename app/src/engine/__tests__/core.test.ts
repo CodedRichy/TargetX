@@ -9,8 +9,8 @@ import { describe, expect, it } from "vitest";
 import {
   ATTENDANCE_CONDONE, ATTENDANCE_MARK_MAX, COURSE_TYPES, DL_CAP_PCT, NO_HORIZON,
   TYPE_KEYS, attendanceMarks, attendancePlan, blankCourse, cgpaFromSemesters,
-  computeCie, eseCutoff, evaluate, horizonToGraduation, nextAttendanceBand,
-  normaliseGrade, parseEtlab, historyCredits, planForSgpa, requiredEse,
+  computeCie, courseOptions, eseCutoff, evaluate, horizonToGraduation,
+  nextAttendanceBand, normaliseGrade, parseEtlab, historyCredits, planForSgpa, requiredEse,
   requiredSgpaForCgpa, sgpa, statusFor, summarise,
 } from "../index";
 import type { Course, TypeKey } from "../types";
@@ -533,5 +533,95 @@ describe("a published grade is never read as UNREACHABLE or TIGHT", () => {
     expect(ev.grade).toBe("P");
     expect(statusFor(ev)).not.toBe("TIGHT");
     expect(statusFor(ev)).toBe("SAFE");
+  });
+});
+
+describe("an ungraded course is not a zero-CIE course", () => {
+  /** Four marked theory papers plus a mini project nobody has evaluated yet. */
+  const semester = (): Course[] => [
+    { ...blankCourse("PCCST501", "CN", 4), cie_override: 30 },
+    { ...blankCourse("PCCST502", "DAA", 4), cie_override: 30 },
+    { ...blankCourse("PCCST503", "OS", 4), cie_override: 30 },
+    { ...blankCourse("PCCST504", "SE", 3), cie_override: 30 },
+    blankCourse("PBLST506", "Mini Project", 2, "PBL 60/40"),
+  ];
+
+  it("plans a semester that contains one, instead of giving up on all of it", () => {
+    const plan = planForSgpa(semester(), 7.5);
+    expect(plan.reachable).toBe(true);
+    expect(plan.plan.length).toBe(5);
+    expect(plan.plan.map((row) => row.code)).toContain("PBLST506");
+  });
+
+  it("prices its ladder from a full CIE, as the least each grade could cost", () => {
+    const options = courseOptions(blankCourse("PBLST506", "Mini Project", 2, "PBL 60/40"));
+    expect(options.map((o) => o.grade)).toEqual(["P", "D", "C", "C+", "B", "B+", "A", "A+", "S"]);
+    expect(options.every((o) => o.unassessed)).toBe(true);
+    // A full 60-mark CIE leaves 30 of the 40-mark ESE for the 90 an S needs...
+    expect(options.find((o) => o.grade === "S")!.ese).toBe(30);
+    // ...while a pass still costs the 40% ESE cutoff, which no CIE can buy off.
+    expect(options.find((o) => o.grade === "P")!.ese).toBe(16);
+  });
+
+  it("prices an assessed course from its real CIE, and says so", () => {
+    const options = courseOptions({ ...blankCourse("PCCST501", "CN", 4), cie_override: 30 });
+    expect(options.some((o) => o.unassessed)).toBe(false);
+    // CIE 30 of 40: a pass needs 20 more, above the 24-mark cutoff it is not.
+    expect(options.find((o) => o.grade === "P")!.ese).toBe(24);
+  });
+
+  it("carries the assumption into the plan rather than burying it", () => {
+    const plan = planForSgpa(semester(), 7.5);
+    const pbl = plan.plan.find((row) => row.code === "PBLST506")!;
+    expect(pbl.unassessed).toBe(true);
+    expect(plan.plan.filter((row) => row.unassessed).length).toBe(1);
+  });
+});
+
+describe("a debarred course is not planned as a pass", () => {
+  const attending: Course = {
+    ...blankCourse("PCCST501", "CN", 4), cie_override: 30, attended: 90, held: 100,
+  };
+  /** 40% attended: below the 60% floor R 6.2 allows the Principal to condone. */
+  const debarred: Course = {
+    ...blankCourse("PCCST502", "DAA", 4), cie_override: 30, attended: 40, held: 100,
+  };
+
+  it("keeps it out of the projected SGPA", () => {
+    const sum = summarise([attending, debarred]);
+    expect(sum.sgpaProjected).toBe(summarise([attending]).sgpaProjected);
+    expect(sum.assessed).toBe(1);
+    expect(sum.lowAttendance).toContain("PCCST502");
+    // Its credits are still registered, whatever becomes of them.
+    expect(sum.credits).toBe(8);
+  });
+
+  it("keeps it out of the plan, and names what it dropped", () => {
+    const plan = planForSgpa([attending, debarred], 7.5);
+    expect(plan.reachable).toBe(true);
+    expect(plan.plan.map((row) => row.code)).toEqual(["PCCST501"]);
+    expect(plan.credits).toBe(4);
+    expect(plan.reason).toContain("PCCST502");
+  });
+
+  it("says so by name when every course is debarred", () => {
+    const plan = planForSgpa([debarred], 7.5);
+    expect(plan.reachable).toBe(false);
+    expect(plan.reason).toContain("PCCST502");
+  });
+
+  it("plans an unknown attendance normally - it is not a debarment", () => {
+    const blank: Course = { ...blankCourse("PCCST503", "OS", 4), cie_override: 30 };
+    expect(evaluate(blank).attendance).toBeNull();
+    const plan = planForSgpa([attending, blank], 7.5);
+    expect(plan.plan.map((row) => row.code).sort()).toEqual(["PCCST501", "PCCST503"]);
+    expect(plan.reason).toBeUndefined();
+  });
+
+  it("lets a published grade outrank the debarment", () => {
+    const graded: Course = { ...debarred, portal_grade: "B+" };
+    expect(summarise([graded]).sgpaProjected).toBe(8.0);
+    const plan = planForSgpa([attending, graded], 7.5);
+    expect(plan.plan.map((row) => row.code).sort()).toEqual(["PCCST501", "PCCST502"]);
   });
 });

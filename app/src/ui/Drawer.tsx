@@ -88,7 +88,12 @@ export function Drawer() {
                   <span>
                     <strong style={{ color: "var(--brand-bright)" }}>{row.grade}</strong>
                     <Show when={!row.locked}>
-                      <span class="num" style={{ color: "var(--text-dim)" }}> · {row.ese} in the exam</span>
+                      <span class="num" style={{ color: "var(--text-dim)" }}>
+                        {" "}· {row.unassessed ? "at least " : ""}{row.ese} in the exam
+                      </span>
+                    </Show>
+                    <Show when={row.unassessed}>
+                      <span style={{ color: "var(--warn)" }}> · internals not marked yet</span>
                     </Show>
                   </span>
                 </div>
@@ -98,6 +103,9 @@ export function Drawer() {
               Balanced on the difficulty of each next grade, not on total marks -
               a plan demanding 60/60 in two papers is not a plan.
             </p>
+            <Show when={goalPlan()!.reason}>
+              {(reason) => <p class="chart-note">{reason()}</p>}
+            </Show>
           </div>
         </Show>
 

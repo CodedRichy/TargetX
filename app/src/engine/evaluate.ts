@@ -92,13 +92,29 @@ export function evaluate(course: Course): Evaluation {
   };
 }
 
+/**
+ * Attendance known to be below the floor R 6.2 lets the Principal condone.
+ *
+ * Below 60% there is no appeal: the student cannot sit the ESE, so nothing
+ * derived from a mark they will not be allowed to write is worth projecting.
+ * Unknown attendance is `null` and is NOT a debarment - a blank field is
+ * absence of evidence, and every consumer here tests the known case only.
+ *
+ * Says nothing about a published grade. A course the university has already
+ * graded is decided whatever its attendance was, so callers that project or
+ * plan check `grade === null` alongside this.
+ */
+export function isDebarred(ev: Evaluation): boolean {
+  return ev.attendance !== null && ev.attendance < ATTENDANCE_CONDONE;
+}
+
 /** Single verdict per subject. Worst condition wins. */
 export function statusFor(ev: Evaluation): Status {
   if (!ev.assessed && ev.total === null) {
     // No internal assessment published yet. Attendance is still real and still
     // worth flagging, but nothing can be said about the marks - and nothing
     // can be said about attendance itself when that field is also blank.
-    if (ev.attendance !== null && ev.attendance < ATTENDANCE_CONDONE) return "DEBARRED";
+    if (isDebarred(ev)) return "DEBARRED";
     if (ev.eligible === false) return "SHORTAGE";
     return "PENDING";
   }
@@ -107,7 +123,7 @@ export function statusFor(ev: Evaluation): Status {
   // finished course unreachable.
   if (!ev.needPass.possible && ev.grade === null) return "UNREACHABLE";
   if (ev.grade === "F") return "FAILED";
-  if (ev.attendance !== null && ev.attendance < ATTENDANCE_CONDONE) return "DEBARRED";
+  if (isDebarred(ev)) return "DEBARRED";
   if (ev.eligible === false) return "SHORTAGE";
   if (ev.grade === null && ev.eseMax && ev.needPass.value / ev.eseMax > 0.7) return "TIGHT";
   return "SAFE";
@@ -157,6 +173,15 @@ export function summarise(courses: Course[]): Summary {
       // Only a known shortage counts as a warning - an unknown attendance
       // field is not evidence of one.
       if (ev.eligible === false) lowAttendance.push(label);
+      continue;
+    }
+
+    // Debarred and ungraded: they will not be allowed to sit the ESE, so a
+    // projected grade for this course would be a prediction about an exam
+    // that will not happen. Its credits stay in `credits` - they are still
+    // registered - but no grade point is invented for them.
+    if (ev.grade === null && isDebarred(ev)) {
+      lowAttendance.push(label);
       continue;
     }
 

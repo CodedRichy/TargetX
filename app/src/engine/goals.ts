@@ -1,5 +1,5 @@
-import { GRADE_BANDS, GRADE_POINTS } from "./constants";
-import { evaluate } from "./evaluate";
+import { ATTENDANCE_CONDONE, GRADE_BANDS, GRADE_POINTS } from "./constants";
+import { evaluate, isDebarred } from "./evaluate";
 import { requiredEse } from "./grade";
 import type { Course, Grade, SemesterHistory } from "./types";
 import { round, toFloat } from "./util";
@@ -171,6 +171,12 @@ export interface CourseOption {
   locked: boolean;
   credits: number;
   eseMax: number;
+  /**
+   * Priced from a full CIE because nothing has been marked yet, so `ese` is
+   * the least this grade could cost rather than what it will cost. Whoever
+   * shows this row has to say so.
+   */
+  unassessed: boolean;
 }
 
 /**
@@ -179,6 +185,15 @@ export interface CourseOption {
  * Cost is the ESE mark required - the only currency a student actually spends.
  * Grades already impossible are omitted rather than shown greyed out, because
  * a plan built on them is not a plan.
+ *
+ * An unassessed course has no CIE to price against: its components are
+ * unmarked, and the attendance marks R 7.5.ii may already have earned are not
+ * a CIE. Reverse-solving off that near-zero would call every letter impossible
+ * and drop the course - one ungraded lab would then take the whole semester's
+ * plan with it. So the ladder is priced from a full CIE bucket instead, which
+ * is the strongest bound that is actually true: whatever the internals turn
+ * out to be, the grade cannot cost less than this. `unassessed` is set on
+ * every such row so the figure is never read as a settled requirement.
  */
 export function courseOptions(course: Course): CourseOption[] {
   const ev = evaluate(course);
@@ -186,17 +201,18 @@ export function courseOptions(course: Course): CourseOption[] {
     // Already decided by a published grade.
     return [{
       grade: ev.grade, gp: GRADE_POINTS[ev.grade], ese: ev.ese ?? 0,
-      locked: true, credits: ev.credits, eseMax: ev.eseMax,
+      locked: true, credits: ev.credits, eseMax: ev.eseMax, unassessed: false,
     }];
   }
 
   const options: CourseOption[] = [];
+  const cie = ev.assessed ? ev.cie : ev.cieMax;
   for (const [letter, , gp] of GRADE_BANDS) {
-    const need = requiredEse(ev.cie, letter, ev.eseMax);
+    const need = requiredEse(cie, letter, ev.eseMax);
     if (need.possible) {
       options.push({
-        grade: letter, gp, ese: need.value,
-        locked: false, credits: ev.credits, eseMax: ev.eseMax,
+        grade: letter, gp, ese: need.value, locked: false,
+        credits: ev.credits, eseMax: ev.eseMax, unassessed: !ev.assessed,
       });
     }
   }
@@ -210,6 +226,8 @@ export interface PlanRow {
   ese: number;
   credits: number;
   locked: boolean;
+  /** `ese` is a floor priced from an unmarked CIE. See `CourseOption`. */
+  unassessed: boolean;
 }
 
 export interface SgpaPlan {
@@ -219,6 +237,10 @@ export interface SgpaPlan {
   credits?: number;
   plan: PlanRow[];
   maxSgpa?: number;
+  /**
+   * Why the plan is what it is. Set on a reachable plan too, when courses had
+   * to be left out of it - the student is owed the omission either way.
+   */
   reason?: string;
 }
 
@@ -234,21 +256,46 @@ export interface SgpaPlan {
  * Ladders are keyed by position, not by course code - two courses sharing a
  * code (a re-registered backlog alongside its current sitting) would otherwise
  * silently collapse into one.
+ *
+ * A debarred course is not planned at all: instructing a mark in an exam the
+ * student will not be admitted to is worse than saying nothing. It leaves the
+ * plan the same way it leaves `sgpaProjected` - out of both the marks and the
+ * credits - and `reason` names it, because a plan that quietly shrinks is a
+ * plan that overstates what the semester is worth.
  */
 export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
-  const totalCredits = courses.reduce((sum, c) => sum + toFloat(c.credits, 0), 0);
-  if (totalCredits <= 0) return { reachable: false, reason: "no credits", plan: [] };
+  const plannable: Course[] = [];
+  const debarred: string[] = [];
+  for (const course of courses) {
+    const ev = evaluate(course);
+    // A published grade settles the course whatever the attendance was, so it
+    // stays in the plan as a locked row.
+    if (ev.grade === null && isDebarred(ev)) debarred.push(course.code || course.name || "?");
+    else plannable.push(course);
+  }
+  const dropped = debarred.length > 0
+    ? `${debarred.join(", ")} left out: attendance below ${ATTENDANCE_CONDONE}%`
+    : undefined;
+  /** Carry the exclusions alongside whatever else there is to report. */
+  const note = (reason?: string) => [reason, dropped].filter(Boolean).join("; ") || undefined;
+
+  const totalCredits = plannable.reduce((sum, c) => sum + toFloat(c.credits, 0), 0);
+  if (totalCredits <= 0) {
+    // Not "no credits" when everything was debarred - that would name the
+    // wrong problem.
+    return { reachable: false, plan: [], reason: dropped ?? "no credits" };
+  }
 
   const neededPoints = targetSgpa * totalCredits;
   const ladders: CourseOption[][] = [];
   const labels: string[] = [];
   let current = 0;
 
-  for (const course of courses) {
+  for (const course of plannable) {
     const options = courseOptions(course);
     const label = course.code || course.name || "?";
     if (options.length === 0) {
-      return { reachable: false, plan: [], reason: `${label} cannot be passed` };
+      return { reachable: false, plan: [], reason: note(`${label} cannot be passed`) };
     }
     ladders.push(options);
     labels.push(label);
@@ -265,7 +312,7 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
     return {
       reachable: false, plan: [],
       maxSgpa: round(ceiling / totalCredits, 3),
-      reason: "target is above the best still available",
+      reason: note("target is above the best still available"),
     };
   }
 
@@ -298,7 +345,7 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
     const pick = ladders[i]![at]!;
     return {
       code: labels[i]!, grade: pick.grade, ese: pick.ese,
-      credits: pick.credits, locked: pick.locked,
+      credits: pick.credits, locked: pick.locked, unassessed: pick.unassessed,
     };
   });
   plan.sort((a, b) => b.ese - a.ese);
@@ -310,6 +357,7 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
     credits: totalCredits,
     plan,
     maxSgpa: round(ceiling / totalCredits, 3),
+    reason: note(),
   };
 }
 
