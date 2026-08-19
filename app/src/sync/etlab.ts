@@ -11,7 +11,10 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 import { CODE_RE } from "../engine/parse";
-import { COURSE_TYPES, blankCourse, inferCredits, lookupCourse, toFloat, verifyCredits } from "../engine";
+import {
+  COURSE_TYPES, blankCourse, inferCredits, isIncomplete, lookupCourse,
+  normaliseGrade, toFloat, verifyCredits,
+} from "../engine";
 import type { Course, SemesterHistory, TypeKey } from "../engine";
 
 export class EtlabError extends Error {}
@@ -564,8 +567,17 @@ export function academicsToState(
         // course was priced by inference the total stays unknown and
         // `cgpaFromSemesters` reports the semester as unconfirmed rather than
         // weighting the CGPA by a guess.
+        //
+        // A course graded I or W is left out of the sum. `entry.sgpa` stored
+        // beside it is the portal's own SGPA, computed without that course, so
+        // keeping its credits here would weigh the semester by a set of
+        // courses its SGPA never covered - and hand the withdrawn credits the
+        // student's own average. An F stays: it is a result, and its credits
+        // are in the denominator KTU used.
         creditsRegistered: allCreditsListed
-          ? courses.reduce((sum, c) => sum + toFloat(c.credits, 0), 0)
+          ? courses.reduce((sum, c) => (
+              isIncomplete(normaliseGrade(c.portal_grade)) ? sum
+                : sum + toFloat(c.credits, 0)), 0)
           : null,
         // A missing published total is unknown, not zero.
         creditsEarned: entry.earnedCredits ?? null,

@@ -11,9 +11,9 @@ import { describe, expect, it } from "vitest";
 import { academicsToState } from "../etlab";
 import type { Academics, PortalCourse } from "../etlab";
 
-const course = (code: string): PortalCourse => ({
+const course = (code: string, grade: string | null = null): PortalCourse => ({
   code, name: "", attended: null, held: null, attendance: null,
-  internal: null, grade: null, result: null, gpa: null, series: [],
+  internal: null, grade, result: null, gpa: null, series: [],
 });
 
 /** Codes in the bundled curriculum: 3 + 4 + 3 + 1 + 4 = 15 credits. */
@@ -21,7 +21,18 @@ const LISTED = ["GAMAT101", "GAPHT121", "GMEST103", "GXESL106", "UCEST105"];
 
 const academics = (codes: string[]): Academics => ({
   current: null,
-  semesters: { 1: { courses: codes.map(course), sgpa: 7.5, earnedCredits: 12 } },
+  semesters: { 1: { courses: codes.map((c) => course(c)), sgpa: 7.5, earnedCredits: 12 } },
+});
+
+/** The same semester, with one named course carrying a published grade. */
+const graded = (code: string, grade: string): Academics => ({
+  current: null,
+  semesters: {
+    1: {
+      courses: LISTED.map((c) => course(c, c === code ? grade : "B")),
+      sgpa: 7.5, earnedCredits: 12,
+    },
+  },
 });
 
 describe("history from a portal sync", () => {
@@ -44,5 +55,40 @@ describe("history from a portal sync", () => {
     const a = academics(LISTED);
     delete a.semesters[1]!.earnedCredits;
     expect(academicsToState(a).history["S1"]!.creditsEarned).toBeNull();
+  });
+});
+
+/**
+ * `entry.sgpa` is the portal's own figure, and KTU computed it without the
+ * courses marked I or W. Summing those courses' credits into the registered
+ * total anyway weighs the semester by a set of courses its SGPA never covered,
+ * which pays the student their own average for the course they withdrew from.
+ */
+describe("a withdrawn course in a portal sync", () => {
+  // GAPHT121 is the 4-credit entry in LISTED; without it the total is 11.
+  it("leaves the registered total", () => {
+    expect(academicsToState(graded("GAPHT121", "W")).history["S1"]!.creditsRegistered)
+      .toBe(11);
+  });
+
+  it("does the same for an incomplete", () => {
+    expect(academicsToState(graded("GAPHT121", "I")).history["S1"]!.creditsRegistered)
+      .toBe(11);
+  });
+
+  // A pin, not a change: AB and F are results, and KTU keeps their credits in
+  // the denominator it used. Only I and W move.
+  it("does not take an absent or failed course with it", () => {
+    expect(academicsToState(graded("GAPHT121", "AB")).history["S1"]!.creditsRegistered)
+      .toBe(15);
+    expect(academicsToState(graded("GAPHT121", "F")).history["S1"]!.creditsRegistered)
+      .toBe(15);
+  });
+
+  // The portal publishes this one and it is not recomputed here, so a
+  // withdrawal cannot move it in either direction.
+  it("does not disturb the published earned total", () => {
+    expect(academicsToState(graded("GAPHT121", "W")).history["S1"]!.creditsEarned)
+      .toBe(12);
   });
 });

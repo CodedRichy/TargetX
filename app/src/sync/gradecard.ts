@@ -10,12 +10,24 @@
  * every line is scanned for a course code, a grade token after it, and a small
  * number that looks like credits.
  */
-import { GRADE_POINTS, sgpa as computeSgpa } from "../engine";
+import {
+  GRADE_POINTS, isGraded, isIncomplete, normaliseGrade, sgpa as computeSgpa,
+} from "../engine";
 import { CODE_RE } from "../engine/parse";
-import type { Grade } from "../engine";
 
 const GRADE_TOKENS = ["A+", "B+", "C+", "S", "A", "B", "C", "D", "P", "F",
-                      "FE", "I", "W", "AB"];
+                      "FE", "I", "W", "AB"] as const;
+
+/**
+ * Exactly what `GRADE_RE` can match, which is wider than `Grade`.
+ *
+ * Four of these tokens - FE, I, W, AB - carry no grade point, so a parsed
+ * token is not a `Grade` and must not be typed as one. It was typed as one:
+ * the `as Grade` this replaces let `GRADE_POINTS[c.grade]` compile and score a
+ * withdrawal zero at full credits. Derived from the token list so the two
+ * cannot drift apart.
+ */
+export type CardToken = (typeof GRADE_TOKENS)[number];
 // The lookbehind stops "B" being found inside a word, and the longer tokens are
 // listed first so "A+" is never read as "A" followed by a stray plus.
 const GRADE_RE = new RegExp(
@@ -29,16 +41,31 @@ const SGPA_RE = /\bSGPA\s*[:=]?\s*(\d+(?:\.\d+)?)/i;
 const FAIL_TOKENS = new Set(["F", "FE", "I", "W", "AB"]);
 
 export interface CardCourse {
-  code: string; name: string; credits: number; grade: Grade; passed: boolean;
+  code: string; name: string; credits: number; grade: CardToken; passed: boolean;
 }
 
 export interface CardSemester {
   courses: CardCourse[];
   sgpaPrinted?: number;
   sgpaCalc: number;
-  /** Every course on the card, failures included - the CGPA denominator. */
+  /**
+   * The CGPA denominator: every course on the card except an I or a W.
+   *
+   * Failures stay - an F is a result, and KTU keeps its credits in the
+   * denominator. I and W leave, because `sgpaPrinted` beside them is the
+   * university's own figure and it was computed without them; storing the
+   * printed SGPA against a total that still carries the withdrawn credits
+   * would pay the student their own average for the course they walked away
+   * from. The two numbers have to describe the same set of courses.
+   */
   credits: number;
-  /** Only the courses that passed. Shown, never weighted. */
+  /**
+   * Only the courses that passed. Shown, never weighted.
+   *
+   * An I or a W is in `FAIL_TOKENS`, so it is already out of this total - the
+   * same set of courses `credits` now covers, minus the ones that did not
+   * pass.
+   */
   creditsEarned: number;
   /**
    * True when the recomputed SGPA disagrees with the printed one, which means
@@ -94,7 +121,7 @@ export function parseGradeCard(text: string): GradeCard {
     GRADE_RE.lastIndex = 0;
     for (let m = GRADE_RE.exec(tail); m !== null; m = GRADE_RE.exec(tail)) gradeMatch = m;
     if (!gradeMatch) continue;
-    const grade = gradeMatch[1] as Grade;
+    const grade = gradeMatch[1] as CardToken;
 
     // Credits are the last small number before the grade. Anything above 8 is
     // a mark or a roll number, not a credit.
@@ -128,13 +155,20 @@ export function parseGradeCard(text: string): GradeCard {
 
   const out: Record<string, CardSemester> = {};
   for (const [name, entry] of Object.entries(semesters)) {
-    const sgpaCalc = computeSgpa(
-      entry.courses.map((c) => [c.credits, GRADE_POINTS[c.grade] ?? 0] as [number, number]));
+    // I and W score nothing and weigh nothing; FE and AB are real fails and
+    // weigh their full credits at a grade point of 0. `normaliseGrade` already
+    // draws that line - drawing it a second time here is how the two would
+    // come to disagree.
+    const counted = entry.courses.filter((c) => !isIncomplete(normaliseGrade(c.grade)));
+    const sgpaCalc = computeSgpa(counted.map((c) => {
+      const grade = normaliseGrade(c.grade);
+      return [c.credits, isGraded(grade) ? GRADE_POINTS[grade] : 0] as [number, number];
+    }));
     out[name] = {
       courses: entry.courses,
       sgpaPrinted: entry.sgpaPrinted,
       sgpaCalc,
-      credits: entry.courses.reduce((sum, c) => sum + c.credits, 0),
+      credits: counted.reduce((sum, c) => sum + c.credits, 0),
       creditsEarned: entry.courses.filter((c) => c.passed)
         .reduce((sum, c) => sum + c.credits, 0),
       mismatch: entry.sgpaPrinted !== undefined
