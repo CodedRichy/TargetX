@@ -332,6 +332,14 @@ describe("duty leave", () => {
     expect(attendancePlan(30, 50, 8)!.dlWasted).toBe(3.0);
   });
 
+  it("can waste a fraction of a class, which is why the ledger rounds up", () => {
+    // 47 held allows 4.7, so a 5-class claim wastes 0.3. Rounding a figure
+    // like this to nearest for display would render it as 0 and drop the
+    // warning entirely, which the legend promises never happens - hence the
+    // `Math.ceil` in `Ledger.tsx` rather than `Math.round`.
+    expect(attendancePlan(30, 47, 5)!.dlWasted).toBe(0.3);
+  });
+
   it("answers how many classes can be skipped when above the line", () => {
     const plan = attendancePlan(45, 50)!;   // 90%
     expect(plan.state).toBe("surplus");
@@ -345,8 +353,8 @@ describe("duty leave", () => {
   });
 
   it("grows the cap with the classes attended, when climbing back", () => {
-    // 60/100 with 100 days of DL claimed: today only 10 are creditable, so the
-    // portal reads 70%. Attend n and the cap is 10% of (100+n), not of 100.
+    // 60/100 with 100 classes of DL claimed: only 10 are creditable today, so
+    // the portal reads 70%. Attend n and the cap is 10% of (100+n), not 100.
     // At n=15: 75/115 attended, 11.5 creditable, 86.5/115 = 75.2%. At n=14 it
     // is 85.4/114 = 74.9%. Crediting 10 up front asks for 20.
     const plan = attendancePlan(60, 100, 100)!;
@@ -356,7 +364,7 @@ describe("duty leave", () => {
   });
 
   it("grows the cap with the classes held, when spending a surplus", () => {
-    // 140/200 with 30 days claimed: 20 creditable today, so 160/200 = 80%.
+    // 140/200 with 30 classes claimed: 20 creditable today, so 160/200 = 80%.
     // Skipping raises held, which raises the cap - at 15 skips the cap is 21.5
     // and 161.5/215 = 75.1%; at 16 it is 161.6/216 = 74.8%. Holding the credit
     // at today's 20 would say 13.
@@ -366,9 +374,20 @@ describe("duty leave", () => {
     expect(plan.skip).toBe(15);
   });
 
+  it("stops clipping claim that a larger held has room for", () => {
+    // 95/100 with 10 claimed sits exactly at the cap, so the cap is not what
+    // moves here: today's 100% ceiling clips the credit at 100 and throws the
+    // rest away. Skipping raises that ceiling along with held - at 40 skips
+    // 105/140 = 75.0% clears, at 41 it is 105/141 = 74.5% and does not.
+    // Dividing the clipped 100 instead says 33.
+    const plan = attendancePlan(95, 100, 10)!;
+    expect(plan.current).toBe(100);
+    expect(plan.skip).toBe(40);
+  });
+
   it("leaves the budget alone when the claim already fits under the cap", () => {
-    // 5 days claimed against 200 held is nowhere near the 20 allowed, so the
-    // growing cap never binds and the answer is the plain 155/(200+s) >= 75%.
+    // 5 classes claimed against 200 held is nowhere near the 20 allowed, so
+    // the growing cap never binds: the answer is the plain 155/(200+s) >= 75%.
     const plan = attendancePlan(150, 200, 5)!;
     expect(plan.current).toBe(77.5);
     expect(plan.skip).toBe(6);

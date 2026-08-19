@@ -13,8 +13,10 @@
  * oracle carries the very defects p0-engine-correctness fixes: its fixture
  * values for them are the wrong answer, not the spec. Regenerating the
  * fixture would only re-pin these tests to the bugs, so it stays byte
- * identical and the comparison narrows instead. Direct coverage for
- * everything dropped lives in `core.test.ts`.
+ * identical and the comparison narrows instead. Each exclusion is a single
+ * field, not a whole object - a field the oracle still gets right is evidence
+ * worth keeping. Direct coverage for everything dropped lives in
+ * `core.test.ts`.
  *
  *   - `attendance`, `eligible`, `attMarks` (task 1): the oracle reads a blank
  *     attendance field as a full 100%.
@@ -23,18 +25,26 @@
  *     attendance inside the CIE, so every number derived from the CIE differs
  *     by up to the 5 marks of R 7.5.ii. The same goes for the semester
  *     rollup's SGPA, percentage, at-risk and impossible fields.
- *   - `plan`, `attBand` (task 8): the oracle credits duty leave once against
- *     today's `held`, then asks how many classes may be skipped or must be
- *     attended - questions whose `held`, and so whose 10% relaxation, is
- *     larger. Its `skip` and `attend` are answers to a denominator that no
- *     longer applies. `core.test.ts` covers both branches directly, under
- *     "duty leave", against figures derived by hand from R 6.3.ii.
+ *   - `plan.skip`, `plan.attend`, `attBand.attend` (task 8): the oracle
+ *     credits duty leave once against today's `held`, then asks how many
+ *     classes may be skipped or must be attended - questions whose `held`,
+ *     and so whose 10% relaxation, is larger. Those three numbers answer a
+ *     denominator that no longer applies. Only they moved: of the corpus's
+ *     459 plans, `plan.skip` differs on 90 (the surplus ones), `plan.attend`
+ *     on 29 (the deficit ones) and `attBand.attend` on 29, while the other
+ *     nine fields of the two objects differ on none - so those nine are
+ *     still compared. `plan.current` especially - it is the only path into
+ *     `effectiveAttendance` and so into the CIE, which makes it the fixture's
+ *     standing evidence that this task moved nothing downstream.
  *
- * What is left is thin, and worth saying plainly: after this narrowing the
- * comparison is the maxima, the raw ESE, the credits, the assessed flag and
- * the chosen target - the fields no p0 fix touches. It is a guard against
- * regressing the parts nobody set out to change, not evidence the engine is
- * right. The evidence for that lives in `core.test.ts`.
+ * What is left is worth stating exactly, since the exclusion list above is
+ * long. Per course the comparison still asserts `cieMax`, `eseMax`, `ese`,
+ * `eseCutoff`, `assessed`, `credits`, `target`, and nine attendance fields:
+ * `plan`'s raw and duty-leave-adjusted percentages, its claimed/credited/
+ * wasted split and its surplus-or-deficit verdict, plus `attBand`'s earned
+ * marks, next band and that band's floor. What it no longer asserts is
+ * anything downstream of the CIE and the three moved plan numbers; for those
+ * the evidence is `core.test.ts`, not this file.
  */
 import { describe, expect, it } from "vitest";
 import fixture from "./parity.json";
@@ -49,9 +59,31 @@ interface Expected {
   needPass: { value: number; possible: boolean; text: string; binding: string };
   needTarget: { value: number; possible: boolean; text: string; binding: string };
   target: string; maxPossibleGrade: string; status: string;
-  plan: Record<string, unknown> | null;
-  attBand: Record<string, unknown> | null;
+  plan: PlanFields | null;
+  attBand: BandFields | null;
 }
+
+/**
+ * The `plan` and `attBand` fields the oracle still agrees with, structurally
+ * so that one reducer serves both sides. `AttendancePlan` and
+ * `AttendanceBand` satisfy these; the moved keys are simply absent.
+ */
+interface PlanFields {
+  raw: number; current: number; dlClaimed: number;
+  dlCredited: number; dlWasted: number; state: string;
+}
+interface BandFields { earned: number; nextMarks: number | null; atPct: number | null; }
+
+/** Drops `skip`/`attend`, keeps the six the fixture is still right about. */
+const slimPlan = (plan: PlanFields | null) => plan === null ? null : {
+  raw: plan.raw, current: plan.current, dlClaimed: plan.dlClaimed,
+  dlCredited: plan.dlCredited, dlWasted: plan.dlWasted, state: plan.state,
+};
+
+/** Drops `attend`, keeps the three the fixture is still right about. */
+const slimBand = (band: BandFields | null) => band === null ? null : {
+  earned: band.earned, nextMarks: band.nextMarks, atPct: band.atPct,
+};
 
 const courses = fixture.courses as unknown as Array<{ course: Course; expected: Expected }>;
 const semesters = fixture.semesters as unknown as Array<{
@@ -67,6 +99,7 @@ function slim(ev: Evaluation) {
   return {
     cieMax: ev.cieMax, eseMax: ev.eseMax, ese: ev.ese, eseCutoff: ev.eseCutoff,
     assessed: ev.assessed, credits: ev.credits, target: ev.target,
+    plan: slimPlan(ev.plan), attBand: slimBand(ev.attBand),
   };
 }
 
@@ -77,9 +110,9 @@ function slimExpected(expected: Expected) {
     cie: _cie, total: _total, grade: _grade, failedReason: _failedReason,
     needPass: _needPass, needTarget: _needTarget,
     maxPossibleGrade: _maxPossibleGrade, status: _status,
-    plan: _plan, attBand: _attBand, ...rest
+    plan, attBand, ...rest
   } = expected;
-  return rest;
+  return { ...rest, plan: slimPlan(plan), attBand: slimBand(attBand) };
 }
 
 /**

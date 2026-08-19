@@ -53,9 +53,14 @@ function creditDutyLeave(held: number, dutyLeave: MarkInput, dlCapPct: number) {
  *                                ->  s <= attended/(f-c) - held
  *   never above 100%:          1 >= f, which any f <= 1 clears for free.
  *
- * The cap bound is the one crediting DL up front gets wrong: it holds the
- * relaxation at 10% of today's held for a question asked about a larger one,
- * and so understates the room a student on heavy duty leave actually has.
+ * Crediting DL up front freezes two of those terms at s = 0 - the relaxation
+ * at 10% of today's held, and the 100% ceiling at today's held - and only
+ * then divides, which understates the room. Either frozen term can be the one
+ * that moves. With a claim above the cap it is `atCap`. With a claim that
+ * fits under the cap but already carries the student past 100% today it is
+ * `underCap`, because the frozen ceiling discards claim that a larger `held`
+ * has room for: 95/100 with 10 claimed is exactly at the cap, so the cap
+ * never binds, and the answer is still 40 skips rather than 33.
  */
 function skipBudget(
   attended: number, held: number, claimed: number, cap: number, fraction: number,

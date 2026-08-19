@@ -118,8 +118,12 @@ function Detail(props: { index: number; course: Course; ev: Evaluation }) {
                       <strong>{plan().current.toFixed(1)}%</strong>.{" "}
                       {/* Classes, not days, and a whole number of them: the
                           cap is a fraction of held, so the leftover comes out
-                          fractional even though nobody misses half a class. */}
-                      <Show when={Math.round(plan().dlWasted)}>
+                          fractional even though nobody misses half a class.
+                          Rounded up, not to nearest: the legend promises that
+                          anything above the cap is reported, and 0.3 of a
+                          class rounded to nearest would delete the sentence
+                          instead of shortening it. */}
+                      <Show when={Math.ceil(plan().dlWasted)}>
                         {(wasted) => (
                           <>
                             <span class="down">
