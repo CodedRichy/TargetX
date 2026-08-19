@@ -132,7 +132,16 @@ export function Home() {
           <section class="tile hero">
             <div class="tile-head">
               <h3>Standing</h3>
-              <span class="tile-note num">{overall().credits} credits registered</span>
+              {/* Registered credits are the denominator - except where a
+                  migrated save only knew the earned total, and saying
+                  "registered" there would assert something untrue on the
+                  first screen the student reads. History explains which. */}
+              <span class="tile-note num">
+                <Show when={overall().unconfirmed.length === 0}
+                      fallback={<>{overall().credits} credits, some unconfirmed</>}>
+                  {overall().credits} credits registered
+                </Show>
+              </span>
             </div>
 
             <div class="hero-figure">

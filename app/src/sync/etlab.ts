@@ -511,11 +511,15 @@ export function academicsToState(
   for (const [key, entry] of Object.entries(academics.semesters)) {
     const name = `S${key}`;
     const courses: Course[] = [];
+    // Whether every course in this semester got its credits from the published
+    // curriculum. One that did not means the semester total is a guess.
+    let allCreditsListed = true;
 
     for (const item of entry.courses) {
       // The published curriculum is the authority on the CIA/ESE split; the
       // portal's Theory/Practical label is only a hint.
       const listed = lookupCourse(item.code);
+      if (!listed?.credits) allCreditsListed = false;
       let typeKey = (listed?.type ?? types[item.code] ?? inferType(item.code)) as TypeKey;
       typeKey = fitType(typeKey, item.internal);
 
@@ -549,12 +553,20 @@ export function academicsToState(
     if (entry.sgpa) {
       history[name] = {
         sgpa: entry.sgpa,
-        // The portal publishes an earned total and nothing else, so the
-        // registered total - the one the CGPA is weighted by - has to come
-        // from the courses themselves. These are the same seeded credits the
-        // live semester's grade maths already runs on, and creditCheck above
-        // is what says so out loud when they are wrong.
-        creditsRegistered: courses.reduce((sum, c) => sum + toFloat(c.credits, 0), 0),
+        // The portal publishes an earned total and nothing else, so a
+        // registered total can only be added up from the courses. That is
+        // only worth storing as fact when every one of them was priced by the
+        // published curriculum: `inferCredits` never fails, it falls through
+        // to 4, so a guessed total is indistinguishable from a known one once
+        // it is a number. Nothing published can confirm this sum either -
+        // `creditCheck` above compares it against the EARNED total, which a
+        // semester with a backlog is supposed to differ from - so where any
+        // course was priced by inference the total stays unknown and
+        // `cgpaFromSemesters` reports the semester as unconfirmed rather than
+        // weighting the CGPA by a guess.
+        creditsRegistered: allCreditsListed
+          ? courses.reduce((sum, c) => sum + toFloat(c.credits, 0), 0)
+          : null,
         // A missing published total is unknown, not zero.
         creditsEarned: entry.earnedCredits ?? null,
       };

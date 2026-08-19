@@ -237,12 +237,15 @@ describe("SGPA and percentage", () => {
 });
 
 describe("registered credits are the CGPA denominator", () => {
-  // The traced case from the audit. S3 carries one 4-credit F: 20 credits
-  // registered, 16 earned, and the printed SGPA of 4.75 already scores that
-  // F as zero grade points. Weighting the semester by 16 instead of 20 lets
-  // the worst semester count for less than the student sat for.
-  //   registered: (9.55x20 + 4.75x20) / 40 = 286 / 40      = 7.15
-  //   earned:     (9.55x20 + 4.75x16) / 36 = 267 / 36      = 7.417
+  // Fitted to the figures the audit published - CGPA 7.15 where the app read
+  // 7.417 - because the grade card behind that trace is not in this repo. The
+  // shape is the real one: S3 carries a single 4-credit F, so 20 credits
+  // registered against 16 earned, and its printed SGPA of 4.75 already scores
+  // that F as zero grade points. Weighting the semester by 16 instead of 20
+  // lets the worst semester count for less than the student sat for.
+  //   registered: (9.55x20 + 4.75x20) / 40 = 286 / 40 = 7.15
+  //   earned:     (9.55x20 + 4.75x16) / 36 = 267 / 36 = 7.417
+  // The same defect on a parsed grade card is in state/__tests__/history.
   const traced = {
     S1: { sgpa: 9.55, creditsRegistered: 20, creditsEarned: 20 },
     S3: { sgpa: 4.75, creditsRegistered: 20, creditsEarned: 16 },
@@ -253,14 +256,6 @@ describe("registered credits are the CGPA denominator", () => {
     expect(out.cgpa).toBe(7.15);
     expect(out.credits).toBe(40);
     expect(out.unconfirmed).toEqual([]);
-  });
-
-  it("would read 7.417 if the earned total were weighted instead", () => {
-    // Not a rule - this is the defect, pinned so it cannot come back.
-    expect(cgpaFromSemesters({
-      ...traced,
-      S3: { sgpa: 4.75, creditsRegistered: 16, creditsEarned: 16 },
-    }).cgpa).toBe(7.417);
   });
 
   it("falls back to the earned total only when nothing registered is known", () => {
