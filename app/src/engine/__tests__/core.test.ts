@@ -10,7 +10,8 @@ import {
   ATTENDANCE_CONDONE, ATTENDANCE_MARK_MAX, COURSE_TYPES, DL_CAP_PCT, TYPE_KEYS,
   attendanceMarks, attendancePlan, blankCourse, cgpaFromSemesters, computeCie,
   eseCutoff, evaluate, nextAttendanceBand, normaliseGrade, parseEtlab,
-  planForSgpa, requiredEse, requiredSgpaForCgpa, sgpa, statusFor, summarise,
+  historyCredits, planForSgpa, requiredEse, requiredSgpaForCgpa, sgpa, statusFor,
+  summarise,
 } from "../index";
 import type { Course, TypeKey } from "../types";
 
@@ -229,7 +230,60 @@ describe("SGPA and percentage", () => {
   });
 
   it("uses percentage = 10 x CGPA, with no legacy fudge", () => {
-    expect(cgpaFromSemesters({ S1: { sgpa: 8.5, credits: 20 } }).percent).toBe(85.0);
+    expect(cgpaFromSemesters({
+      S1: { sgpa: 8.5, creditsRegistered: 20, creditsEarned: 20 },
+    }).percent).toBe(85.0);
+  });
+});
+
+describe("registered credits are the CGPA denominator", () => {
+  // The traced case from the audit. S3 carries one 4-credit F: 20 credits
+  // registered, 16 earned, and the printed SGPA of 4.75 already scores that
+  // F as zero grade points. Weighting the semester by 16 instead of 20 lets
+  // the worst semester count for less than the student sat for.
+  //   registered: (9.55x20 + 4.75x20) / 40 = 286 / 40      = 7.15
+  //   earned:     (9.55x20 + 4.75x16) / 36 = 267 / 36      = 7.417
+  const traced = {
+    S1: { sgpa: 9.55, creditsRegistered: 20, creditsEarned: 20 },
+    S3: { sgpa: 4.75, creditsRegistered: 20, creditsEarned: 16 },
+  };
+
+  it("weights a semester with a backlog by what was registered", () => {
+    const out = cgpaFromSemesters(traced);
+    expect(out.cgpa).toBe(7.15);
+    expect(out.credits).toBe(40);
+    expect(out.unconfirmed).toEqual([]);
+  });
+
+  it("would read 7.417 if the earned total were weighted instead", () => {
+    // Not a rule - this is the defect, pinned so it cannot come back.
+    expect(cgpaFromSemesters({
+      ...traced,
+      S3: { sgpa: 4.75, creditsRegistered: 16, creditsEarned: 16 },
+    }).cgpa).toBe(7.417);
+  });
+
+  it("falls back to the earned total only when nothing registered is known", () => {
+    expect(historyCredits({ sgpa: 4.75, creditsRegistered: 20, creditsEarned: 16 })).toBe(20);
+    expect(historyCredits({ sgpa: 4.75, creditsRegistered: null, creditsEarned: 16 })).toBe(16);
+    expect(historyCredits({ sgpa: 4.75, creditsRegistered: null, creditsEarned: null })).toBe(0);
+  });
+
+  it("names every semester it had to fall back on, and only those", () => {
+    // A save written before the two totals were told apart. The CGPA is the
+    // old one rather than a silent correction, and says so.
+    const out = cgpaFromSemesters({
+      ...traced,
+      S3: { sgpa: 4.75, creditsRegistered: null, creditsEarned: 16 },
+    });
+    expect(out.unconfirmed).toEqual(["S3"]);
+    expect(out.cgpa).toBe(7.417);
+  });
+
+  it("has nothing to report on an empty history", () => {
+    const out = cgpaFromSemesters({});
+    expect([out.cgpa, out.credits]).toEqual([0, 0]);
+    expect(out.unconfirmed).toEqual([]);
   });
 });
 
@@ -301,7 +355,10 @@ describe("duty leave", () => {
 });
 
 describe("goal engine", () => {
-  const history = { S1: { sgpa: 8.0, credits: 20 }, S2: { sgpa: 8.0, credits: 20 } };
+  const history = {
+    S1: { sgpa: 8.0, creditsRegistered: 20, creditsEarned: 20 },
+    S2: { sgpa: 8.0, creditsRegistered: 20, creditsEarned: 20 },
+  };
 
   it("says holding a CGPA needs the same SGPA", () => {
     expect(requiredSgpaForCgpa(8.0, history, 20).required).toBe(8.0);

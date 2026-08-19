@@ -1,7 +1,7 @@
 import { For, Show, createMemo } from "solid-js";
 import { ATTENDANCE_MARK_MAX } from "../engine";
 import {
-  goalRequirement, overall, rows, state, summary,
+  goalRequirement, overall, rows, state, summary, trend,
 } from "../state/store";
 import { setView } from "../state/nav";
 import { GoalGauge, TrendChart } from "./charts";
@@ -132,7 +132,7 @@ export function Home() {
           <section class="tile hero">
             <div class="tile-head">
               <h3>Standing</h3>
-              <span class="tile-note num">{overall().credits} credits earned</span>
+              <span class="tile-note num">{overall().credits} credits registered</span>
             </div>
 
             <div class="hero-figure">
@@ -275,9 +275,7 @@ export function Home() {
               <button class="link" onClick={() => setView("history")}>History</button>
             </div>
             <TrendChart
-              data={Object.entries(state.history)
-                .map(([name, v]) => ({ name, ...v }))
-                .sort((a, b) => Number(a.name.slice(1)) - Number(b.name.slice(1)))}
+              data={trend()}
               cgpa={overall().cgpa}
             />
           </section>

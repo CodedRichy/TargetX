@@ -16,6 +16,14 @@ const fmt = (n: number, places = 2) => n.toFixed(places);
 
 // --- SGPA trend ------------------------------------------------------------
 
+/**
+ * One published semester on the trend line.
+ *
+ * `credits` is the weight the running CGPA divides by - registered credits,
+ * or the earned total where a save predates the split. It is whatever
+ * `historyCredits` returned, never a raw field off `SemesterHistory`, so the
+ * line behind the bars is weighted exactly like the real CGPA.
+ */
 interface TrendPoint { name: string; sgpa: number; credits: number }
 
 /**

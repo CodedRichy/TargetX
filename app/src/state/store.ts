@@ -2,9 +2,8 @@ import { createMemo } from "solid-js";
 import { createStore, produce, unwrap } from "solid-js/store";
 import {
   cgpaFromSemesters, courseFromCode, defaultState, evaluate, historyCredits,
-  planForSgpa, requiredSgpaForCgpa, statusFor, summarise,
+  planForSgpa, requiredSgpaForCgpa, statusFor, summarise, toFloat, toOptionalFloat,
 } from "../engine";
-import { toFloat, toOptionalFloat } from "../engine";
 import type { Course, MarkInput, SemesterHistory } from "../engine";
 import type { AppState, Semester } from "../engine/course";
 

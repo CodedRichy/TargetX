@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import { evaluate, sgpa as computeSgpa, GRADE_POINTS } from "../engine";
-import { overall, setHistory, state, edit } from "../state/store";
+import type { SemesterHistory } from "../engine";
+import { overall, setHistory, state, edit, trend } from "../state/store";
 import { TrendChart } from "./charts";
 
 /**
@@ -75,7 +76,7 @@ export function History() {
           <span class="kpi-label">CGPA</span>
           <span class="kpi-value num">{overall().cgpa.toFixed(2)}</span>
           <span class="kpi-note num">
-            {overall().percent.toFixed(1)}% · {overall().credits} credits
+            {overall().percent.toFixed(1)}% · {overall().credits} registered credits
           </span>
         </div>
       </div>
@@ -98,6 +99,23 @@ export function History() {
             </tbody>
           </table>
 
+          <Show when={unconfirmed().length > 0}>
+            <div class="notice">
+              <strong>
+                {unconfirmed().length === 1
+                  ? `${unconfirmed()[0]} has no registered credit total.`
+                  : `${unconfirmed().length} semesters have no registered credit total.`}
+              </strong> KTU divides the CGPA by the credits you registered for —
+              a failed course still counts in the denominator. Where TargetX
+              has the earned total it weights by that instead, which
+              understates the divisor wherever there is a backlog; where it has
+              neither, the semester does not count at all. Type the registered
+              total into the Registered credits column
+              {unconfirmed().length === 1 ? "" : ` for ${unconfirmed().join(", ")}`} and
+              the CGPA above becomes the one KTU would print.
+            </div>
+          </Show>
+
           <Show when={drifting().length > 0}>
             <div class="notice warn">
               <strong>
@@ -116,9 +134,7 @@ export function History() {
         <aside>
           <h4>Trend</h4>
           <TrendChart
-            data={Object.entries(state.history)
-              .map(([name, v]) => ({ name, ...v }))
-              .sort((a, b) => Number(a.name.slice(1)) - Number(b.name.slice(1)))}
+            data={trend()}
             cgpa={overall().cgpa}
           />
         </aside>
