@@ -2,7 +2,8 @@ import { createMemo } from "solid-js";
 import { createStore, produce, unwrap } from "solid-js/store";
 import {
   cgpaFromSemesters, courseFromCode, defaultState, evaluate, historyCredits,
-  planForSgpa, requiredSgpaForCgpa, statusFor, summarise, toFloat, toOptionalFloat,
+  horizonToGraduation, planForSgpa, requiredSgpaForCgpa, statusFor, summarise,
+  toFloat, toOptionalFloat,
 } from "../engine";
 import type { Course, MarkInput, SemesterHistory } from "../engine";
 import type { AppState, Semester } from "../engine/course";
@@ -165,7 +166,13 @@ export const summary = createMemo(() => summarise(activeCourses()));
 export const overall = createMemo(() => cgpaFromSemesters(state.history));
 
 /**
- * The goal line: what this semester must deliver for the target CGPA.
+ * The goal line: the SGPA this semester and every one after it must average
+ * for the target CGPA.
+ *
+ * A CGPA target is a graduation target, so it is solved over the semesters
+ * that are actually left rather than against this one alone. The horizon is
+ * derived from the student's own record and travels back with the answer, so
+ * the screen states it instead of passing it off as fact.
  *
  * Returns null when no goal is set - showing "required SGPA 0.00" to a student
  * who never asked for a goal is noise dressed as information.
@@ -173,9 +180,18 @@ export const overall = createMemo(() => cgpaFromSemesters(state.history));
 export const goalRequirement = createMemo(() => {
   const target = state.goal?.cgpa;
   if (!target) return null;
-  return requiredSgpaForCgpa(target, state.history, summary().credits);
+  const credits = summary().credits;
+  const horizon = horizonToGraduation(state.activeSemester, state.history, credits);
+  return requiredSgpaForCgpa(target, state.history, credits, horizon);
 });
 
+/**
+ * The cheapest route to the goal, priced in ESE marks.
+ *
+ * Chases the required AVERAGE in this semester, which is the only semester
+ * whose subjects exist yet. Holding the average every semester is what reaches
+ * the target CGPA, so the average is the right target to plan against.
+ */
 export const goalPlan = createMemo(() => {
   const need = goalRequirement();
   if (!need?.possible || !need.required) return null;

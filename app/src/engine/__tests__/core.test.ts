@@ -7,11 +7,11 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  ATTENDANCE_CONDONE, ATTENDANCE_MARK_MAX, COURSE_TYPES, DL_CAP_PCT, TYPE_KEYS,
-  attendanceMarks, attendancePlan, blankCourse, cgpaFromSemesters, computeCie,
-  eseCutoff, evaluate, nextAttendanceBand, normaliseGrade, parseEtlab,
-  historyCredits, planForSgpa, requiredEse, requiredSgpaForCgpa, sgpa, statusFor,
-  summarise,
+  ATTENDANCE_CONDONE, ATTENDANCE_MARK_MAX, COURSE_TYPES, DL_CAP_PCT, NO_HORIZON,
+  TYPE_KEYS, attendanceMarks, attendancePlan, blankCourse, cgpaFromSemesters,
+  computeCie, eseCutoff, evaluate, horizonToGraduation, nextAttendanceBand,
+  normaliseGrade, parseEtlab, historyCredits, planForSgpa, requiredEse,
+  requiredSgpaForCgpa, sgpa, statusFor, summarise,
 } from "../index";
 import type { Course, TypeKey } from "../types";
 
@@ -356,11 +356,11 @@ describe("goal engine", () => {
   };
 
   it("says holding a CGPA needs the same SGPA", () => {
-    expect(requiredSgpaForCgpa(8.0, history, 20).required).toBe(8.0);
+    expect(requiredSgpaForCgpa(8.0, history, 20, NO_HORIZON).required).toBe(8.0);
   });
 
   it("flags a CGPA that is already out of reach", () => {
-    expect(requiredSgpaForCgpa(9.9, history, 20).possible).toBe(false);
+    expect(requiredSgpaForCgpa(9.9, history, 20, NO_HORIZON).possible).toBe(false);
   });
 
   it("builds a plan that stays inside the paper", () => {
@@ -384,6 +384,72 @@ describe("goal engine", () => {
     const plan = planForSgpa(capped, 9.0);
     expect(plan.reachable).toBe(false);
     expect(plan.maxSgpa).toBe(7.5);
+  });
+});
+
+describe("a graduation CGPA goal is not a this-semester SGPA goal", () => {
+  /**
+   * The case the app's owner hit: four semesters at 23 registered credits,
+   * weighted mean 7.09, 21 credits registered in the active S5. Targeting an
+   * 8.0 CGPA "by the end of S5" needs 11.99 and reads as out of reach; over
+   * the semesters he actually has left it is an average he can attempt.
+   */
+  const history = {
+    S1: { sgpa: 6.5, creditsRegistered: 23, creditsEarned: 23 },
+    S2: { sgpa: 7.0, creditsRegistered: 23, creditsEarned: 23 },
+    S3: { sgpa: 7.3, creditsRegistered: 23, creditsEarned: 23 },
+    S4: { sgpa: 7.56, creditsRegistered: 23, creditsEarned: 23 },
+  };
+
+  it("reads the horizon off the student's own record, not a programme total", () => {
+    expect(cgpaFromSemesters(history).cgpa).toBe(7.09);
+    // S6, S7, S8 are left, and his own semesters have averaged 23 credits.
+    expect(horizonToGraduation("S5", history, 21)).toEqual({ semesters: 3, credits: 69 });
+  });
+
+  it("spreads the target across every semester left instead of demanding it now", () => {
+    const need = requiredSgpaForCgpa(8.0, history, 21, horizonToGraduation("S5", history, 21));
+    // (8.0 * (92 + 90) - 652.28) / 90
+    expect(need.required).toBe(8.93);
+    expect(need.possible).toBe(true);
+    expect(need.horizon).toEqual({ semesters: 3, credits: 69 });
+  });
+
+  it("reproduces the one-semester solve when the horizon is zero", () => {
+    const need = requiredSgpaForCgpa(8.0, history, 21, NO_HORIZON);
+    expect(need.required).toBe(11.987);
+    expect(need.possible).toBe(false);
+    expect(need.reason).toBe("even all-S this semester tops out at 7.63");
+  });
+
+  it("has no horizon left in S8, so the answer collapses to the old one", () => {
+    const last = horizonToGraduation("S8", history, 21);
+    expect(last).toEqual({ semesters: 0, credits: 0 });
+    expect(requiredSgpaForCgpa(8.0, history, 21, last))
+      .toEqual(requiredSgpaForCgpa(8.0, history, 21, NO_HORIZON));
+  });
+
+  it("takes no horizon from a semester name it cannot read", () => {
+    expect(horizonToGraduation("Semester 5", history, 21)).toEqual({ semesters: 0, credits: 0 });
+  });
+
+  it("falls back to this semester's credits, then to 20, for the per-semester load", () => {
+    expect(horizonToGraduation("S5", {}, 21)).toEqual({ semesters: 3, credits: 63 });
+    expect(horizonToGraduation("S5", {}, 0)).toEqual({ semesters: 3, credits: 60 });
+  });
+
+  it("still reports impossibility when even all-S over the horizon falls short", () => {
+    const need = requiredSgpaForCgpa(9.9, history, 21, horizonToGraduation("S5", history, 21));
+    expect(need.possible).toBe(false);
+    // (652.28 + 10 * 90) / 182
+    expect(need.ceiling).toBe(8.529);
+    expect(need.reason).toBe("even all-S across the 4 semesters left tops out at 8.53");
+  });
+
+  it("names the semesters whose weight it had to guess at", () => {
+    const shaky = { ...history, S2: { sgpa: 7.0, creditsRegistered: null, creditsEarned: 23 } };
+    expect(requiredSgpaForCgpa(8.0, shaky, 21, NO_HORIZON).unconfirmed).toEqual(["S2"]);
+    expect(requiredSgpaForCgpa(8.0, history, 21, NO_HORIZON).unconfirmed).toEqual([]);
   });
 });
 

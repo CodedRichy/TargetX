@@ -18,52 +18,150 @@ export function historyCredits(entry: SemesterHistory): number {
   return entry.creditsRegistered ?? entry.creditsEarned ?? 0;
 }
 
+/** Semesters whose CGPA weight had to fall back to the earned total. */
+export function unconfirmedSemesters(history: Record<string, SemesterHistory>): string[] {
+  return Object.entries(history)
+    .filter(([, v]) => v.creditsRegistered == null)
+    .map(([name]) => name);
+}
+
+/**
+ * The semesters after this one that still count toward the CGPA.
+ *
+ * `credits` is their total, not a per-semester figure - it is what enters the
+ * solve, and it is the number the UI has to state as an assumption.
+ */
+export interface GoalHorizon {
+  semesters: number;
+  credits: number;
+}
+
+/** Solve for this semester alone, which is what the app used to do. */
+export const NO_HORIZON: GoalHorizon = { semesters: 0, credits: 0 };
+
+/** A KTU B.Tech runs S1 to S8. Semesters are countable; credits are not. */
+const PROGRAMME_SEMESTERS = 8;
+/**
+ * Last-resort credits per semester, for a student with no record at all.
+ *
+ * A placeholder, not a regulation - nothing in the scheme fixes a per-semester
+ * credit load. It only ever applies before the first semester has any credits
+ * entered, and the horizon it produces is stated on screen as an assumption.
+ */
+const DEFAULT_SEMESTER_CREDITS = 20;
+
+/**
+ * How much course is left between the active semester and graduation.
+ *
+ * Derived from the student's own record rather than a programme credit total,
+ * because this repo has no sourced total to use: the KTU 2024 figure is not
+ * cited anywhere here, and the curriculum tables list every elective on offer
+ * instead of a student's registered load, so their per-semester sums are far
+ * above what anyone actually takes. What a student has registered for in past
+ * semesters is weak evidence, but it is evidence, and `GoalHorizon` is
+ * returned alongside the answer so the screen can say what was assumed.
+ *
+ * A semester name that does not parse yields no horizon, which collapses the
+ * goal back to the one-semester solve rather than inventing a graduation date.
+ */
+export function horizonToGraduation(
+  activeSemester: string,
+  history: Record<string, SemesterHistory>,
+  semesterCredits: number,
+): GoalHorizon {
+  const match = /^S(\d+)$/i.exec(activeSemester.trim());
+  if (!match) return NO_HORIZON;
+  const semesters = Math.max(0, PROGRAMME_SEMESTERS - Number(match[1]));
+  if (semesters === 0) return NO_HORIZON;
+
+  // A semester with no credits on record is unknown, not empty, so it is left
+  // out of the mean rather than dragging it down.
+  const past = Object.values(history).map(historyCredits).filter((c) => c > 0);
+  const current = toFloat(semesterCredits, 0);
+  const perSemester = past.length > 0
+    ? past.reduce((sum, c) => sum + c, 0) / past.length
+    : current > 0 ? current : DEFAULT_SEMESTER_CREDITS;
+
+  return { semesters, credits: round(semesters * perSemester, 3) };
+}
+
 export interface RequiredSgpa {
   required: number | null;
   possible: boolean;
   ceiling?: number;
   slack?: boolean;
   reason?: string;
+  /** The horizon `required` is an average over. */
+  horizon: GoalHorizon;
+  /**
+   * Past semesters weighted by earned credits because the registered total is
+   * unknown, exactly as in `CgpaResult`. Non-empty means this requirement was
+   * solved against a best-effort CGPA and the screen should say so.
+   */
+  unconfirmed: string[];
 }
 
 /**
- * "I want an 8.0 CGPA" -> what this semester has to deliver.
+ * "I want an 8.0 CGPA by graduation" -> the SGPA every semester still to be
+ * sat has to average, this one included.
  *
- * Solves target = (pastPoints + sgpa * credits) / (pastCredits + credits) for
- * sgpa. Reports impossibility honestly: past semesters are frozen, so a target
- * can be arithmetically out of reach no matter what happens now, and telling a
- * student to chase it anyway would be the cruel kind of wrong.
+ * Solves target = (pastPoints + sgpa * (credits + horizon.credits)) /
+ * (pastCredits + credits + horizon.credits) for sgpa. A graduation CGPA and a
+ * this-semester SGPA are two different goals, and solving the first as though
+ * the degree ended in December makes almost every worthwhile target look
+ * impossible - which removed the plan panel and with it the point of the app.
+ * Pass `NO_HORIZON` to ask the this-semester question deliberately.
+ *
+ * Impossibility is still reported honestly over whatever horizon is given:
+ * past semesters are frozen, so a target can be arithmetically out of reach no
+ * matter what happens next, and telling a student to chase it anyway would be
+ * the cruel kind of wrong.
  */
 export function requiredSgpaForCgpa(
   targetCgpa: number,
   history: Record<string, SemesterHistory>,
   semesterCredits: number,
+  horizon: GoalHorizon,
 ): RequiredSgpa {
   const past = Object.values(history).map((v) => [historyCredits(v), v.sgpa || 0] as const);
   const pastCredits = past.reduce((sum, [c]) => sum + c, 0);
   const pastPoints = past.reduce((sum, [c, sgpa]) => sum + sgpa * c, 0);
   const credits = toFloat(semesterCredits, 0);
+  const unconfirmed = unconfirmedSemesters(history);
 
   if (credits <= 0) {
-    return { required: null, possible: false, reason: "no credits registered this semester" };
+    return {
+      required: null, possible: false, horizon, unconfirmed,
+      reason: "no credits registered this semester",
+    };
   }
 
-  const needed = round((targetCgpa * (pastCredits + credits) - pastPoints) / credits, 3);
+  // Everything still to be earned, this semester plus the horizon.
+  const open = credits + Math.max(0, toFloat(horizon.credits, 0));
+  const needed = round((targetCgpa * (pastCredits + open) - pastPoints) / open, 3);
 
   if (needed > 10) {
     // Even straight S grades cannot get there.
-    const ceiling = round((pastPoints + 10 * credits) / (pastCredits + credits), 3);
+    const ceiling = round((pastPoints + 10 * open) / (pastCredits + open), 3);
+    const left = horizon.semesters + 1;
     return {
       required: needed,
       possible: false,
       ceiling,
-      reason: `even all-S this semester tops out at ${ceiling.toFixed(2)}`,
+      horizon,
+      unconfirmed,
+      reason: left > 1
+        ? `even all-S across the ${left} semesters left tops out at ${ceiling.toFixed(2)}`
+        : `even all-S this semester tops out at ${ceiling.toFixed(2)}`,
     };
   }
   if (needed <= 0) {
-    return { required: 0, possible: true, slack: true, reason: "already secured by past semesters" };
+    return {
+      required: 0, possible: true, slack: true, horizon, unconfirmed,
+      reason: "already secured by past semesters",
+    };
   }
-  return { required: needed, possible: true, slack: false };
+  return { required: needed, possible: true, slack: false, horizon, unconfirmed };
 }
 
 export interface CourseOption {
@@ -231,9 +329,7 @@ export function cgpaFromSemesters(
   semMap: Record<string, SemesterHistory>,
 ): CgpaResult {
   const rows = Object.entries(semMap);
-  const unconfirmed = rows
-    .filter(([, v]) => v.creditsRegistered == null)
-    .map(([name]) => name);
+  const unconfirmed = unconfirmedSemesters(semMap);
   const credits = rows.reduce((sum, [, v]) => sum + historyCredits(v), 0);
   if (credits <= 0) return { cgpa: 0, credits: 0, percent: 0, unconfirmed };
   const weighted = rows.reduce((sum, [, v]) => sum + (v.sgpa || 0) * historyCredits(v), 0);

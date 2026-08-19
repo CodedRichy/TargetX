@@ -107,6 +107,36 @@ export function Home() {
     return Math.max(0, n.required - summary().sgpaProjected);
   };
 
+  /** The last semester the goal is solved over; the active one without a horizon. */
+  const lastSemester = () =>
+    `S${Number(state.activeSemester.slice(1)) + (need()?.horizon.semesters ?? 0)}`;
+
+  /**
+   * What the goal line is taking on trust, in one sentence or none.
+   *
+   * The required average is spread over a horizon TargetX inferred from past
+   * semesters, and where a migrated save never knew a semester's registered
+   * credits the CGPA it is solved against is itself a best effort. Both are
+   * the same kind of caveat, so they share a line rather than competing for
+   * the reader's attention with two separate warnings.
+   */
+  const assumption = () => {
+    const n = need();
+    if (!n) return null;
+    const clauses: string[] = [];
+    if (n.horizon.semesters > 0) {
+      const first = `S${Number(state.activeSemester.slice(1)) + 1}`;
+      const span = n.horizon.semesters === 1 ? first : `${first}–${lastSemester()}`;
+      clauses.push(`${span} carry ${n.horizon.credits} credits`);
+    }
+    if (n.unconfirmed.length > 0) {
+      const verb = n.unconfirmed.length === 1 ? "is" : "are";
+      clauses.push(
+        `${n.unconfirmed.join(", ")} ${verb} weighted by credits earned rather than registered`);
+    }
+    return clauses.length > 0 ? `Assumes ${clauses.join(", and ")}.` : null;
+  };
+
   return (
     <div class="screen home">
       <div class="screen-head">
@@ -167,10 +197,18 @@ export function Home() {
                   <Show when={n().possible} fallback={<>Target is out of reach — {n().reason}.</>}>
                     <Show when={n().slack} fallback={
                       <>
-                        {state.activeSemester} has to deliver{" "}
+                        {/* A CGPA target is a graduation target: with
+                            semesters still to come the figure is an average
+                            to hold, not a bill due in December. */}
+                        <Show when={n().horizon.semesters > 0} fallback={
+                          <>{state.activeSemester} has to deliver{" "}</>
+                        }>
+                          {state.activeSemester} through {lastSemester()} have to average{" "}
+                        </Show>
                         <strong class="num">{n().required!.toFixed(2)}</strong> SGPA.
                         You are projecting{" "}
                         <strong class="num">{summary().sgpaProjected.toFixed(2)}</strong>
+                        {" "}in {state.activeSemester}
                         <Show when={short() > 0.005}>
                           {" "}— short by <strong class="num">{short().toFixed(2)}</strong>
                         </Show>.
@@ -181,6 +219,9 @@ export function Home() {
                   </Show>
                 </p>
               )}
+            </Show>
+            <Show when={assumption()}>
+              {(text) => <p class="fineprint">{text()}</p>}
             </Show>
           </section>
 
