@@ -177,7 +177,8 @@ export function summarise(courses: Course[]): Summary {
     // Withdrawn or incomplete: KTU keeps the course out of the SGPA until it
     // is completed, denominator included. Its credits leave with it rather
     // than staying in `credits` the way a debarred course's do - `credits` is
-    // what this semester is weighed by in the CGPA once it is archived, and
+    // what this semester is weighed by in the CGPA - live, through
+    // `requiredSgpaForCgpa`, and again once the semester is archived - and
     // weighing it by a course that will never be graded here hands those
     // credits the semester's own average. (`planForSgpa` does not read this
     // total at all; it sums its own over the courses it can plan, which since

@@ -514,15 +514,20 @@ export function academicsToState(
   for (const [key, entry] of Object.entries(academics.semesters)) {
     const name = `S${key}`;
     const courses: Course[] = [];
-    // Whether every course in this semester got its credits from the published
-    // curriculum. One that did not means the semester total is a guess.
+    // Whether every course whose credits the semester total actually uses got
+    // them from the published curriculum. One that did not means the total is
+    // a guess. A course graded I or W is not one of them - its credits are not
+    // an input to the sum below, so not knowing them cannot make the sum
+    // wrong, and refusing the total over it would send `historyCredits` down
+    // its `??` chain to the EARNED total, a different set of courses again.
     let allCreditsListed = true;
 
     for (const item of entry.courses) {
       // The published curriculum is the authority on the CIA/ESE split; the
       // portal's Theory/Practical label is only a hint.
       const listed = lookupCourse(item.code);
-      if (!listed?.credits) allCreditsListed = false;
+      const incomplete = isIncomplete(normaliseGrade(item.grade));
+      if (!listed?.credits && !incomplete) allCreditsListed = false;
       let typeKey = (listed?.type ?? types[item.code] ?? inferType(item.code)) as TypeKey;
       typeKey = fitType(typeKey, item.internal);
 

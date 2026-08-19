@@ -43,8 +43,17 @@ export function History() {
         // subjects always disagrees with the printed one, and reporting that
         // as a credit fault is crying wolf - the student would learn to
         // ignore the warning that matters.
-        // Registered credits are what the stored subjects add up to, failures
-        // included. Comparing against the earned total would call every
+        // The two sides draw the I/W line in the same place, which is what
+        // keeps a withdrawal from reading as a missing subject: `credits`
+        // above sums only rows carrying a grade point, and both ingest paths
+        // write `creditsRegistered` over the non-withdrawn rows - failures
+        // kept, because an F is a result KTU counts, and I/W dropped, because
+        // the printed SGPA was computed without them. Putting withdrawn rows
+        // back into `credits` would report every semester containing a W as a
+        // partial record. (The sides can still differ legitimately, and that
+        // is the point of the check: an ungraded row is in the registered
+        // total and not in `credits`, which is a semester only partly stored.)
+        // Comparing against the earned total instead would call every
         // semester with a backlog incomplete.
         const registered = published?.creditsRegistered ?? null;
         const complete = registered !== null && registered > 0
@@ -60,7 +69,11 @@ export function History() {
 
   const drifting = () => rows().filter((r) => r.drift !== null && Math.abs(r.drift) >= 0.01);
 
-  /** Semesters carried over from a save that only knew the earned total. */
+  /**
+   * Semesters with no registered credit total: a save that only ever knew the
+   * earned one, a sync that could not price every course from the curriculum
+   * and refused to guess, or a credit box left blank.
+   */
   const unconfirmed = () => overall().unconfirmed;
 
   return (
@@ -107,12 +120,15 @@ export function History() {
                 {unconfirmed().length === 1
                   ? `${unconfirmed()[0]} has no registered credit total.`
                   : `${unconfirmed().length} semesters have no registered credit total.`}
-              </strong> KTU divides the CGPA by the credits you registered for —
-              a failed course still counts in the denominator. Where TargetX
-              has the earned total it weights by that instead, which
-              understates the divisor wherever there is a backlog; where it has
-              neither, the semester does not count at all. Type the registered
-              total into the Registered credits column
+              </strong> KTU divides the CGPA by the credits you registered for.
+              A failed course still counts in the denominator; a course marked
+              I or W does not — the university left it out of that semester's
+              published SGPA, so it has to be left out of the credits that SGPA
+              is multiplied by. Where TargetX has the earned total it weights
+              by that instead, which understates the divisor wherever there is
+              a backlog; where it has neither, the semester does not count at
+              all. Type the registered total — failures in, I and W out — into
+              the Registered credits column
               {unconfirmed().length === 1 ? "" : ` for ${unconfirmed().join(", ")}`} and
               the CGPA above becomes the one KTU would print.
             </div>
@@ -148,11 +164,11 @@ export function History() {
 interface Row {
   name: string;
   published: SemesterHistory | undefined;
-  /** The published registered total, or null when no save ever held one. */
+  /** The stored registered total, or null when nothing has supplied one. */
   registered: number | null;
   recomputed: number | null;
   credits: number;
-  /** True when the stored subjects cover the whole published credit total. */
+  /** True when the graded stored subjects add up to a non-zero registered total. */
   complete: boolean;
   courses: number;
   drift: number | null;

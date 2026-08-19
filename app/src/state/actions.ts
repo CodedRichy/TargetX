@@ -160,13 +160,13 @@ export function applyGradeCard(card: GradeCard): CardOutcome {
       if (entry.sgpaPrinted !== undefined) {
         s.history[name] = {
           sgpa: entry.sgpaPrinted,
-          // The card lists every course the student registered for, failures
-          // included, so `entry.credits` IS the registered total - the one KTU
-          // weights the CGPA by. It is the one exception the parser already
-          // makes for it: an I or a W is out of that total, because
-          // `sgpaPrinted` stored beside it here is the university's own figure
-          // and was computed without them. The earned total rides along for
-          // display.
+          // `entry.credits` is the registered total - the one KTU weights the
+          // CGPA by. The card lists every course the student registered for,
+          // and the parser keeps the failures, because an F is a result whose
+          // credits KTU counts. It drops exactly one kind of row: an I or a W,
+          // because `sgpaPrinted` stored beside it here is the university's
+          // own figure and was computed without those courses. The earned
+          // total rides along for display.
           creditsRegistered: entry.credits,
           creditsEarned: entry.creditsEarned,
         };
