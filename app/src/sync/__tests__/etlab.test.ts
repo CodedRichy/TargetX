@@ -31,9 +31,11 @@ const academics = (codes: string[]): Academics => ({
  *
  * `earnedCredits` is 11 because `grade` is always one that does not pass, and
  * every call below names the 4-credit GAPHT121, leaving 3 + 3 + 1 + 4 for the
- * portal to publish as earned. It has to be a number the portal could really
- * publish: earned credits cannot exceed registered ones, and the registered
- * total here is 11 for a W or an I.
+ * portal to publish as earned. That it also equals the registered total of 11
+ * for a W or an I is a property of this fixture, not a rule: the portal
+ * publishes its earned total itself, and it can legitimately exceed the
+ * registered one when a backlog course cleared this semester is absent from
+ * the course list.
  */
 const graded = (code: string, grade: string): Academics => ({
   current: null,

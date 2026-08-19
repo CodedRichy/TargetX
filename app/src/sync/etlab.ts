@@ -519,7 +519,8 @@ export function academicsToState(
     // a guess. A course graded I or W is not one of them - its credits are not
     // an input to the sum below, so not knowing them cannot make the sum
     // wrong, and refusing the total over it would send `historyCredits` down
-    // its `??` chain to the EARNED total, a different set of courses again.
+    // its `??` chain - to the EARNED total, a different set of courses, or
+    // to 0 when there is no earned total either.
     let allCreditsListed = true;
 
     for (const item of entry.courses) {
