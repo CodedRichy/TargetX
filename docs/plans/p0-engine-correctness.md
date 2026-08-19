@@ -287,3 +287,63 @@ Also fix `ui/Ledger.tsx:113`: `dlWasted` is a count of classes, printed as
 
 **Tests.** The audit's traced case: 15, not 20. A surplus-side case where the
 skip budget shrinks because the DL cap is evaluated against the grown `held`.
+
+---
+
+## Task 9: A withdrawn course must leave the CGPA denominator in the ingest paths too
+
+**Added 2026-08-18 after Task 7's review.** Task 7 fixed the engine: `I` and `W`
+are a third state, excluded from both the numerator and the denominator of the
+live semester's SGPA, and excluded from the plan. It did not touch the two
+ingest paths, which is where the CGPA denominator is actually written.
+
+**The defect.**
+
+1. `sync/gradecard.ts:137` sums `entry.credits` over **every** parsed row,
+   including a `W`, and `state/actions.ts:166` stores that as
+   `creditsRegistered`. `sync/etlab.ts:567` does the same sum.
+   `historyCredits()` (`engine/goals.ts:18`) returns `creditsRegistered` as the
+   semester's CGPA weight, and the `sgpa` stored beside it is the university's
+   **printed** SGPA, which already excludes the withdrawn course. So the
+   semester contributes `printedSGPA × (realCredits + withdrawnCredits)`: the
+   student is paid, at their own average, for the course they withdrew from.
+   This is the exact harm `engine/evaluate.ts:180-182` identifies and fixes for
+   the live semester, left standing in the path that produces the number.
+2. `sync/gradecard.ts:132` computes `sgpaCalc` with `GRADE_POINTS[c.grade] ?? 0`,
+   scoring a `W` zero at full credits, and `:139` then sets `mismatch: true`
+   against the printed SGPA. **Every grade card containing a withdrawn course
+   currently raises "the parse ate a row" at the student.** A shipped false
+   alarm.
+
+**Why the compiler did not catch it.** `sync/gradecard.ts:97` casts
+`gradeMatch[1] as Grade`, while `GRADE_TOKENS` (`:17`) includes `"I"`, `"W"`,
+`"FE"` and `"AB"`. That cast suppressed the fifth `GRADE_POINTS` consumer, so
+widening `Grade` in Task 7 surfaced four call sites and hid this one. Remove or
+narrow the cast as part of the fix — a compiler audit is only as good as the
+casts it cannot see through.
+
+**Changes.**
+
+- Both ingest paths must exclude an incomplete course's credits from the
+  registered total they store, using Task 7's `isIncomplete` guard rather than
+  a second definition of the rule.
+- `sgpaCalc` must exclude incomplete courses from both sides, so `mismatch`
+  stops firing on a correctly-parsed card.
+- Decide and state what `creditsEarned` should hold for such a semester; it is
+  a different question from the registered total and the two must stay
+  coherent.
+- Migration is not required — an existing save's numbers were written under the
+  old rule and Task 6's rule is that stored data is not silently reinterpreted.
+  If you disagree, say so rather than migrating quietly.
+
+**Also fix here, since it is the same area and the plan treats comment accuracy
+as load-bearing:** `engine/evaluate.ts:180-182` claims `credits` is what the
+semester is weighed by "in the plan and in the CGPA". The plan half has been
+false since Task 4 — `planForSgpa` computes its own total over plannable
+courses only (`goals.ts:325`), and a debarred course is in `summarise().credits`
+and out of `plan.credits`. Trim the claim to what is true.
+
+**Tests.** A parsed grade card with one `W`: `creditsRegistered` excludes it,
+`mismatch` is false, and the resulting CGPA matches the university's printed
+figure rather than exceeding it. The same for the etlab path. A card with an
+`AB` still counts as a real fail at full credits — only `I` and `W` move.
