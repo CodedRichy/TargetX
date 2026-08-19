@@ -13,9 +13,10 @@
  * oracle carries the very defects p0-engine-correctness fixes: its fixture
  * values for them are the wrong answer, not the spec. Regenerating the
  * fixture would only re-pin these tests to the bugs, so it stays byte
- * identical and the comparison narrows instead. Each exclusion is a single
- * field, not a whole object - a field the oracle still gets right is evidence
- * worth keeping. Direct coverage for everything dropped lives in
+ * identical and the comparison narrows instead. The attendance exclusions
+ * below are per field rather than per object: where only part of an object
+ * moved, the rest stays in, because a field the oracle still gets right is
+ * evidence worth keeping. Direct coverage for everything dropped lives in
  * `core.test.ts`.
  *
  *   - `attendance`, `eligible`, `attMarks` (task 1): the oracle reads a blank
@@ -29,22 +30,28 @@
  *     credits duty leave once against today's `held`, then asks how many
  *     classes may be skipped or must be attended - questions whose `held`,
  *     and so whose 10% relaxation, is larger. Those three numbers answer a
- *     denominator that no longer applies. Only they moved: of the corpus's
- *     459 plans, `plan.skip` differs on 90 (the surplus ones), `plan.attend`
- *     on 29 (the deficit ones) and `attBand.attend` on 29, while the other
- *     nine fields of the two objects differ on none - so those nine are
- *     still compared. `plan.current` especially - it is the only path into
- *     `effectiveAttendance` and so into the CIE, which makes it the fixture's
- *     standing evidence that this task moved nothing downstream.
+ *     denominator that no longer applies. Only they moved, and only on the
+ *     plans where a frozen credit can be wrong at all - where the claim
+ *     exceeds the cap, or today's 100% ceiling clips it. 128 of the corpus's
+ *     329 surplus plans and 29 of its 130 deficit plans are of that kind:
+ *     `plan.skip` differs on 90 of those 128 (the other 38 floor to the same
+ *     integer either way), `plan.attend` on all 29, and `attBand.attend` on
+ *     29. The other nine fields of the two objects differ on none, so those
+ *     nine are still compared - `plan.current` above all, the one field of
+ *     `plan` that `effectiveAttendance` reads and so the plan's only route
+ *     into the CIE, which makes it the fixture's standing evidence that this
+ *     task moved nothing downstream of it.
  *
  * What is left is worth stating exactly, since the exclusion list above is
  * long. Per course the comparison still asserts `cieMax`, `eseMax`, `ese`,
  * `eseCutoff`, `assessed`, `credits`, `target`, and nine attendance fields:
  * `plan`'s raw and duty-leave-adjusted percentages, its claimed/credited/
  * wasted split and its surplus-or-deficit verdict, plus `attBand`'s earned
- * marks, next band and that band's floor. What it no longer asserts is
- * anything downstream of the CIE and the three moved plan numbers; for those
- * the evidence is `core.test.ts`, not this file.
+ * marks, next band and that band's floor. What it no longer asserts, per
+ * course, is `Evaluation`'s own attendance readout and the eligibility and
+ * CIE mark that hang off it, the CIE and everything the CIE feeds, and the
+ * three moved plan numbers - and in the semester rollup, the same CIE-fed
+ * figures. For all of those the evidence is `core.test.ts`, not this file.
  */
 import { describe, expect, it } from "vitest";
 import fixture from "./parity.json";
