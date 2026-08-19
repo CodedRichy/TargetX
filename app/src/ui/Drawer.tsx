@@ -78,36 +78,49 @@ export function Drawer() {
           </Show>
         </div>
 
-        <Show when={goalPlan()?.reachable && goalPlan()!.plan.length > 0}>
-          <div class="chart-block">
-            <h4>Cheapest route</h4>
-            <dl style={{ margin: 0 }}>
-              <For each={goalPlan()!.plan}>{(row) => (
-                <div class="field">
-                  <span class="num">{row.code}</span>
-                  <span>
-                    <strong style={{ color: "var(--brand-bright)" }}>{row.grade}</strong>
-                    <Show when={!row.locked}>
-                      <span class="num" style={{ color: "var(--text-dim)" }}>
-                        {" "}· {row.unassessed ? "at least " : ""}{row.ese} in the exam
+        {/* The route itself needs rows to show; the reason has to be shown
+            whether or not there are any - a course dropped from a plan that
+            came back empty is exactly the case a student needs told. */}
+        <Show when={goalPlan()}>{(plan) => (
+          <Show when={(plan().reachable && plan().plan.length > 0) || plan().reason}>
+            <div class="chart-block">
+              <h4>Cheapest route</h4>
+              <Show when={plan().reachable && plan().plan.length > 0}>
+                <dl style={{ margin: 0 }}>
+                  <For each={plan().plan}>{(row) => (
+                    <div class="field">
+                      <span class="num">{row.code}</span>
+                      <span>
+                        <strong style={{ color: "var(--brand-bright)" }}>{row.grade}</strong>
+                        <Show when={!row.locked}>
+                          <Show when={row.eseMax > 0} fallback={
+                            <span class="num" style={{ color: "var(--text-dim)" }}>
+                              {" "}· from the internals alone
+                            </span>
+                          }>
+                            <span class="num" style={{ color: "var(--text-dim)" }}>
+                              {" "}· {row.unassessed ? "at least " : ""}{row.ese} in the exam
+                            </span>
+                          </Show>
+                        </Show>
+                        <Show when={row.unassessed}>
+                          <span style={{ color: "var(--warn)" }}> · internals not marked yet</span>
+                        </Show>
                       </span>
-                    </Show>
-                    <Show when={row.unassessed}>
-                      <span style={{ color: "var(--warn)" }}> · internals not marked yet</span>
-                    </Show>
-                  </span>
-                </div>
-              )}</For>
-            </dl>
-            <p class="chart-note">
-              Balanced on the difficulty of each next grade, not on total marks -
-              a plan demanding 60/60 in two papers is not a plan.
-            </p>
-            <Show when={goalPlan()!.reason}>
-              {(reason) => <p class="chart-note">{reason()}</p>}
-            </Show>
-          </div>
-        </Show>
+                    </div>
+                  )}</For>
+                </dl>
+                <p class="chart-note">
+                  Balanced on the difficulty of each next grade, not on total marks -
+                  a plan demanding 60/60 in two papers is not a plan.
+                </p>
+              </Show>
+              <Show when={plan().reason}>
+                {(reason) => <p class="chart-note">{reason()}</p>}
+              </Show>
+            </div>
+          </Show>
+        )}</Show>
 
         <div class="chart-block">
           <h4>SGPA trend</h4>

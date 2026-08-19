@@ -625,3 +625,38 @@ describe("a debarred course is not planned as a pass", () => {
     expect(plan.plan.map((row) => row.code).sort()).toEqual(["PCCST501", "PCCST502"]);
   });
 });
+
+describe("an internal-only course is not free grade points", () => {
+  const project = (): Course => blankCourse("PRJST501", "Project", 4, "PRJ 100/0");
+  const papers = (): Course[] => [
+    { ...blankCourse("PCCST501", "CN", 4), cie_override: 25 },
+    { ...blankCourse("PCCST502", "DAA", 4), cie_override: 25 },
+  ];
+
+  it("reports every grade open at no exam marks, because there is no exam", () => {
+    // Truthful - and useless to the planner, which is why it excludes these.
+    const options = courseOptions(project());
+    expect(options.length).toBe(9);
+    expect(options.every((o) => o.ese === 0 && o.eseMax === 0 && o.unassessed)).toBe(true);
+  });
+
+  it("does not climb an unmarked one to an S and call the target met", () => {
+    const plan = planForSgpa([...papers(), project()], 7.5);
+    expect(plan.plan.map((row) => row.code)).not.toContain("PRJST501");
+    expect(plan.reason).toContain("PRJST501");
+    // 8 credits of real papers, not 12 - and they have to carry the target
+    // themselves rather than being subsidised by a grade nobody earned.
+    expect(plan.credits).toBe(8);
+    expect(plan.plan.every((row) => row.ese > 0)).toBe(true);
+  });
+
+  it("plans one whose internals are marked, since the CIE is the whole grade", () => {
+    const marked: Course = { ...project(), cie_override: 86 };
+    const plan = planForSgpa([...papers(), marked], 7.5);
+    const row = plan.plan.find((r) => r.code === "PRJST501")!;
+    expect(row.grade).toBe("A+");
+    // eseMax 0 is what tells the screen not to call this an exam mark.
+    expect(row.eseMax).toBe(0);
+    expect(row.unassessed).toBe(false);
+  });
+});

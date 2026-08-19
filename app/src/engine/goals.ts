@@ -1,7 +1,7 @@
 import { ATTENDANCE_CONDONE, GRADE_BANDS, GRADE_POINTS } from "./constants";
 import { evaluate, isDebarred } from "./evaluate";
 import { requiredEse } from "./grade";
-import type { Course, Grade, SemesterHistory } from "./types";
+import type { Course, Evaluation, Grade, SemesterHistory } from "./types";
 import { round, toFloat } from "./util";
 
 /**
@@ -194,6 +194,10 @@ export interface CourseOption {
  * is the strongest bound that is actually true: whatever the internals turn
  * out to be, the grade cannot cost less than this. `unassessed` is set on
  * every such row so the figure is never read as a settled requirement.
+ *
+ * On an internal-only course that bound is zero for every letter, since there
+ * is no exam to spend anything in. True, and useless to a planner - see
+ * `unplannable`.
  */
 export function courseOptions(course: Course): CourseOption[] {
   const ev = evaluate(course);
@@ -226,6 +230,12 @@ export interface PlanRow {
   ese: number;
   credits: number;
   locked: boolean;
+  /**
+   * The paper `ese` is out of. Zero for an internal-only course, where there
+   * is no exam at all - whoever renders the row must not call `ese` an exam
+   * mark in that case.
+   */
+  eseMax: number;
   /** `ese` is a floor priced from an unmarked CIE. See `CourseOption`. */
   unassessed: boolean;
 }
@@ -245,6 +255,32 @@ export interface SgpaPlan {
 }
 
 /**
+ * Why the plan cannot move this course, or null if it can.
+ *
+ * The plan is denominated in ESE marks, so a course with no exam left to sit
+ * is not something a student can be told to do anything about:
+ *
+ *   - Debarred. Instructing a mark in an exam they will not be admitted to is
+ *     worse than saying nothing.
+ *   - Internal-only (`eseMax === 0`) with nothing marked yet. `courseOptions`
+ *     truthfully reports every grade still open at a cost of zero exam marks,
+ *     because there is no exam - but the greedy below buys rungs by cost, and
+ *     a whole ladder priced at zero is free grade points. It would climb that
+ *     one course to an S before asking a single mark of any other and call the
+ *     target met with every real paper left at P.
+ *
+ * A published grade decides the course whatever else is true of it, so it is
+ * always plannable - as a locked row that costs nothing because it is already
+ * earned.
+ */
+function unplannable(ev: Evaluation): string | null {
+  if (ev.grade !== null) return null;
+  if (isDebarred(ev)) return `attendance below ${ATTENDANCE_CONDONE}%`;
+  if (ev.eseMax === 0 && !ev.assessed) return "no exam to aim at, and no internals marked yet";
+  return null;
+}
+
+/**
  * Cheapest route to a target SGPA: which subject to push, and how far.
  *
  * Greedy on the DIFFICULTY OF THE RESULT, not on marginal cost. Minimising
@@ -257,33 +293,26 @@ export interface SgpaPlan {
  * code (a re-registered backlog alongside its current sitting) would otherwise
  * silently collapse into one.
  *
- * A debarred course is not planned at all: instructing a mark in an exam the
- * student will not be admitted to is worse than saying nothing. It leaves the
- * plan the same way it leaves `sgpaProjected` - out of both the marks and the
- * credits - and `reason` names it, because a plan that quietly shrinks is a
- * plan that overstates what the semester is worth.
+ * Courses the plan has no mark to move are left out of it entirely, marks and
+ * credits both, and `reason` names each one - see `unplannable`. A plan that
+ * quietly shrinks is a plan that overstates what the semester is worth.
  */
 export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
   const plannable: Course[] = [];
-  const debarred: string[] = [];
+  const left: string[] = [];
   for (const course of courses) {
-    const ev = evaluate(course);
-    // A published grade settles the course whatever the attendance was, so it
-    // stays in the plan as a locked row.
-    if (ev.grade === null && isDebarred(ev)) debarred.push(course.code || course.name || "?");
-    else plannable.push(course);
+    const why = unplannable(evaluate(course));
+    if (why === null) plannable.push(course);
+    else left.push(`${course.code || course.name || "?"} left out: ${why}`);
   }
-  const dropped = debarred.length > 0
-    ? `${debarred.join(", ")} left out: attendance below ${ATTENDANCE_CONDONE}%`
-    : undefined;
   /** Carry the exclusions alongside whatever else there is to report. */
-  const note = (reason?: string) => [reason, dropped].filter(Boolean).join("; ") || undefined;
+  const note = (reason?: string) => [reason, ...left].filter(Boolean).join("; ") || undefined;
 
   const totalCredits = plannable.reduce((sum, c) => sum + toFloat(c.credits, 0), 0);
   if (totalCredits <= 0) {
-    // Not "no credits" when everything was debarred - that would name the
-    // wrong problem.
-    return { reachable: false, plan: [], reason: dropped ?? "no credits" };
+    // Not "no credits" when the courses were excluded rather than absent -
+    // that would name the wrong problem.
+    return { reachable: false, plan: [], reason: note() ?? "no credits" };
   }
 
   const neededPoints = targetSgpa * totalCredits;
@@ -344,8 +373,8 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
   const plan: PlanRow[] = chosen.map((at, i) => {
     const pick = ladders[i]![at]!;
     return {
-      code: labels[i]!, grade: pick.grade, ese: pick.ese,
-      credits: pick.credits, locked: pick.locked, unassessed: pick.unassessed,
+      code: labels[i]!, grade: pick.grade, ese: pick.ese, credits: pick.credits,
+      locked: pick.locked, eseMax: pick.eseMax, unassessed: pick.unassessed,
     };
   });
   plan.sort((a, b) => b.ese - a.ese);
