@@ -40,9 +40,6 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
     try {
       setBusy("Signing in…");
       const synced = await fullSync(url(), user(), password());
-      // Drop the password the moment it is no longer needed. It was never
-      // going anywhere else, but it should not sit in a signal either.
-      setPassword("");
       setBusy("Applying…");
       applySync(synced);
       edit((s) => { s.student.college = url().trim(); });
@@ -51,6 +48,10 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
       setError(exc instanceof EtlabError ? exc.message : String(exc));
     } finally {
       setBusy("");
+      // Drop the password whatever happened. Clearing it only on success left
+      // it live in the signal and in the DOM for as long as a failed sync sat
+      // on screen - which is the case a student retries, and stares at.
+      setPassword("");
     }
   };
 

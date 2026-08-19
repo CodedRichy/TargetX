@@ -29,7 +29,11 @@ const LOGIN_PATHS = ["/user/login", "/site/login", "/index.php/user/login", "/lo
 const ACADEMICS_PATHS = ["/ktuacademics/student/studentacademics", "/student/results"];
 const SUBJECT_PATHS = ["/student/subject"];
 
-const LOGOUT_HINTS = ["logout", "sign out", "signout"];
+/** A page still calling itself a login page has not authenticated anyone. */
+export const LOGIN_TITLE_RE = /\b(log\s?in|sign\s?in|logon)\b/i;
+
+/** Names a real username box carries. A captcha input matches none of them. */
+export const USER_FIELD_RE = /(user|login|admn|admission|reg|roll|uid|email|student)/i;
 
 // --- URL -------------------------------------------------------------------
 
@@ -38,7 +42,7 @@ const LOGOUT_HINTS = ["logout", "sign out", "signout"];
  * login page itself. Keeping that path would make every later request
  * /user/login/user/login.
  */
-export function normaliseBase(raw: string): string {
+export function normaliseBase(raw: string, allowInsecure = false): string {
   let url = (raw || "").trim();
   if (!url) throw new EtlabError("College portal URL is empty.");
   if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
@@ -50,6 +54,14 @@ export function normaliseBase(raw: string): string {
     throw new EtlabError(`Cannot read a hostname out of "${raw}".`);
   }
 
+  // The scheme is necessarily http: or https: by the test above, so there is
+  // nothing else to reject here.
+  //
+  // The student's portal password is POSTed to this origin. Plain http puts it
+  // on the wire in cleartext across campus wifi, so an explicit http:// is
+  // UPGRADED rather than honoured. Only a deliberate confirmation keeps it.
+  const protocol = allowInsecure ? parsed.protocol : "https:";
+
   let path = parsed.pathname.replace(/\/+$/, "");
   for (const suffix of ["/user/login", "/site/login", "/login", "/index.php",
                         "/user/logout", "/site/logout"]) {
@@ -58,7 +70,7 @@ export function normaliseBase(raw: string): string {
       break;
     }
   }
-  return `${parsed.protocol}//${parsed.host}${path.replace(/\/+$/, "")}`;
+  return `${protocol}//${parsed.host}${path.replace(/\/+$/, "")}`;
 }
 
 // --- transport -------------------------------------------------------------
@@ -288,44 +300,74 @@ export function parseSubjectTypes(html: string): Record<string, TypeKey> {
 
 // --- login -----------------------------------------------------------------
 
-/** 2 = username + password (a real login form), 1 = password only. */
-function scoreForm(form: HTMLFormElement): number {
-  let hasPassword = false, hasUser = false;
+/** The password box's name, or null when the form has none. */
+function passwordFieldName(form: HTMLFormElement): string | null {
   for (const input of Array.from(form.querySelectorAll("input"))) {
-    if (!input.getAttribute("name")) continue;
-    const type = (input.getAttribute("type") || "text").toLowerCase();
-    if (type === "password") hasPassword = true;
-    else if (type === "text" || type === "email") hasUser = true;
+    const name = input.getAttribute("name");
+    if (!name) continue;
+    if ((input.getAttribute("type") || "").toLowerCase() === "password") return name;
   }
-  if (!hasPassword) return 0;
-  return hasUser ? 2 : 1;
+  return null;
 }
 
-function fieldNames(form: HTMLFormElement): [string, string] {
-  let user: string | null = null, pass: string | null = null;
+/**
+ * The username box's name, matched on the NAME rather than the input type.
+ *
+ * Type alone is not enough. A session-expired stub carries a password box plus
+ * a captcha text input; by type that scores as a real login form and the
+ * captcha then gets bound as the username, sending the register number into a
+ * field the portal never reads. The name is what tells them apart.
+ *
+ * Yii wraps fields as LoginForm[username], so this matches on a substring.
+ */
+function usernameFieldName(form: HTMLFormElement): string | null {
   for (const input of Array.from(form.querySelectorAll("input"))) {
     const name = input.getAttribute("name");
     if (!name) continue;
     const type = (input.getAttribute("type") || "text").toLowerCase();
-    if (type === "password" && pass === null) pass = name;
-    else if ((type === "text" || type === "email") && user === null) user = name;
+    if (type !== "text" && type !== "email") continue;
+    if (USER_FIELD_RE.test(name)) return name;
   }
+  return null;
+}
+
+/** 2 = a form with both fields identified by name. 0 = do not post to it. */
+function scoreForm(form: HTMLFormElement): number {
+  return usernameFieldName(form) && passwordFieldName(form) ? 2 : 0;
+}
+
+/**
+ * Names to post under. Strict on purpose: guessing wrong here means putting a
+ * real password somewhere it was not meant to go, and failing with a readable
+ * error is the better trade. The candidates are listed in the message because
+ * the next college is where this will need debugging.
+ */
+function fieldNames(form: HTMLFormElement): [string, string] {
+  const user = usernameFieldName(form);
+  const pass = passwordFieldName(form);
   if (!user || !pass) {
-    throw new EtlabError("Login form is missing a username or password field.");
+    const seen = Array.from(form.querySelectorAll("input"))
+      .map((i) => i.getAttribute("name")).filter(Boolean).join(", ");
+    throw new EtlabError(
+      `Could not identify the username and password fields on the login form. ` +
+      `Fields seen: ${seen || "none"}. Use paste import instead.`);
   }
   return [user, pass];
 }
 
 /**
- * Find the best login form across the candidate paths.
+ * Find the login form across the candidate paths.
  *
- * Scored rather than first-match: a session-expired page often carries a stub
- * form with only a password box, and picking that one sends the credentials
- * nowhere useful. A form with both fields always wins.
+ * Two rules the previous version did not enforce, both about where a password
+ * is allowed to go:
+ *   - a form that does not identify BOTH fields is never posted to, so the
+ *     password-only stub this function was always meant to reject is now
+ *     actually rejected rather than kept as a fallback;
+ *   - the form's action must be same-origin with the page it was read from. An
+ *     injected or third-party action would otherwise receive the credentials.
  */
 async function findLoginForm(): Promise<{ action: string; form: HTMLFormElement }> {
   const errors: string[] = [];
-  let fallback: { score: number; action: string; form: HTMLFormElement } | null = null;
 
   for (const path of LOGIN_PATHS) {
     let response: Fetched;
@@ -340,30 +382,44 @@ async function findLoginForm(): Promise<{ action: string; form: HTMLFormElement 
       continue;
     }
     const doc = parseHtml(response.body);
-    let best: { score: number; action: string; form: HTMLFormElement } | null = null;
+    const landed = new URL(response.url);
+    let found = false;
     for (const form of Array.from(doc.querySelectorAll("form"))) {
-      const score = scoreForm(form);
-      if (!score) continue;
+      if (scoreForm(form) < 2) continue;
+      found = true;
       // Relative actions resolve against the URL landed on, not requested.
-      const action = new URL(form.getAttribute("action") || response.url, response.url).toString();
-      if (!best || score > best.score) best = { score, action, form };
+      const action = new URL(form.getAttribute("action") || response.url, response.url);
+      // `origin` covers scheme, host and port, so this rejects an off-site
+      // action and an https -> http downgrade in the same test.
+      if (action.origin !== landed.origin) {
+        errors.push(`${path}: form posts to ${action.origin}, not ${landed.origin}`);
+        continue;
+      }
+      return { action: action.toString(), form };
     }
-    if (!best) {
-      errors.push(`${path}: no password field`);
-      continue;
-    }
-    if (best.score === 2) return { action: best.action, form: best.form };
-    fallback ??= best;
+    errors.push(`${path}: ${found ? "no same-origin login form" : "no login form"}`);
   }
-  if (fallback) return { action: fallback.action, form: fallback.form };
   throw new EtlabError(`No login form found. Tried: ${errors.join("; ")}`);
 }
 
+/**
+ * Did the POST actually authenticate?
+ *
+ * Negative signals only, both read off the parsed DOM rather than the raw
+ * HTML. etlab re-renders the login page on a bounced login and its <title>
+ * still says so; rit-etlab-api relies on the same tell against a different
+ * college's deployment, which is the only cross-college evidence available.
+ *
+ * What this replaces: a substring test that returned TRUE on "logout" appearing
+ * anywhere in the document - a cached nav link or a script filename was enough
+ * to report a failed login as a success - and that looked for exactly two
+ * spellings of type="password", so any other attribute order read as signed in.
+ */
 function looksLoggedIn(html: string): boolean {
-  const lowered = html.toLowerCase();
-  if (LOGOUT_HINTS.some((hint) => lowered.includes(hint))) return true;
-  // Still showing a password box means the POST bounced.
-  return !lowered.includes('type="password"') && !lowered.includes("type='password'");
+  const doc = parseHtml(html);
+  if (LOGIN_TITLE_RE.test(doc.title || "")) return false;
+  if (doc.querySelector('input[type="password"]')) return false;
+  return true;
 }
 
 export async function login(base: string, username: string, password: string): Promise<void> {
