@@ -172,13 +172,13 @@ export interface CourseOption {
   credits: number;
   eseMax: number;
   /**
-   * Priced from the best CIE the course can still reach, because its internal
-   * is not settled - so `ese` is the least this grade could cost rather than
-   * what it will cost, and whoever shows this row has to say so. Two ways in:
-   * nothing has been marked at all, or marks exist but attendance does not,
-   * which leaves the CIE short of its R 7.5.ii component
-   * (`Evaluation.cieIncomplete`). See `courseOptions` for which bound each of
-   * the two gets; they are not the same one.
+   * Priced from the best CIE the course can still reach rather than from the
+   * one it has, because that CIE can still move - so `ese` is the least this
+   * grade could cost rather than what it will cost, and whoever shows this row
+   * has to say so. Set whenever `Evaluation.cieCeiling` is above `cie`, which
+   * covers all three ways an internal is still open: a component with no mark
+   * yet, an attendance percentage nobody has recorded, and an attendance
+   * percentage that is recorded but not yet worth its full `attMax`.
    */
   cieUnknown: boolean;
 }
@@ -190,27 +190,26 @@ export interface CourseOption {
  * Grades already impossible are omitted rather than shown greyed out, because
  * a plan built on them is not a plan.
  *
- * A course whose CIE is not settled has nothing exact to price against - its
- * components are unmarked, or they are marked and its attendance is not, so
- * the figure `evaluate` reports is a floor rather than the internal. Reverse-
- * solving off a floor overstates every rung, and off a near-zero it calls
- * every letter impossible and drops the course - one ungraded lab would then
- * take the whole semester's plan with it. So the ladder is priced from the
- * HIGHEST CIE the course can still reach, and `cieUnknown` is set on every
- * such row so the figure is read as the least the grade could cost rather
- * than as a settled requirement.
+ * A course whose CIE can still move has nothing exact to price against - a
+ * component may be unmarked, the attendance may be unrecorded, or it may be
+ * recorded below the band that pays all `attMax` marks. Reverse-solving off
+ * the figure `evaluate` reports overstates every rung, and off a near-zero it
+ * calls every letter impossible and drops the course - one part-marked lab
+ * would then take the whole semester's plan with it. So the ladder is priced
+ * from the HIGHEST CIE the course can still reach, and `cieUnknown` is set on
+ * every such row so the figure is read as the least the grade could cost
+ * rather than as a settled requirement.
  *
- * Which bound that is depends on what is missing, and the difference is the
- * whole point. With nothing marked at all, every component is still open and
- * the bound is the full bucket. With the components marked and only the
- * attendance percentage missing, it is `Evaluation.cieCeiling` - the marks
- * recorded plus the attendance component, and no more. Reaching for the full
- * bucket in that second case prices the ladder off marks the course has
- * already ruled out, and the plan then offers grades that cannot be reached
- * at 100% in the exam: measured on a 4-credit TH 40/60 with 10/50, 10/50 and
- * 2/10 recorded and no attendance, the bucket says A+ costs 45 of 60 when the
- * true best is 12 + 60 = 72, a B. A cost that is too low is the one a student
- * acts on.
+ * That bound is `Evaluation.cieCeiling`, and reaching instead for the full
+ * `cieMax` bucket prices the ladder off marks the course has already ruled
+ * out: measured on a TH 40/60 with 10/50, 10/50 and 2/10 recorded and no
+ * attendance, the bucket says A+ costs 45 of 60 when the best total still
+ * available is 12 + 60 = 72, a B. A cost that is too low is the one a student
+ * acts on. Reaching for `cie` instead is the mirror of it - measured on a
+ * LAB 75/25 with one 10/50 series mark in, 28 marks of unmarked components
+ * and a floor of 13.4, the floor prices every letter impossible,
+ * `courseOptions` returns nothing at all, and one lab with one mark in it
+ * takes the whole semester's plan down with it.
  *
  * On an internal-only course that bound is zero for every letter, since there
  * is no exam to spend anything in. True, and useless to a planner - see
@@ -236,12 +235,13 @@ export function courseOptions(course: Course): CourseOption[] {
   }
 
   const options: CourseOption[] = [];
-  const cieUnknown = !ev.assessed || ev.cieIncomplete;
-  // An assessed course is priced at its own internal, or at the top of the
-  // interval when the attendance is what is missing - `cieCeiling` is one or
-  // the other. An unassessed one keeps the whole bucket: nothing is marked,
-  // so nothing has been ruled out.
-  const cie = ev.assessed ? ev.cieCeiling : ev.cieMax;
+  // One bound, and it is the true one in every case: `cieCeiling` is the whole
+  // bucket where nothing is marked, the recorded marks plus what is still
+  // earnable where some are, and the internal itself where the CIE is settled.
+  // `cieUnknown` follows from the same figure rather than from a second
+  // predicate that could disagree with it.
+  const cie = ev.cieCeiling;
+  const cieUnknown = ev.cieCeiling > ev.cie;
   for (const [letter, , gp] of GRADE_BANDS) {
     const need = requiredEse(cie, letter, ev.eseMax);
     if (need.possible) {
@@ -295,14 +295,16 @@ export interface SgpaPlan {
  *     and the course is out of the SGPA being solved for.
  *   - Debarred. Instructing a mark in an exam they will not be admitted to is
  *     worse than saying nothing.
- *   - Internal-only (`eseMax === 0`) with nothing marked yet. `courseOptions`
+ *   - Internal-only (`eseMax === 0`) with an unsettled CIE. `courseOptions`
  *     truthfully reports every grade still open at a cost of zero exam marks,
  *     because there is no exam - but the greedy below buys rungs by cost, and
  *     a whole ladder priced at zero is free grade points. It would climb that
  *     one course to an S before asking a single mark of any other and call the
- *     target met with every real paper left at P. An unrecorded attendance
- *     leaves the internal unsettled the same way (`cieIncomplete`), so the
- *     same free ladder appears and the same exclusion applies.
+ *     target met with every real paper left at P. Nothing marked, a series
+ *     mark missing, or the attendance missing all leave the internal a floor
+ *     (`cieFloor`) and produce the same free ladder, so the same exclusion
+ *     applies to all three. A settled internal-only course does not reach
+ *     here at all: its grade is derived, so the check above returns first.
  *
  * A published GRADE decides the course whatever else is true of it, so it is
  * plannable - as a locked row that costs nothing because it is already earned.
@@ -315,10 +317,14 @@ function unplannable(ev: Evaluation): string | null {
   if (isIncomplete(ev.grade)) return ev.grade === "W" ? "withdrawn" : "incomplete";
   if (ev.grade !== null) return null;
   if (isDebarred(ev)) return `attendance below ${ATTENDANCE_CONDONE}%`;
-  if (ev.eseMax === 0 && (!ev.assessed || ev.cieIncomplete)) {
-    return ev.assessed
+  if (ev.eseMax === 0 && (!ev.assessed || ev.cieFloor)) {
+    if (!ev.assessed) return "no exam to aim at, and no internals marked yet";
+    if (ev.cieIncomplete && ev.cieUnmarked) {
+      return "no exam to aim at, and the internal is short of marks and attendance";
+    }
+    return ev.cieIncomplete
       ? "no exam to aim at, and attendance is not recorded"
-      : "no exam to aim at, and no internals marked yet";
+      : "no exam to aim at, and not every internal mark is in";
   }
   return null;
 }

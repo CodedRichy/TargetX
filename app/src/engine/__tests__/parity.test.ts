@@ -41,18 +41,35 @@
  *     `plan` that `effectiveAttendance` reads and so the plan's only route
  *     into the CIE, which makes it the fixture's standing evidence that this
  *     task moved nothing downstream of it.
+ *   - `creditsConfirmed` and `assessed` in the rollup (task 10 fix 2): the
+ *     oracle grades a course off a CIE that is short an unmarked component,
+ *     reading a blank series exam as a zero. 6 of the 276 courses across the
+ *     corpus semesters are assessed with a component still unmarked; on 4 of
+ *     them the oracle derives a grade this engine now withholds (three Fs
+ *     that are not certain - the highest CIE each can still reach clears the
+ *     pass - and one A+ that its own unmarked component can only raise).
+ *     Those four move `creditsConfirmed` on 4 of the 60 semesters (21 vs 23,
+ *     11 vs 16, 15 vs 19, 19 vs 22) and `assessed` on 1, where one of them is
+ *     also debarred and so leaves the projection with its grade. What is lost
+ *     is real: `creditsConfirmed` is a field these tasks move, and it was the
+ *     fixture's standing check that credits enter and leave `confirmed` for
+ *     the right reasons. `core.test.ts` carries that check directly instead.
+ *     `pending`, `credits` and `lowAttendance` are unaffected - measured, 0
+ *     diffs on all three across all 60 - and stay in.
  *
- * One further field is dropped from the rollup and it is not an exclusion:
- * `unsettled` (task 10 fix 1) has no counterpart in the fixture at all,
- * because the Python engine has no notion of a CIE waiting on an attendance
- * figure. There is no oracle value to compare it against, so no protection is
- * given up by leaving it out; `core.test.ts` covers it directly. Every field
- * the fixture DOES carry is still compared, `pending`, `assessed`, `credits`
- * and `creditsConfirmed` among them, and all four are fields these tasks can
- * move.
+ * One further field is dropped and it is not an exclusion at all: `unsettled`
+ * (task 10 fix 1) has no counterpart in the fixture, because the Python engine
+ * has no notion of an unsettled CIE. There is no oracle value to compare it
+ * against, so nothing is given up by leaving it out.
  *
- * What is left is worth stating exactly, since the exclusion list above is
- * long. Per course the comparison still asserts `cieMax`, `eseMax`, `ese`,
+ * What is left of the rollup after all that is `pending`, `credits` and
+ * `lowAttendance`, and it is worth saying plainly that this is thin. The
+ * remaining evidence for the rollup is `core.test.ts`.
+ *
+ * What is left per course is worth stating exactly, since the exclusion list
+ * above is long - and the per-course `assessed` is not the rollup field of
+ * the same name and is still compared. Per course the comparison still
+ * asserts `cieMax`, `eseMax`, `ese`,
  * `eseCutoff`, `assessed`, `credits`, `target`, and nine attendance fields:
  * `plan`'s raw and duty-leave-adjusted percentages, its claimed/credited/
  * wasted split and its surplus-or-deficit verdict, plus `attBand`'s earned
@@ -140,7 +157,8 @@ function slimSummary(summary: Record<string, unknown>) {
     sgpaConfirmed: _sgpaConfirmed, sgpaProjected: _sgpaProjected,
     percentConfirmed: _percentConfirmed, percentProjected: _percentProjected,
     atRisk: _atRisk, impossible: _impossible,
-    unsettled: _unsettled, ...rest
+    unsettled: _unsettled, creditsConfirmed: _creditsConfirmed,
+    assessed: _assessed, ...rest
   } = summary;
   return rest;
 }

@@ -112,21 +112,25 @@ export interface Evaluation {
   cie: number;
   cieMax: number;
   /**
-   * The highest CIE this course can still reach - the top of the interval
-   * `[cie, cieCeiling]`, where `cie` is the bottom.
+   * The highest CIE this course can still reach.
    *
    * Not `cieMax`, which is the bucket's capacity and says nothing about what
-   * the marks already recorded allow. This is `cie` itself for every course
-   * whose CIE is settled, and `cie + CourseSpec.attMax` (never above `cieMax`)
-   * while `cieIncomplete` is true, that being the only component still
-   * unpriced there. Anything asking what is still POSSIBLE - can this course
-   * still pass, what is the best grade left, what could a grade cost at least
-   * - must ask it of this figure; `cie` would answer the same question as
-   * though the missing marks were zeros.
+   * this course allows. Every component that HAS a mark counts what it
+   * scored, because a recorded mark cannot move; every component that does
+   * not counts its whole weight, because an unwritten series exam is unknown
+   * rather than zero; and the attendance component counts `attMax` whatever
+   * today's percentage is, because attendance marks are the one part of a CIE
+   * a student can still go and earn - `attBand` on this same object is the
+   * engine telling them how many classes that takes. A published
+   * `cie_override` settles both ends at the published figure.
    *
-   * An unmarked series exam is a different unknown, and this field does not
-   * model it: a blank component reads as a zero in both ends of the interval,
-   * exactly as it did before.
+   * It follows that this equals `cie` only where nothing can move it - a
+   * published total, or every component marked with the attendance component
+   * already full - and that it is the figure every
+   * forward-looking question must read: what could this grade cost at least,
+   * can this course still pass, what is the best grade left. `cie` would
+   * answer all three as though the missing marks were zeros and the missing
+   * attendance were unrecoverable.
    */
   cieCeiling: number;
   eseMax: number;
@@ -150,24 +154,42 @@ export interface Evaluation {
   /** False when nothing has been marked yet - absence of data, not a zero. */
   assessed: boolean;
   /**
-   * True when `cie` is a lower bound rather than the CIE.
+   * True when the attendance component of `cie` could not be priced.
    *
    * Attendance is worth `CourseSpec.attMax` marks of the internal (R 7.5.ii),
    * and an unknown percentage cannot be priced - so those marks are neither
    * spent nor awarded and `cie` is short by up to `attMax`. Absence is not
-   * zero: no grade is derived while this is true, because a band read off a
-   * bound is a band the data does not support. A published `cie_override`
-   * clears it, that total already being the college's own arithmetic.
+   * zero. A published `cie_override` clears it, that total already being the
+   * college's own arithmetic.
    *
-   * A published `portal_grade` does NOT clear it - the internal really is
-   * short of a component - but nothing is derived there either: that grade is
-   * reported because the university published it, not because this app read
-   * it off `cie`. So a course can carry this flag and still report a grade.
+   * One of the two halves of `cieFloor`, which is what the arithmetic keys
+   * on; this one exists so a screen can say WHICH figure is missing, since
+   * the student can supply an attendance percentage and cannot supply a
+   * series mark.
    *
-   * `cieCeiling` is the other end of the same interval, and is what anything
-   * asking what is still reachable must read.
+   * Two ways a grade is still reported while this is true, and both are
+   * deliberate: a `portal_grade` the university published (reported because
+   * it was published, not because anything read it off `cie`), and an F
+   * decided by the separate 40% ESE minimum, which never touches the CIE at
+   * all.
    */
   cieIncomplete: boolean;
+  /**
+   * True when a CIE component has no mark yet, so `cie` is short by its
+   * weight. The other half of `cieFloor`, and the reason it is separate: a
+   * screen that explains the missing figure has to name the right one, and
+   * "enter your attendance" is wrong advice for an unwritten series exam.
+   * A published `cie_override` clears it, as it does `cieIncomplete`.
+   */
+  cieUnmarked: boolean;
+  /**
+   * True when `cie` is a lower bound rather than the internal - either flag
+   * above. This is what the arithmetic keys on: no grade is derived off a
+   * floor (the ESE-cutoff F excepted, which never reads the CIE at all), the
+   * status is PENDING, the required-mark columns say nothing, and the CIE
+   * cell is marked as a bound.
+   */
+  cieFloor: boolean;
   plan: AttendancePlan | null;
   attMarks: number | null;
   attBand: AttendanceBand | null;
@@ -175,6 +197,15 @@ export interface Evaluation {
   needPass: RequiredEse;
   needTarget: RequiredEse;
   target: Letter;
+  /**
+   * Is a pass / the target still reachable, asked of `cieCeiling` rather than
+   * of `cie`. Distinct from `needPass.possible`, which is the same question
+   * asked of the floor and therefore says "impossible" for a course whose
+   * marks are simply not all in yet.
+   */
+  passOpen: boolean;
+  targetOpen: boolean;
+  /** The best grade `cieCeiling` plus a full exam could still produce. */
   maxPossibleGrade: Grade;
 }
 

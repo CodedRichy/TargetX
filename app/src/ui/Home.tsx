@@ -91,16 +91,19 @@ export function Home() {
       } else if (ev.grade === null && ev.cieIncomplete && ev.assessed) {
         // Marks are in but attendance is not, so the internal is short of its
         // R 7.5.ii component and every figure below it would be priced off a
-        // floor. One field fixes it, so say which field.
+        // floor. One field fixes it, so say which field. A course whose only
+        // gap is an unmarked series exam is deliberately NOT listed here:
+        // there is nothing the student can do about it, and a concern nobody
+        // can act on is noise. The semester tile counts those instead.
         out.push({ code, severity: "warn", rank: 2,
                    detail: "attendance not recorded — its internal is incomplete, "
                      + "so no grade is being read off it" });
-      } else if (ev.grade === null && ev.assessed && !ev.needPass.possible) {
-        // `assessed` is load-bearing: on an internal-only course with nothing
-        // marked, `needPass` is solved against a CIE of zero and reports the
-        // pass impossible. Nothing has been graded there at all, and the row
-        // itself says PENDING - "no longer reachable" would be the same
-        // absence-read-as-zero the engine refuses one layer down.
+      } else if (ev.grade === null && ev.assessed && !ev.passOpen) {
+        // `passOpen` rather than `needPass.possible`: the latter is solved
+        // against the floor, so it calls a pass impossible for a course that
+        // simply has marks still to come. Telling a student their pass is gone
+        // over an unwritten series exam is the worst false alarm this screen
+        // could raise.
         out.push({ code, severity: "bad", rank: 1,
                    detail: "a pass is no longer reachable from the internals" });
       } else if (ev.eligible === false) {
@@ -109,7 +112,7 @@ export function Home() {
                    detail: plan?.attend
                      ? `below 75% — ${plan.attend} classes in a row to be eligible`
                      : "below 75% — not eligible to sit the exam" });
-      } else if (ev.grade === null && ev.assessed && !ev.needTarget.possible) {
+      } else if (ev.grade === null && ev.assessed && !ev.targetOpen) {
         out.push({ code, severity: "warn", rank: 3,
                    detail: `target out of reach — best still open is ${ev.maxPossibleGrade}` });
       }
@@ -336,9 +339,9 @@ export function Home() {
                 </Show>
                 <Show when={summary().unsettled > 0}>
                   <strong class="num">{summary().unsettled}</strong> subject
-                  {summary().unsettled === 1 ? " is" : "s are"} waiting on an
-                  attendance figure — the internal is short of its attendance
-                  marks, so no grade is being read off it yet.
+                  {summary().unsettled === 1 ? " has" : "s have"} an internal that
+                  is not settled — a component mark or the attendance is still
+                  missing, so no grade is being read off it yet.
                 </Show>
               </Show>
               </Show>

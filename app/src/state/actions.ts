@@ -247,7 +247,7 @@ export function reportText(rows: Array<{ course: Course; ev: Record<string, unkn
     // ">=95.0/100" (10), the floor being at most cieMax - attMax whenever the
     // marker shows. A column that overflows shifts every column to the right
     // of it on that row alone, and this is a table meant to be pasted whole.
-    const settled = ev["assessed"] && !ev["cieIncomplete"];
+    const settled = ev["assessed"] && !ev["cieFloor"];
     const cie = Number(ev["cie"]).toFixed(1);
     lines.push([
       (row.course.code || "?").padEnd(10),

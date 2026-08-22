@@ -4,7 +4,7 @@ import {
 import {
   attendanceMarks, attendancePlan, effectiveAttendance, nextAttendanceBand,
 } from "./attendance";
-import { computeCie, eseCutoff, specFor } from "./cie";
+import { cieBounds, eseCutoff, specFor } from "./cie";
 import { gradeForTotal, isIncomplete, normaliseGrade, requiredEse } from "./grade";
 import type {
   Course, Evaluation, Grade, Incomplete, Letter, MarkInput, Status,
@@ -28,28 +28,29 @@ export function evaluate(course: Course): Evaluation {
   // Unknown stays unknown: `null` here must never read as "below 75%" (that
   // is `false`) or "fine" (`true`) to any consumer.
   const eligible = attendance === null ? null : attendance >= ATTENDANCE_MIN;
-  const cie = computeCie(course, attendance);
-  // The internal is short of one component and nobody knows by how much.
-  // `computeCie` could only sum what is marked, so `cie` is a lower bound
-  // missing up to `spec.attMax` marks - enough to move a grade band. A
-  // published internal total is not affected: it already contains the
-  // college's own attendance marks, so an unknown percentage costs it
-  // nothing.
-  // (`spec.attMax > 0` is defensive rather than live: all six `COURSE_TYPES`
-  // entries go through `withAttendance`, which pays the regulation's 5 marks.
-  // A type that paid none would have no missing component and no interval.)
+  const { cie, ceiling: cieCeiling } = cieBounds(course, attendance);
   const published = toOptionalFloat(course.cie_override);
+
+  // Three questions about the same number, and they are not the same question.
+  //
+  // `cieIncomplete`: the attendance component cannot be priced, so `cie` is
+  // short by up to `spec.attMax` marks - enough to move a band. A published
+  // internal total is not affected: it already contains the college's own
+  // attendance marks, so an unknown percentage costs it nothing.
+  // (`spec.attMax > 0` is defensive rather than live: all six `COURSE_TYPES`
+  // entries go through `withAttendance`, which pays the regulation's 5 marks.)
   const cieIncomplete = published === null && attendance === null && spec.attMax > 0;
-  // The other end of that interval. An unknown is only half killed by refusing
-  // to call it zero: whatever asks what is still REACHABLE has to be handed a
-  // bound that the marks already recorded allow, or it will reach for
-  // `cieMax` and offer a grade the course can no longer attain. The clamp is
-  // inert while components + attMax total cieMax exactly (the invariant
-  // `COURSE_TYPES` is tested for), and keeps the figure honest if a future
-  // weights table breaks that.
-  const cieCeiling = cieIncomplete
-    ? round(clamp(cie + spec.attMax, 0, spec.cieMax), 2)
-    : cie;
+  // `cieUnmarked`: a series exam or an assignment has no mark yet. Absence is
+  // not zero on this axis either - an unwritten series is worth its whole
+  // weight still, not nothing - so `cie` is short by that too.
+  const cieUnmarked = published === null && spec.components.some(
+    ({ key }) => toOptionalFloat((course as Record<string, MarkInput>)[key]) === null,
+  );
+  // `cieFloor`: either of the above, i.e. `cie` is a LOWER BOUND rather than
+  // the internal. This is the one the arithmetic keys on; the two halves are
+  // kept apart only so a screen can name which field is missing.
+  const cieFloor = cieIncomplete || cieUnmarked;
+
 
   // A grade published by the university is final. It outranks anything this
   // app could derive, and it arrives WITHOUT an ESE mark - portals publish the
@@ -79,22 +80,31 @@ export function evaluate(course: Course): Evaluation {
     // adding a CIE to an exam mark for a course that was never completed
     // would manufacture one.
     if (!isIncomplete(publishedGrade) && ese !== null) total = round(cie + ese, 2);
-  } else if (!cieIncomplete && (ese !== null || (eseMax === 0 && assessed))) {
-    // `cieIncomplete` blocks this branch and only this one: a grade derived
-    // from a CIE that is short of its attendance component would state a band
-    // the data cannot support. Absence is not zero, so the course waits at
-    // `grade: null` - the same place a course whose exam is unwritten waits -
-    // until the attendance figure arrives. The published-grade branch above is
-    // untouched: what the university printed outranks anything derived here.
-    total = round(cie + (ese ?? 0), 2);
+  } else if (ese !== null || (eseMax === 0 && assessed)) {
     if (eseMax && ese !== null && ese < cutoff) {
+      // The separate 40% ESE minimum, and it is the one verdict here that does
+      // not touch the CIE: no internal mark, recorded or still to come, can
+      // buy it off. So it stands even when the internal is a floor - refusing
+      // to state it would drop a certain F out of `sgpaConfirmed` and leave
+      // the confirmed average reading better than the truth. The TOTAL is
+      // still withheld on a floor, because that number really is unknown.
       grade = "F";
       failedReason = `ESE ${ese.toFixed(0)} < cutoff ${cutoff}`;
-    } else if (total < TOTAL_PASS_MARK) {
-      grade = "F";
-      failedReason = `Total ${total.toFixed(0)} < ${TOTAL_PASS_MARK}`;
-    } else {
-      grade = gradeForTotal(total);
+      if (!cieFloor) total = round(cie + ese, 2);
+    } else if (!cieFloor) {
+      // Everything below reads the CIE, so a floor blocks all of it: a band
+      // read off a sum that is short of a component is a band the data does
+      // not support. Absence is not zero, so the course waits at
+      // `grade: null` - the same place a course whose exam is unwritten waits
+      // - until the missing figure arrives. The published-grade branch above
+      // is untouched: what the university printed outranks anything derived.
+      total = round(cie + (ese ?? 0), 2);
+      if (total < TOTAL_PASS_MARK) {
+        grade = "F";
+        failedReason = `Total ${total.toFixed(0)} < ${TOTAL_PASS_MARK}`;
+      } else {
+        grade = gradeForTotal(total);
+      }
     }
   }
 
@@ -115,23 +125,28 @@ export function evaluate(course: Course): Evaluation {
     eligible,
     assessed,
     cieIncomplete,
+    cieUnmarked,
+    cieFloor,
     plan,
     attMarks: attendanceMarks(attendance, spec.attMax),
     attBand: nextAttendanceBand(course.attended, course.held, course.dl ?? 0),
     credits: clamp(toFloat(course.credits, 0), 0, 20),
     // The two requirements are quoted off `cie`, the figure that can be
-    // proved: on a `cieIncomplete` course they are therefore the MOST a grade
-    // can cost, and `.possible` there can read false for a grade the missing
-    // attendance marks would still allow. Whoever prints them says so - the
-    // Ledger and the text report both blank them on such a row - and anyone
-    // asking whether something is still open asks `cieCeiling` instead, as
-    // `summarise` does below.
+    // proved, so they are the MOST a grade can cost. Where the CIE is a floor
+    // that makes `.possible` read false for grades the missing marks would
+    // still allow, which is why nothing consults it for a possibility - the
+    // three fields below answer that question instead - and why both surfaces
+    // that print these blank them on a floor row (`needApplies` in the
+    // Ledger, `settled` in the text report).
     needPass: requiredEse(cie, "P", eseMax),
     needTarget: requiredEse(cie, target, eseMax),
     target,
-    // "Possible" is a question about the best case, so it is the only one of
-    // the three priced off the top of the interval. `cieCeiling` is `cie` for
-    // every course whose CIE is settled, so nothing else moves.
+    // Is it still open, and how far can it still go: three questions about the
+    // best case, so all three are priced off the top of the interval. One
+    // shared answer, because `statusFor`, `summarise` and Home all ask it and
+    // three private copies of the same question is how they drift apart.
+    passOpen: requiredEse(cieCeiling, "P", eseMax).possible,
+    targetOpen: requiredEse(cieCeiling, target, eseMax).possible,
     maxPossibleGrade: gradeForTotal(cieCeiling + eseMax),
   };
 }
@@ -160,24 +175,31 @@ export function statusFor(ev: Evaluation): Status {
   // be sitting - including the attendance verdicts, which describe admission
   // to an exam that is no longer theirs to be admitted to.
   if (isIncomplete(ev.grade)) return "INCOMPLETE";
-  if (ev.grade === null && ev.total === null && (!ev.assessed || ev.cieIncomplete)) {
+  if (ev.grade === null && ev.total === null && (!ev.assessed || ev.cieFloor)) {
     // Nothing to report yet, for one of two reasons: no internal assessment
-    // has been published, or one has but its attendance component is unknown,
-    // so the CIE is a lower bound and no grade may be derived from it
-    // (`cieIncomplete`). Attendance is still real and still worth flagging,
-    // but nothing can be said about the marks - and nothing can be said about
-    // attendance itself when that field is also blank.
+    // has been published, or one has but the CIE is still a floor - a
+    // component or the attendance figure is missing, and no grade may be
+    // derived from a bound (`cieFloor`). Attendance is still real and still
+    // worth flagging, but nothing can be said about the marks - and nothing
+    // can be said about attendance itself when that field is also blank.
     if (isDebarred(ev)) return "DEBARRED";
     if (ev.eligible === false) return "SHORTAGE";
     return "PENDING";
   }
   // A published grade settles the matter; a projection built without an ESE
   // mark (portals never publish the exam score) is not grounds to call a
-  // finished course unreachable.
-  if (!ev.needPass.possible && ev.grade === null) return "UNREACHABLE";
+  // finished course unreachable. `passOpen` rather than `needPass.possible`:
+  // unreachable has to mean unreachable at the BEST case, or a course with one
+  // series mark in and the rest to come gets stamped with a verdict its own
+  // row contradicts.
+  if (!ev.passOpen && ev.grade === null) return "UNREACHABLE";
   if (ev.grade === "F") return "FAILED";
   if (isDebarred(ev)) return "DEBARRED";
   if (ev.eligible === false) return "SHORTAGE";
+  // TIGHT stays on the floor-priced figure deliberately: it is a warning about
+  // how hard the requirement LOOKS, and the requirement on screen is the
+  // floor-priced one. Pricing the warning off the ceiling and the number off
+  // the floor would leave the two disagreeing on the same row.
   if (ev.grade === null && ev.eseMax && ev.needPass.value / ev.eseMax > 0.7) return "TIGHT";
   return "SAFE";
 }
@@ -192,8 +214,9 @@ export function sgpa(pairs: Array<[number, number]>): number {
 export interface Summary {
   pending: number;
   /**
-   * Assessed, ungraded, and waiting on an attendance figure rather than on an
-   * exam (`Evaluation.cieIncomplete`).
+   * Assessed, ungraded, and waiting on a mark rather than on an exam: the CIE
+   * is still a floor, because a component or the attendance figure is missing
+   * (`Evaluation.cieFloor`).
    *
    * A third state, and it is in neither of the two counts beside it: such a
    * course HAS been assessed, so `pending` never sees it, and it is projected
@@ -264,24 +287,16 @@ export function summarise(courses: Course[]): Summary {
       continue;
     }
 
-    // Is the target still open, and is a pass still open: two questions about
-    // what is REACHABLE, so both are asked of the top of the CIE interval
-    // rather than of `cie` - as is `maxPossibleGrade`, which `evaluate`
-    // already prices that way and which the projection below reads. On a course
-    // whose attendance has not been recorded `cie` is a floor, and asking
-    // these off it scores the missing marks as zeros one layer above the
-    // suppression that refused to do exactly that: a fully-marked project
-    // course would be filed as unreachable and projected at an F while its
-    // own row reads PENDING. `cieCeiling` is `cie` wherever the CIE is
-    // settled, so this is the same question it always was for those.
-    if (ev.grade === null && ev.assessed && ev.cieIncomplete) unsettled += 1;
-    const targetOpen = requiredEse(ev.cieCeiling, ev.target, ev.eseMax).possible;
-    const passOpen = requiredEse(ev.cieCeiling, "P", ev.eseMax).possible;
+    // `unsettled` is the third state: assessed, ungraded, and waiting on a
+    // mark rather than on an exam. It is in neither count beside it, and
+    // without it a screen reads `pending === 0` and says every subject has
+    // been assessed over a confirmed SGPA of zero.
+    if (ev.grade === null && ev.assessed && ev.cieFloor) unsettled += 1;
 
     if (ev.grade !== null) {
       confirmed.push([ev.credits, GRADE_POINTS[ev.grade]]);
       projected.push([ev.credits, GRADE_POINTS[ev.grade]]);
-    } else if (targetOpen) {
+    } else if (ev.targetOpen) {
       // Not yet written: project the target if reachable, else the best grade
       // still mathematically on the table.
       projected.push([ev.credits, GRADE_POINTS[ev.target]]);
@@ -289,7 +304,7 @@ export function summarise(courses: Course[]): Summary {
       projected.push([ev.credits, GRADE_POINTS[ev.maxPossibleGrade]]);
     }
 
-    if (!passOpen && ev.grade === null) {
+    if (!ev.passOpen && ev.grade === null) {
       // A published grade settles the matter; do not warn that a course
       // already on the record is unreachable.
       impossible.push(label);

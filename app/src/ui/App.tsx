@@ -60,7 +60,8 @@ function Kpis() {
               {[
                 summary().pending > 0 ? `${summary().pending} not yet assessed` : null,
                 summary().unsettled > 0
-                  ? `${summary().unsettled} awaiting attendance` : null,
+                  ? `${summary().unsettled} internal${summary().unsettled === 1 ? "" : "s"} not settled`
+                  : null,
               ].filter(Boolean).join(" · ")}
             </Show>
           </span>

@@ -361,12 +361,12 @@ describe("an unknown attendance is not spent as a full CIE either", () => {
   });
 
   it("leaves a course with nothing marked at all priced from the bucket", () => {
-    // Every component is still open there, so the whole bucket genuinely is
-    // available and this path is unchanged.
+    // Every component is still open there, and so is the attendance, so the
+    // whole bucket genuinely is available and the ladder is unchanged.
     const fresh = blankCourse("H2", "Fresh", 4, "TH 40/60");
     const ev = evaluate(fresh);
     expect(ev.assessed).toBe(false);
-    expect(ev.cieCeiling).toBe(5);
+    expect(ev.cieCeiling).toBe(40);
     expect(courseOptions(fresh).find((o) => o.grade === "S")!.ese).toBe(50);
   });
 
@@ -422,6 +422,9 @@ describe("an unknown attendance is not spent as a full CIE either", () => {
       s1: 45, s2: 45, other: 9, attendance: 90,
     });
     expect(known.cieIncomplete).toBe(false);
+    expect(known.cieUnmarked).toBe(false);
+    expect(known.cieFloor).toBe(false);
+    // 90% earns all five attendance marks, so there is nothing left to reach.
     expect(known.cieCeiling).toBe(known.cie);
     expect(known.cieCeiling).toBe(36.5);
 
@@ -917,6 +920,167 @@ describe("an ungraded course is not a zero-CIE course", () => {
     const pbl = plan.plan.find((row) => row.code === "PBLST506")!;
     expect(pbl.cieUnknown).toBe(true);
     expect(plan.plan.filter((row) => row.cieUnknown).length).toBe(1);
+  });
+});
+
+describe("an unmarked component is unknown, not a zero", () => {
+  /**
+   * The same rule as the attendance one, on the other axis of the same sum.
+   * A series exam nobody has marked yet is worth its whole weight still, so a
+   * CIE summed without it is a floor - and reading a verdict off that floor
+   * cost more than a wrong number: it stamped UNREACHABLE on a lab with one
+   * mark in it, emptied its ladder, and took the whole semester's plan down
+   * with it, because `planForSgpa` gives up when any course has no route.
+   *
+   * `LAB 75/25`, 2 credits, `s1 10/50` entered and attendance 90% synced -
+   * ordinary mid-semester data. The floor is 13.4; 28 of the internal's marks
+   * are simply not awarded yet, so the CIE can still reach 41.4.
+   */
+  const lab = (): Course => ({
+    ...blankCourse("LAB1", "Lab", 2, "LAB 75/25"), s1: 10, attended: 90, held: 100,
+  });
+  const healthy = (): Course => ({
+    ...blankCourse("PCCST501", "CN", 4), cie_override: 30, attended: 90, held: 100,
+  });
+
+  it("does not call a pass impossible over marks that are not in yet", () => {
+    const ev = evaluate(lab());
+    expect(ev.cie).toBe(13.4);
+    expect(ev.cieCeiling).toBe(41.4);
+    expect(ev.cieUnmarked).toBe(true);
+    expect(ev.cieFloor).toBe(true);
+    // The floor still prices the requirement, and off the floor a pass really
+    // is impossible - which is exactly why nothing may ask it that question.
+    expect(ev.needPass.possible).toBe(false);
+    expect(ev.passOpen).toBe(true);
+    expect(statusFor(ev)).toBe("PENDING");
+    expect(summarise([lab()]).impossible).toEqual([]);
+  });
+
+  it("keeps one half-marked lab from destroying the whole semester's plan", () => {
+    const options = courseOptions(lab());
+    // 41.4 plus the 25-mark paper is 66.4, so C+ is the last rung and a pass
+    // costs 10 - the 40% exam minimum, which no CIE can buy off.
+    expect(options.map((o) => o.grade)).toEqual(["P", "D", "C", "C+"]);
+    expect(options.find((o) => o.grade === "P")!.ese).toBe(10);
+    expect(options.every((o) => o.cieUnknown)).toBe(true);
+
+    const plan = planForSgpa([lab(), healthy()], 7.0);
+    expect(plan.reachable).toBe(true);
+    expect(plan.plan.map((row) => row.code).sort()).toEqual(["LAB1", "PCCST501"]);
+    expect(plan.credits).toBe(6);
+    expect(plan.reason).toBeUndefined();
+  });
+
+  it("does not confirm an F for a project with evaluations still to come", () => {
+    // `PRJ 100/0` is graded on its internal alone, so a floor there went
+    // straight into `sgpaConfirmed` as a hard F - 4 credits of confirmed
+    // failure for a project with three evaluations left.
+    const project: Course = {
+      ...blankCourse("PRJ1", "Project", 4, "PRJ 100/0"), s1: 10, attended: 90, held: 100,
+    };
+    const ev = evaluate(project);
+    expect(ev.cie).toBe(14.5);
+    expect(ev.cieCeiling).toBe(62);
+    expect(ev.grade).toBeNull();
+    expect(ev.total).toBeNull();
+    expect(statusFor(ev)).toBe("PENDING");
+
+    const sum = summarise([project]);
+    expect(sum.sgpaConfirmed).toBe(0);
+    expect(sum.creditsConfirmed).toBe(0);
+    expect(sum.unsettled).toBe(1);
+  });
+
+  it("reaches the same contradiction by the blank-component route", () => {
+    // The attendance axis of this was fixed first; this is the identical
+    // course reported unreachable and projected at zero for want of a mark
+    // instead of for want of an attendance figure.
+    const project: Course = {
+      ...blankCourse("PRJZ", "Project", 4, "PRJ 100/0"), s1: 10,
+    };
+    const ev = evaluate(project);
+    expect(ev.cieIncomplete).toBe(true);
+    expect(ev.cieUnmarked).toBe(true);
+    expect(ev.cieCeiling).toBe(62);
+    expect(ev.maxPossibleGrade).toBe("C");
+    expect(statusFor(ev)).toBe("PENDING");
+
+    const sum = summarise([project]);
+    expect(sum.impossible).toEqual([]);
+    expect(sum.sgpaProjected).toBe(6.5);
+    expect(sum.unsettled).toBe(1);
+  });
+
+  it("still states the F the exam minimum decides, floor or no floor", () => {
+    // The one verdict that never reads the CIE: 9 of 50 is below the 40%
+    // ESE minimum, and no internal mark still to come can buy it off. Refusing
+    // to state it would drop a certain F out of the confirmed SGPA and leave
+    // the average reading better than the truth.
+    const failed: Course = {
+      ...blankCourse("LAB2", "Lab", 3, "LAB 50/50"),
+      s2: 33, other: 3, ese: 9, attended: 90, held: 100,
+    };
+    const ev = evaluate(failed);
+    expect(ev.cieFloor).toBe(true);
+    expect(ev.grade).toBe("F");
+    expect(ev.failedReason).toBe("ESE 9 < cutoff 20");
+    // The grade is known; the total is not, and is not invented.
+    expect(ev.total).toBeNull();
+    expect(statusFor(ev)).toBe("FAILED");
+    expect(summarise([failed]).creditsConfirmed).toBe(3);
+  });
+
+  it("leaves a settled course exactly as it was", () => {
+    const settled: Course = {
+      ...blankCourse("PCCST504", "OS", 4), s1: 45, s2: 45, other: 9,
+      attendance: 90, ese: 42,
+    };
+    const ev = evaluate(settled);
+    expect(ev.cieFloor).toBe(false);
+    expect(ev.cieCeiling).toBe(ev.cie);
+    expect(ev.total).toBe(78.5);
+    expect(ev.grade).toBe("B+");
+    expect(statusFor(ev)).toBe("SAFE");
+    expect(courseOptions(settled).every((o) => !o.cieUnknown)).toBe(true);
+  });
+});
+
+describe("attendance marks are recoverable, and the ceiling says so", () => {
+  /**
+   * The other half of the ruling. A recorded 62% is not a permanent fact the
+   * way a recorded series mark is: `attBand` on the same evaluation tells the
+   * student how many classes buy the next mark, so a bound that froze
+   * attendance where it stands would be the mirror of the `cieMax` error -
+   * pessimistic instead of optimistic, but wrong in the same way.
+   */
+  const at62 = (extra: Partial<Course> = {}): Course => ({
+    ...blankCourse("T1", "Theory", 4, "TH 40/60"), attended: 62, held: 100, ...extra,
+  });
+
+  it("prices the attendance component at its maximum even when it is known", () => {
+    const ev = evaluate(at62({ s1: 45, s2: 45, other: 9 }));
+    expect(ev.attMarks).toBe(1);
+    expect(ev.cie).toBe(32.5);
+    // 31.5 of components, and the four attendance marks still to be earned.
+    expect(ev.cieCeiling).toBe(36.5);
+    expect(ev.attBand).toEqual({ earned: 1, nextMarks: 2, attend: 27, atPct: 70 });
+    // Every component is marked and the attendance figure is known, so nothing
+    // is a floor and the grade is not withheld - only the ladder is a bound.
+    expect(ev.cieFloor).toBe(false);
+    expect(courseOptions(at62({ s1: 45, s2: 45, other: 9 }))
+      .find((o) => o.grade === "S")!.ese).toBe(54);
+  });
+
+  it("keeps the whole bucket open for a course with nothing marked", () => {
+    // The case that must NOT become pessimistic: low attendance and no marks
+    // is a course with everything still to play for.
+    const ev = evaluate(at62());
+    expect(ev.assessed).toBe(false);
+    expect(ev.cie).toBe(1);
+    expect(ev.cieCeiling).toBe(40);
+    expect(ev.cieCeiling).toBe(ev.cieMax);
+    expect(courseOptions(at62()).find((o) => o.grade === "S")!.ese).toBe(50);
   });
 });
 

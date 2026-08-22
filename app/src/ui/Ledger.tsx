@@ -21,9 +21,10 @@ const show = (v: number | null | undefined, places = 0) =>
  *
  * `applies` is false wherever the number would be advice about an exam this
  * course is not headed for: nothing assessed yet, so the figure would be
- * invented; an internal still missing its attendance component, so the figure
- * is priced off a floor and would read harsher than the truth while looking
- * exact; or a withdrawal, so there is no exam of theirs to sit.
+ * invented; an internal still short of a component or of its attendance
+ * marks, so the figure is priced off a floor and would read harsher than the
+ * truth while looking exact; or a withdrawal, so there is no exam of theirs
+ * to sit.
  */
 function Need(props: { need: RequiredEse; applies: boolean }) {
   return (
@@ -43,7 +44,30 @@ function Need(props: { need: RequiredEse; applies: boolean }) {
 
 /** See `Need`. */
 const needApplies = (ev: Evaluation) =>
-  ev.assessed && !ev.cieIncomplete && !isIncomplete(ev.grade);
+  ev.assessed && !ev.cieFloor && !isIncomplete(ev.grade);
+
+/**
+ * Which part of the internal is still missing, in the student's words.
+ *
+ * Named rather than generic because the two halves take different action: an
+ * attendance figure is one field they can fill in themselves, an unmarked
+ * series exam is the college's to award and there is nothing to do but wait.
+ */
+function missingInternal(ev: Evaluation): string {
+  if (ev.cieIncomplete && ev.cieUnmarked) {
+    return "Attendance has not been recorded and not every internal component "
+      + "has been marked, so the internal total shown is a floor rather than "
+      + "the mark, and no grade can be read off it.";
+  }
+  if (ev.cieIncomplete) {
+    return "Attendance has not been recorded, so the internal is still missing "
+      + "its attendance marks and no grade can be read off a total that is "
+      + "short of them.";
+  }
+  return "Not every internal component has been marked yet, so the total shown "
+    + "is a floor - the marks still to come can only raise it, and no grade "
+    + "can be read off a figure that is going to move.";
+}
 
 function Cell(props: {
   value: unknown; onInput: (v: string) => void; wide?: boolean; placeholder?: string;
@@ -185,22 +209,23 @@ function Detail(props: { index: number; course: Course; ev: Evaluation }) {
             </div>
             <p class="readout">
               <Show when={props.ev.grade} fallback={
-                <Show when={props.ev.assessed && !props.ev.cieIncomplete} fallback={
-                  <Show when={props.ev.cieIncomplete && props.ev.assessed} fallback={
+                <Show when={props.ev.assessed && !props.ev.cieFloor} fallback={
+                  <Show when={props.ev.assessed} fallback={
                     <>Nothing has been assessed in this course yet, so there is no
                       projection to make. A required mark shown here would be
                       invented, not calculated.</>
                   }>
-                    Attendance has not been recorded, so the internal is still
-                    missing its attendance marks and no grade can be read off a
-                    total that is short of them. Enter attended and held
-                    classes, or an attendance percentage, and the internal
-                    settles.{" "}
+                    {missingInternal(props.ev)}{" "}
+                    <Show when={props.ev.cieIncomplete}>
+                      Enter attended and held classes, or an attendance
+                      percentage, and that half settles.{" "}
+                    </Show>
                     <Show when={props.ev.eseMax > 0} fallback={
-                      <>The grade comes with it - this course is graded on its
-                        internal alone.</>
+                      <>The grade comes with the last of those marks - this
+                        course is graded on its internal alone.</>
                     }>
-                      The grade follows once the exam mark is in as well.
+                      The grade follows once the internal is settled and the
+                      exam mark is in.
                     </Show>
                   </Show>
                 }>
@@ -288,9 +313,8 @@ export function Ledger() {
                       {/* An internal whose attendance component is unknown is a
                           floor, not a total, and the row must not print it as
                           one. See `Evaluation.cieIncomplete`. */}
-                      <Show when={row.ev.cieIncomplete}>
-                        <span class="bound"
-                              title="Attendance is not recorded, so the internal is still missing its attendance marks.">≥</span>
+                      <Show when={row.ev.cieFloor}>
+                        <span class="bound" title={missingInternal(row.ev)}>≥</span>
                       </Show>
                       {show(row.ev.cie, 1)}
                       <span style={{ color: "var(--text-faint)" }}>/{row.ev.cieMax}</span>
