@@ -81,12 +81,18 @@ export function Drawer() {
 
         {/* The route itself needs rows to show; the reason has to be shown
             whether or not there are any - a course dropped from a plan that
-            came back empty is exactly the case a student needs told. */}
+            came back empty is exactly the case a student needs told. A
+            conditional plan shows its rows too: the target is still open, and
+            hiding the route because a course nobody has marked yet cannot be
+            priced would withhold the only advice the semester can give. */}
         <Show when={goalPlan()}>{(plan) => (
-          <Show when={(plan().reachable && plan().plan.length > 0) || plan().reason}>
+          <Show when={((plan().reachable || plan().conditional) && plan().plan.length > 0) || plan().reason}>
             <div class="chart-block">
-              <h4>Cheapest route</h4>
-              <Show when={plan().reachable && plan().plan.length > 0}>
+              {/* A conditional plan is not the cheapest anything: the greedy
+                  ran out of rungs before it covered the target, so what is
+                  shown is the top of every ladder. */}
+              <h4>{plan().conditional ? "Best still on offer" : "Cheapest route"}</h4>
+              <Show when={(plan().reachable || plan().conditional) && plan().plan.length > 0}>
                 <dl style={{ margin: 0 }}>
                   <For each={plan().plan}>{(row) => (
                     <div class="field">
@@ -111,9 +117,22 @@ export function Drawer() {
                     </div>
                   )}</For>
                 </dl>
-                <p class="chart-note">
-                  Balanced on the difficulty of each next grade, not on total marks -
-                  a plan demanding 60/60 in two papers is not a plan.
+                <Show when={!plan().conditional}>
+                  <p class="chart-note">
+                    Balanced on the difficulty of each next grade, not on total marks -
+                    a plan demanding 60/60 in two papers is not a plan.
+                  </p>
+                </Show>
+              </Show>
+              {/* The route alone does not carry the target, and the rest
+                  rides on a course with no exam and no settled internal. Say
+                  which one, and say what the route does get to. */}
+              <Show when={plan().conditional}>
+                <p class="chart-note" style={{ color: "var(--warn)" }}>
+                  This route reaches {plan().sgpa?.toFixed(2)} of the{" "}
+                  {plan().target?.toFixed(2)} needed on its own. The rest rides on
+                  marks nobody has entered yet: {plan().unpriced?.join(", ")} - no exam
+                  to sit, and the internal not settled.
                 </p>
               </Show>
               <Show when={plan().reason}>

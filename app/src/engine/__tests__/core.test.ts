@@ -297,7 +297,10 @@ describe("an unknown attendance is not spent as a zero inside the CIE", () => {
     ], 7.5);
     expect(plan.plan.map((row) => row.code)).not.toContain("PRJST501");
     expect(plan.reason).toContain("attendance is not recorded");
-    expect(plan.credits).toBe(8);
+    // Out of the ROUTE, not out of the arithmetic: its four credits are
+    // registered and stay in the denominator the target was solved over.
+    expect(plan.credits).toBe(12);
+    expect(plan.unpriced).toEqual(["PRJST501"]);
   });
 });
 
@@ -1103,12 +1106,26 @@ describe("a debarred course is not planned as a pass", () => {
     expect(sum.credits).toBe(8);
   });
 
-  it("keeps it out of the plan, and names what it dropped", () => {
+  it("keeps it out of the route but not out of the denominator", () => {
+    // 7.5 over both courses needs 60 points and only PCCST501 can earn any,
+    // so the most on offer is an S in it: 40 points, an SGPA of 5.00.
     const plan = planForSgpa([attending, debarred], 7.5);
+    expect(plan.reachable).toBe(false);
+    expect(plan.conditional).toBeUndefined();
+    expect(plan.credits).toBe(8);
+    expect(plan.maxSgpa).toBe(5);
+    expect(plan.reason).toContain("PCCST502 counted at zero: attendance below 60%");
+  });
+
+  it("plans the target it can actually reach over both courses", () => {
+    // 4.0 over eight credits is 32 points, which is a B+ in the one course
+    // that can still earn them.
+    const plan = planForSgpa([attending, debarred], 4.0);
     expect(plan.reachable).toBe(true);
     expect(plan.plan.map((row) => row.code)).toEqual(["PCCST501"]);
-    expect(plan.credits).toBe(4);
-    expect(plan.reason).toContain("PCCST502");
+    expect(plan.plan[0]!.grade).toBe("B+");
+    expect(plan.credits).toBe(8);
+    expect(plan.sgpa).toBe(4);
   });
 
   it("says so by name when every course is debarred", () => {
@@ -1150,10 +1167,12 @@ describe("an internal-only course is not free grade points", () => {
   it("does not climb an unmarked one to an S and call the target met", () => {
     const plan = planForSgpa([...papers(), project()], 7.5);
     expect(plan.plan.map((row) => row.code)).not.toContain("PRJST501");
-    expect(plan.reason).toContain("PRJST501");
-    // 8 credits of real papers, not 12 - and they have to carry the target
-    // themselves rather than being subsidised by a grade nobody earned.
-    expect(plan.credits).toBe(8);
+    expect(plan.reason).toContain("PRJST501 not priced");
+    // Its four credits are registered, so the denominator is 12 - but no grade
+    // point is invented for them, and the papers are asked to carry the target
+    // rather than being subsidised by a grade nobody earned.
+    expect(plan.credits).toBe(12);
+    expect(plan.unpriced).toEqual(["PRJST501"]);
     expect(plan.plan.every((row) => row.ese > 0)).toBe(true);
   });
 
@@ -1231,6 +1250,142 @@ describe("a withdrawn or incomplete course is not a failure", () => {
     const plan = planForSgpa(
       [semester()[0]!, { ...blankCourse("PCCST305", "Physics", 3), portal_grade: "I" }], 7.5);
     expect(plan.reason).toContain("PCCST305 left out: incomplete");
+  });
+});
+
+/**
+ * The goal solve and the goal plan have to divide by the same credits.
+ *
+ * `requiredSgpaForCgpa` is handed `summarise().credits`, so `planForSgpa` has
+ * to price its route over that same total or the two are answers to different
+ * questions - the seam that let a debarred course be counted in the target and
+ * dropped from the route at the same time.
+ */
+describe("the target and the route divide by one denominator", () => {
+  const paper = (code: string, attended: number): Course => ({
+    ...blankCourse(code, code, 4), cie_override: 30, attended, held: 100,
+  });
+
+  it("does not promise a goal the route cannot reach", () => {
+    // Two four-credit papers, one debarred, and a graduation goal of 8.0 from
+    // a single past semester of 20 credits at 7.0.
+    const courses = [paper("A", 90), paper("B", 40)];
+    const history = { S1: { sgpa: 7.0, creditsRegistered: 20, creditsEarned: 20 } };
+    const credits = summarise(courses).credits;
+    expect(credits).toBe(8);
+
+    const horizon = horizonToGraduation("S5", history, credits);
+    const need = requiredSgpaForCgpa(8.0, history, credits, horizon);
+    expect(need.required).toBe(8.294);
+    expect(need.possible).toBe(true);
+
+    const plan = planForSgpa(courses, need.required!);
+    // 8.294 over eight credits is 66.35 points. B is debarred and will be
+    // graded F, so only A can earn any, and an S in it is 40 - an SGPA of
+    // 5.00 over the semester the goal was solved against.
+    expect(plan.credits).toBe(credits);
+    expect(plan.reachable).toBe(false);
+    expect(plan.maxSgpa).toBe(5);
+    expect(plan.plan).toEqual([]);
+    expect(plan.reason).toContain("B counted at zero");
+  });
+
+  it("plans the shipped S7 preset over the credits it registers", () => {
+    // The compulsory half of the CSE S7 preset: a four-credit project with no
+    // exam and nothing marked, beside a two-credit paper. No debarment, no
+    // withdrawal - this is what a student sees on the day they seed it.
+    const courses: Course[] = [
+      blankCourse("PCCSI706", "Project", 4, "PRJ 100/0"),
+      blankCourse("UEHUT704", "Humanities", 2, "TH 50/50"),
+    ];
+    expect(summarise(courses).credits).toBe(6);
+
+    const plan = planForSgpa(courses, 7.5);
+    expect(plan.credits).toBe(6);
+    expect(plan.unpriced).toEqual(["PCCSI706"]);
+    // The paper alone cannot carry 7.5 across six credits: an S in it is 20 of
+    // the 45 points needed. That is not "unreachable" - the project has not
+    // been marked - so the route is still shown and the shortfall is named.
+    expect(plan.reachable).toBe(false);
+    expect(plan.conditional).toBe(true);
+    expect(plan.plan.map((row) => row.code)).toEqual(["UEHUT704"]);
+    expect(plan.plan[0]!.grade).toBe("S");
+    expect(plan.sgpa).toBe(3.333);
+    expect(plan.maxSgpa).toBe(10);
+  });
+
+  it("does not call a goal unreachable over one unmarked project", () => {
+    // Same shape, a target the paper alone still cannot cover, and the answer
+    // is a route plus a caveat rather than a bare refusal.
+    const courses: Course[] = [
+      blankCourse("PCCSI706", "Project", 4, "PRJ 100/0"),
+      { ...blankCourse("UEHUT704", "Humanities", 2, "TH 50/50"), cie_override: 40 },
+    ];
+    const plan = planForSgpa(courses, 6.0);
+    expect(plan.reachable).toBe(false);
+    expect(plan.conditional).toBe(true);
+    expect(plan.plan.length).toBe(1);
+    expect(plan.reason).toContain("PCCSI706 not priced");
+  });
+
+  it("still refuses a target that is out of reach at every end", () => {
+    // 9.5 across six credits is 57 points; the project at an S is 40 and the
+    // paper at an S is 20, so 60 clears it - but 10.0 needs 60 exactly and
+    // anything above it cannot be met however the project lands.
+    const courses: Course[] = [
+      blankCourse("PCCSI706", "Project", 4, "PRJ 100/0"),
+      blankCourse("UEHUT704", "Humanities", 2, "TH 50/50"),
+    ];
+    expect(planForSgpa(courses, 9.5).conditional).toBe(true);
+    const over = planForSgpa(courses, 10.5);
+    expect(over.reachable).toBe(false);
+    expect(over.conditional).toBeUndefined();
+    expect(over.maxSgpa).toBe(10);
+    expect(over.reason).toContain("target is above the best still available");
+  });
+
+  it("keeps a withdrawal out of both, the way summarise does", () => {
+    const courses: Course[] = [
+      { ...blankCourse("PCCST501", "CN", 4), cie_override: 30, attended: 90, held: 100 },
+      { ...blankCourse("PCCST504", "Economics", 3), portal_grade: "W" },
+    ];
+    expect(summarise(courses).credits).toBe(4);
+    const plan = planForSgpa(courses, 7.5);
+    expect(plan.credits).toBe(4);
+    expect(plan.unpriced).toBeUndefined();
+    expect(plan.reason).toBe("PCCST504 left out: withdrawn");
+  });
+
+  it("divides by summarise's credits on every corpus semester", () => {
+    // The property the seam broke, held over all 60 semesters of the parity
+    // corpus: whenever a plan reports a denominator at all, that denominator
+    // is the one the goal was solved against.
+    //
+    // A standing guard rather than the proof of the fix. Measured at the base
+    // commit, the old planner stated a denominator on only 34 of these 180
+    // answers - it returned early without one everywhere else - and on those
+    // 34 it happened to agree, because no corpus semester pairs a debarred or
+    // unpriced course with a plan that completes. The cases above are what
+    // catch the seam; this is what keeps it caught.
+    const rows = (fixture.semesters as unknown as Array<{ courses: Course[] }>);
+    const bad: string[] = [];
+    let compared = 0;
+    rows.forEach(({ courses }, i) => {
+      const want = summarise(courses).credits;
+      for (const target of [5.0, 7.5, 9.0]) {
+        const got = planForSgpa(courses, target).credits;
+        if (got === undefined) continue;
+        compared += 1;
+        if (got !== want) bad.push(`semester ${i} at ${target}: ${got} vs ${want}`);
+      }
+    });
+    expect(bad.slice(0, 3).join(" | ")).toBe("");
+    // Not vacuous: 57 of the 60 semesters report a denominator at all three
+    // targets. The other three register no credits at all - `summarise` gives
+    // them 0 and the plan declines to state a total - so there is nothing to
+    // compare and nothing hidden by the skip.
+    expect(compared).toBe(171);
+    expect(rows.filter(({ courses }) => summarise(courses).credits === 0).length).toBe(3);
   });
 });
 

@@ -18,7 +18,15 @@ export function historyCredits(entry: SemesterHistory): number {
   return entry.creditsRegistered ?? entry.creditsEarned ?? 0;
 }
 
-/** Semesters whose CGPA weight had to fall back to the earned total. */
+/**
+ * Semesters whose CGPA weight is not the registered total KTU uses.
+ *
+ * Two different states, and this list does not tell them apart. Where
+ * `creditsEarned` is known the weight falls back to it. Where neither total is
+ * known `historyCredits` yields 0, so the semester weighs nothing at all and
+ * drops out of the CGPA. Both are a figure the student should be asked for;
+ * only the first is a fallback.
+ */
 export function unconfirmedSemesters(history: Record<string, SemesterHistory>): string[] {
   return Object.entries(history)
     .filter(([, v]) => v.creditsRegistered == null)
@@ -272,65 +280,139 @@ export interface PlanRow {
 }
 
 export interface SgpaPlan {
+  /**
+   * The route reaches the target WHATEVER the courses it could not price do.
+   *
+   * A guarantee, not a best case. Where the answer turns on a course the plan
+   * has no mark to move - see `unpriced` - this is false and `conditional` is
+   * true, so a caller that reads this field alone gets the safe end of the
+   * range rather than the convenient one.
+   */
   reachable: boolean;
+  /**
+   * The route falls short on its own but the target is still open, because the
+   * `unpriced` courses could carry the rest. Never true alongside `reachable`,
+   * and never true when the target is out of reach at every end.
+   */
+  conditional?: boolean;
+  /**
+   * Courses inside `credits` whose grade points the plan cannot price: they
+   * have no exam to aim at and their internals are not settled, so the SGPA
+   * this route yields is a range rather than a number. Named so a screen can
+   * say which course the answer is waiting on.
+   */
+  unpriced?: string[];
+  /**
+   * The SGPA this route yields with every `unpriced` course scoring nothing -
+   * the floor of that range, and the figure `reachable` is decided against.
+   */
   sgpa?: number;
   target?: number;
+  /**
+   * The credits the SGPA is divided by: every course registered this semester
+   * bar the withdrawn and incomplete ones. Deliberately the SAME total
+   * `summarise` reports, because `requiredSgpaForCgpa` is solved against that
+   * one - a target solved over eight credits and a route built over four are
+   * two answers to two different questions.
+   */
   credits?: number;
-  plan: PlanRow[];
+  /** The best SGPA still available, `unpriced` courses at their own ceiling. */
   maxSgpa?: number;
   /**
    * Why the plan is what it is. Set on a reachable plan too, when courses had
-   * to be left out of it - the student is owed the omission either way.
+   * to be left out of the route - the student is owed the omission either way.
    */
   reason?: string;
+  plan: PlanRow[];
 }
 
 /**
- * Why the plan cannot move this course, or null if it can.
+ * What the plan does with a course it cannot ask for an exam mark in, or null
+ * where it can.
  *
- * The plan is denominated in ESE marks, so a course with no exam left to sit
- * is not something a student can be told to do anything about:
+ * `basis` is the half that matters, because it decides the DENOMINATOR. An
+ * SGPA is points over credits, and this is the only place that says which
+ * credits those are. It has to agree with `summarise`, because the target
+ * being planned for was solved over `summarise`'s total.
  *
- *   - Withdrawn or incomplete. There is no exam of theirs left this semester,
- *     and the course is out of the SGPA being solved for.
- *   - Debarred. Instructing a mark in an exam they will not be admitted to is
- *     worse than saying nothing.
- *   - Internal-only (`eseMax === 0`) with an unsettled CIE. `courseOptions`
+ *   - `out` - withdrawn or incomplete. There is no exam of theirs left this
+ *     semester and KTU keeps the course out of the SGPA entirely, denominator
+ *     included, which is exactly what `summarise` does with it.
+ *   - `zero` - debarred. They will not be admitted to the ESE, so the course
+ *     scores F: a real grade with a real grade point of 0 over credits that
+ *     stay registered (R 9.1 gives F, Ab and FE a grade point of 0 and divides
+ *     by the total credits REGISTERED in the semester). Its credits stay in
+ *     the denominator and its contribution is a known zero. It still never
+ *     appears as a row - instructing a mark in an exam they will not be
+ *     admitted to is worse than saying nothing.
+ *   - `unknown` - internal-only (`eseMax === 0`) with an unsettled CIE. Its
+ *     credits are registered like any other, but its grade points are neither
+ *     plannable nor known, so one term of the SGPA is a range. `courseOptions`
  *     truthfully reports every grade still open at a cost of zero exam marks,
  *     because there is no exam - but the greedy below buys rungs by cost, and
  *     a whole ladder priced at zero is free grade points. It would climb that
  *     one course to an S before asking a single mark of any other and call the
  *     target met with every real paper left at P. Nothing marked, a series
  *     mark missing, or the attendance missing all leave the internal a floor
- *     (`cieFloor`) and produce the same free ladder, so the same exclusion
- *     applies to all three. A settled internal-only course does not reach
- *     here at all: its grade is derived, so the check above returns first.
+ *     (`cieFloor`) and produce the same free ladder, so the same treatment
+ *     applies to all three. A settled internal-only course does not reach here
+ *     at all: its grade is derived, so the check above returns first.
  *
  * A published GRADE decides the course whatever else is true of it, so it is
  * plannable - as a locked row that costs nothing because it is already earned.
  * A published I or W is not a grade and does not: it is the first case above.
  */
-function unplannable(ev: Evaluation): string | null {
-  // Withdrawn or incomplete. Out of the SGPA the plan is solving for, so its
-  // credits have to leave the plan's denominator with it - exactly what
-  // `summarise` does with them - and there is no exam of its own to aim at.
-  if (isIncomplete(ev.grade)) return ev.grade === "W" ? "withdrawn" : "incomplete";
+interface Excluded {
+  basis: "out" | "zero" | "unknown";
+  why: string;
+}
+
+function unplannable(ev: Evaluation): Excluded | null {
+  if (isIncomplete(ev.grade)) {
+    return { basis: "out", why: ev.grade === "W" ? "withdrawn" : "incomplete" };
+  }
   if (ev.grade !== null) return null;
-  if (isDebarred(ev)) return `attendance below ${ATTENDANCE_CONDONE}%`;
+  if (isDebarred(ev)) {
+    return { basis: "zero", why: `attendance below ${ATTENDANCE_CONDONE}%` };
+  }
   if (ev.eseMax === 0 && (!ev.assessed || ev.cieFloor)) {
-    if (!ev.assessed) return "no exam to aim at, and no internals marked yet";
-    if (ev.cieIncomplete && ev.cieUnmarked) {
-      return "no exam to aim at, and the internal is short of marks and attendance";
+    if (!ev.assessed) {
+      return { basis: "unknown", why: "no exam to aim at, and no internals marked yet" };
     }
-    return ev.cieIncomplete
-      ? "no exam to aim at, and attendance is not recorded"
-      : "no exam to aim at, and not every internal mark is in";
+    if (ev.cieIncomplete && ev.cieUnmarked) {
+      return {
+        basis: "unknown",
+        why: "no exam to aim at, and the internal is short of marks and attendance",
+      };
+    }
+    return {
+      basis: "unknown",
+      why: ev.cieIncomplete
+        ? "no exam to aim at, and attendance is not recorded"
+        : "no exam to aim at, and not every internal mark is in",
+    };
   }
   return null;
 }
 
 /**
  * Cheapest route to a target SGPA: which subject to push, and how far.
+ *
+ * The target and the route are two halves of ONE piece of arithmetic, so they
+ * divide by one denominator: every credit registered this semester bar the
+ * withdrawn and incomplete ones, which is what `summarise` reports and what
+ * `requiredSgpaForCgpa` was handed. Courses the route cannot move stay in that
+ * denominator and contribute whatever they are worth -
+ *
+ *     sgpa = (fixedPoints + routePoints) / (fixedCredits + routeCredits)
+ *
+ * - so the route is solved for `target * credits - fixedPoints`, not for
+ * `target * routeCredits`, and `fixedPoints` is taken at its FLOOR, which is
+ * zero either way: a debarred course's is a known zero, and an unpriced
+ * internal's is the bottom of a range. That is why `reachable` can be false
+ * while `conditional` is true - the route is everything the priced courses can
+ * give and it still does not cover the target on its own, so whoever renders
+ * it has to say what the rest is waiting on.
  *
  * Greedy on the DIFFICULTY OF THE RESULT, not on marginal cost. Minimising
  * total marks looks optimal and gives terrible advice: it buys the biggest
@@ -342,29 +424,61 @@ function unplannable(ev: Evaluation): string | null {
  * code (a re-registered backlog alongside its current sitting) would otherwise
  * silently collapse into one.
  *
- * Courses the plan has no mark to move are left out of it entirely, marks and
- * credits both, and `reason` names each one - see `unplannable`. A plan that
- * quietly shrinks is a plan that overstates what the semester is worth.
+ * `reason` names every course kept out of the route and says which of the
+ * three things happened to it, because leaving a course out of the route and
+ * leaving it out of the arithmetic are no longer the same sentence.
  */
 export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
   const plannable: Course[] = [];
-  const left: string[] = [];
-  for (const course of courses) {
-    const why = unplannable(evaluate(course));
-    if (why === null) plannable.push(course);
-    else left.push(`${course.code || course.name || "?"} left out: ${why}`);
-  }
-  /** Carry the exclusions alongside whatever else there is to report. */
-  const note = (reason?: string) => [reason, ...left].filter(Boolean).join("; ") || undefined;
+  const notes: string[] = [];
+  const unpriced: string[] = [];
+  // The denominator, and the one term of the numerator the route does not
+  // supply. `fixedBest` is what the unpriced courses could still add at their
+  // own ceiling; their floor is taken as zero, which asks the route for more
+  // than it may need rather than for less.
+  let totalCredits = 0;
+  let fixedBest = 0;
 
-  const totalCredits = plannable.reduce((sum, c) => sum + toFloat(c.credits, 0), 0);
+  for (const course of courses) {
+    const ev = evaluate(course);
+    const label = course.code || course.name || "?";
+    const excluded = unplannable(ev);
+    if (excluded === null) {
+      plannable.push(course);
+      totalCredits += ev.credits;
+      continue;
+    }
+    if (excluded.basis === "out") {
+      notes.push(`${label} left out: ${excluded.why}`);
+      continue;
+    }
+    totalCredits += ev.credits;
+    if (excluded.basis === "zero") {
+      notes.push(`${label} counted at zero: ${excluded.why}`);
+      continue;
+    }
+    unpriced.push(label);
+    fixedBest += GRADE_POINTS[ev.maxPossibleGrade] * ev.credits;
+    notes.push(`${label} not priced: ${excluded.why}`);
+  }
+
+  /** Carry the exclusions alongside whatever else there is to report. */
+  const note = (reason?: string) => [reason, ...notes].filter(Boolean).join("; ") || undefined;
+  const open = unpriced.length > 0 ? { unpriced } : {};
+
   if (totalCredits <= 0) {
     // Not "no credits" when the courses were excluded rather than absent -
     // that would name the wrong problem.
     return { reachable: false, plan: [], reason: note() ?? "no credits" };
   }
 
+  // What the route must deliver on its own, and the least it could get away
+  // with if every unpriced course reached its own ceiling. The first is what
+  // the route is built for; the second only decides whether the target is out
+  // of reach at every end.
   const neededPoints = targetSgpa * totalCredits;
+  const neededAtBest = neededPoints - fixedBest;
+
   const ladders: CourseOption[][] = [];
   const labels: string[] = [];
   let current = 0;
@@ -373,7 +487,10 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
     const options = courseOptions(course);
     const label = course.code || course.name || "?";
     if (options.length === 0) {
-      return { reachable: false, plan: [], reason: note(`${label} cannot be passed`) };
+      return {
+        reachable: false, plan: [], credits: totalCredits, ...open,
+        reason: note(`${label} cannot be passed`),
+      };
     }
     ladders.push(options);
     labels.push(label);
@@ -385,15 +502,21 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
     const best = opts[opts.length - 1]!;
     return sum + best.gp * best.credits;
   }, 0);
+  const maxSgpa = round((ceiling + fixedBest) / totalCredits, 3);
 
-  if (neededPoints > ceiling + 1e-9) {
+  if (neededAtBest > ceiling + 1e-9) {
     return {
-      reachable: false, plan: [],
-      maxSgpa: round(ceiling / totalCredits, 3),
+      reachable: false, plan: [], credits: totalCredits, maxSgpa, ...open,
       reason: note("target is above the best still available"),
     };
   }
 
+  // Always chase the whole requirement, never the discounted one. Where the
+  // route cannot carry it alone the greedy simply runs out of rungs and stops
+  // at `ceiling`, which is the honest thing to show: the most the courses a
+  // student can act on are worth, with the shortfall named as depending on the
+  // unpriced ones. Solving for the discount instead would quote a cheaper
+  // route that only works if those courses land at their best.
   while (current < neededPoints - 1e-9) {
     let bestIndex = -1;
     let bestCost = Infinity;
@@ -428,13 +551,19 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
   });
   plan.sort((a, b) => b.ese - a.ese);
 
+  const reachable = current >= neededPoints - 1e-9;
   return {
-    reachable: current >= neededPoints - 1e-9,
+    reachable,
+    // The gate above has already ruled out "short at every end", so a route
+    // that cannot carry the target on its own is one the unpriced courses
+    // could still finish.
+    ...(reachable ? {} : { conditional: true }),
+    ...open,
     sgpa: round(current / totalCredits, 3),
     target: targetSgpa,
     credits: totalCredits,
     plan,
-    maxSgpa: round(ceiling / totalCredits, 3),
+    maxSgpa,
     reason: note(),
   };
 }

@@ -259,14 +259,18 @@ export function summarise(courses: Course[]): Summary {
 
     // Withdrawn or incomplete: KTU keeps the course out of the SGPA until it
     // is completed, denominator included. Its credits leave with it rather
-    // than staying in `credits` the way a debarred course's do - `credits` is
-    // what this semester is weighed by in the CGPA - live, through
-    // `requiredSgpaForCgpa`, and again once the semester is archived - and
-    // weighing it by a course that will never be graded here hands those
-    // credits the semester's own average. (`planForSgpa` does not read this
-    // total at all; it sums its own over the courses it can plan, and it
-    // leaves out more kinds than this one - `unplannable` in goals.ts is the
-    // list, and it is the only place that stays in step with itself.)
+    // than staying in `credits` the way a debarred course's do, because
+    // weighing the semester by a course that will never be graded here hands
+    // those credits the semester's own average.
+    //
+    // `credits` is what the LIVE goal solve weighs this semester by, and that
+    // is its whole readership: `store.ts` hands it to `requiredSgpaForCgpa`
+    // and nothing else reads it. It is never persisted - an archived
+    // semester's registered credits come from the grade card, from the portal,
+    // or from the student's own keyboard. `planForSgpa` does not read it
+    // either, but it now sums the SAME total over the same rule, which is what
+    // makes the target and the route answers to one question; see
+    // `unplannable` in goals.ts for what that costs each excluded course.
     if (isIncomplete(ev.grade)) continue;
 
     const label = course.code || course.name || "?";
