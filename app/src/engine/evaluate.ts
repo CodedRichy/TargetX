@@ -231,12 +231,40 @@ export interface Summary {
    * engine exists to withhold.
    */
   unsettled: number;
+  /**
+   * Registered courses with something to report: a grade, or an internal that
+   * has been assessed. NOT the population `sgpaProjected` averages over, which
+   * is every registered course - a course with nothing marked, and an ungraded
+   * debarred one, each carry a projected term without being counted here.
+   */
   assessed: number;
+  /** Mean grade point over `creditsConfirmed` - the settled courses alone. */
   sgpaConfirmed: number;
+  /**
+   * Mean grade point over `credits` - EVERY registered course, weighted the
+   * way KTU would weigh the semester.
+   *
+   * Comparable to `RequiredSgpa.required` and to `SgpaPlan.sgpa` because all
+   * three divide by that one total. It used to average only the courses it
+   * could price, which quietly handed the rest the mean of the courses it
+   * could, and then the app compared that figure against a requirement solved
+   * over the full register.
+   *
+   * A forecast, not a floor. Every ungraded course counts what it can still
+   * reach, so this falls as marks come in and rule grades out, and it is
+   * deliberately not the bottom-of-the-range figure `SgpaPlan.reachable` is
+   * decided against. See `summarise` for the term each kind contributes.
+   */
   sgpaProjected: number;
+  /**
+   * Credits registered this semester: every course bar the withdrawn and the
+   * incomplete. The denominator of `sgpaProjected`, of the goal solve, and of
+   * `SgpaPlan`.
+   */
   credits: number;
   creditsConfirmed: number;
   percentConfirmed: number;
+  /** `sgpaProjected` x 10, so the same population and the same caveats. */
   percentProjected: number;
   atRisk: string[];
   impossible: string[];
@@ -253,6 +281,7 @@ export function summarise(courses: Course[]): Summary {
   let totalCredits = 0;
   let pending = 0;
   let unsettled = 0;
+  let assessedCourses = 0;
 
   for (const course of courses) {
     const ev = evaluate(course);
@@ -287,9 +316,52 @@ export function summarise(courses: Course[]): Summary {
     const label = course.code || course.name || "?";
     totalCredits += ev.credits;
 
-    // An unassessed course contributes nothing but its attendance. Folding a
-    // zero CIE into a projection would invent a bad prediction out of missing
-    // data, which is the failure mode this app exists to avoid.
+    // ONE term per registered course, over ONE denominator - `credits`, the
+    // same total `requiredSgpaForCgpa` is solved against and `planForSgpa`
+    // plans over. A course left out of this sum but kept in `credits` does not
+    // vanish: it is silently assigned the average of the courses that stayed,
+    // which is an assumption nobody made on purpose and which cuts both ways -
+    // it flatters a semester whose priced courses are its best and punishes
+    // one whose priced courses are its worst. Measured on the 60 corpus
+    // semesters, the one semester this repair moves went UP, 5.143 -> 5.778.
+    // Every course that is not withdrawn or incomplete gets a term
+    // here, and which term follows the rule this engine applies everywhere
+    // else - a result that can still move counts what it can still REACH, and
+    // one that cannot counts what it SCORED:
+    //
+    //   - a published or derived grade -> its own grade points.
+    //   - debarred and ungraded -> zero. R 9.1 gives an F a grade point of 0
+    //     over credits that stay registered, and this is a certain F: the
+    //     student will not be admitted to the ESE at all. Not a forecast, so
+    //     the zero is not pessimism.
+    //   - anything else -> the target if it is still reachable, otherwise the
+    //     best grade still mathematically on the table. That includes a course
+    //     with nothing marked at all, which used to be dropped: absence of
+    //     evidence is not a zero, but it is not grounds to leave the credits
+    //     weighing by everybody else's average either.
+    //
+    // A course whose pass is already out of reach needs no branch of its own:
+    // `needTargetBest.possible` is false there and `maxPossibleGrade` is an F,
+    // so it lands on a zero through the last case.
+    //
+    // This is deliberately NOT the floor `planForSgpa` prices its route
+    // against. `SgpaPlan.reachable` is a guarantee and must take the bottom of
+    // every open range; a projection is a forecast and takes the reachable
+    // end. The two disagree on an unpriced course on purpose.
+    if (ev.grade !== null) {
+      confirmed.push([ev.credits, GRADE_POINTS[ev.grade]]);
+      projected.push([ev.credits, GRADE_POINTS[ev.grade]]);
+    } else if (isDebarred(ev)) {
+      projected.push([ev.credits, 0]);
+    } else if (ev.needTargetBest.possible) {
+      projected.push([ev.credits, GRADE_POINTS[ev.target]]);
+    } else {
+      projected.push([ev.credits, GRADE_POINTS[ev.maxPossibleGrade]]);
+    }
+
+    // Nothing has been assessed yet, so there is no verdict to report beyond
+    // the attendance - the course has a projected term above, but it is not
+    // one of the courses `assessed` counts.
     if (ev.grade === null && !ev.assessed) {
       pending += 1;
       // Only a known shortage counts as a warning - an unknown attendance
@@ -298,31 +370,22 @@ export function summarise(courses: Course[]): Summary {
       continue;
     }
 
-    // Debarred and ungraded: they will not be allowed to sit the ESE, so a
-    // projected grade for this course would be a prediction about an exam
-    // that will not happen. Its credits stay in `credits` - they are still
-    // registered - but no grade point is invented for them.
+    // Debarred and ungraded. The projection above counts it at the zero it is
+    // certain to score; what is withheld here is everything that describes an
+    // exam this student will not be sitting - the at-risk and unreachable
+    // verdicts, and the `assessed` count itself.
     if (ev.grade === null && isDebarred(ev)) {
       lowAttendance.push(label);
       continue;
     }
+
+    assessedCourses += 1;
 
     // `unsettled` is the third state: assessed, ungraded, and waiting on a
     // mark rather than on an exam. It is in neither count beside it, and
     // without it a screen reads `pending === 0` and says every subject has
     // been assessed over a confirmed SGPA of zero.
     if (ev.grade === null && ev.assessed && ev.cieFloor) unsettled += 1;
-
-    if (ev.grade !== null) {
-      confirmed.push([ev.credits, GRADE_POINTS[ev.grade]]);
-      projected.push([ev.credits, GRADE_POINTS[ev.grade]]);
-    } else if (ev.needTargetBest.possible) {
-      // Not yet written: project the target if reachable, else the best grade
-      // still mathematically on the table.
-      projected.push([ev.credits, GRADE_POINTS[ev.target]]);
-    } else {
-      projected.push([ev.credits, GRADE_POINTS[ev.maxPossibleGrade]]);
-    }
 
     if (!ev.needPassBest.possible && ev.grade === null) {
       // A published grade settles the matter; do not warn that a course
@@ -337,7 +400,7 @@ export function summarise(courses: Course[]): Summary {
   return {
     pending,
     unsettled,
-    assessed: projected.length,
+    assessed: assessedCourses,
     sgpaConfirmed: sgpa(confirmed),
     sgpaProjected: sgpa(projected),
     credits: totalCredits,

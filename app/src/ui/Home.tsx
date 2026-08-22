@@ -340,8 +340,9 @@ export function Home() {
                     fallback={<>Every subject has been assessed.</>}>
                 <Show when={summary().pending > 0}>
                   <strong class="num">{summary().pending}</strong> subject
-                  {summary().pending === 1 ? "" : "s"} not yet assessed — they are
-                  excluded from both numbers rather than counted as zero.{" "}
+                  {summary().pending === 1 ? "" : "s"} not yet assessed — out of
+                  Confirmed entirely, and in Projected at what each can still
+                  reach.{" "}
                 </Show>
                 <Show when={summary().unsettled > 0}>
                   <strong class="num">{summary().unsettled}</strong> subject

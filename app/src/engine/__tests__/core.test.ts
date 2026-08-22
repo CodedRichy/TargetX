@@ -8,11 +8,11 @@
 import { describe, expect, it } from "vitest";
 import {
   ATTENDANCE_CONDONE, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN, COURSE_TYPES, DL_CAP_PCT,
-  GRADE_MIN, NO_HORIZON,
+  GRADE_MIN, GRADE_POINTS, NO_HORIZON,
   TYPE_KEYS, attendanceMarks, attendancePlan, blankCourse, cgpaFromSemesters,
   computeCie, courseOptions, eseCutoff, evaluate, horizonToGraduation, isIncomplete,
   nextAttendanceBand, normaliseGrade, parseEtlab, historyCredits, planForSgpa, requiredEse,
-  requiredEseCell, requiredSgpaForCgpa, sgpa, statusFor, summarise,
+  requiredEseCell, requiredSgpaForCgpa, round, sgpa, statusFor, summarise,
 } from "../index";
 import fixture from "./parity.json";
 import type { Course, Letter, TypeKey } from "../types";
@@ -1097,9 +1097,17 @@ describe("a debarred course is not planned as a pass", () => {
     ...blankCourse("PCCST502", "DAA", 4), cie_override: 30, attended: 40, held: 100,
   };
 
-  it("keeps it out of the projected SGPA", () => {
+  it("projects it at the zero it is certain to score, credits and all", () => {
     const sum = summarise([attending, debarred]);
-    expect(sum.sgpaProjected).toBe(summarise([attending]).sgpaProjected);
+    // No grade is invented for an exam this student will not be admitted to -
+    // but R 9.1 already names the grade point of the F they will be given, and
+    // the credits stay registered. Dropping the course from the average
+    // instead handed its four credits PCCST501's own B+, which is the one
+    // assumption nobody made deliberately.
+    expect(summarise([attending]).sgpaProjected).toBe(8);
+    expect(sum.sgpaProjected).toBe(4);
+    // Not counted as assessed: there is no verdict about it beyond the
+    // attendance, whatever term it contributes to the projection.
     expect(sum.assessed).toBe(1);
     expect(sum.lowAttendance).toContain("PCCST502");
     // Its credits are still registered, whatever becomes of them.
@@ -1602,5 +1610,174 @@ describe("one course a student cannot pass is not a dead semester", () => {
     // is paired with a healthy course whose own route has to survive it.
     expect(empty).toBe(1345);
     expect(notSat).toBe(697);
+  });
+});
+
+/**
+ * The projection divides by the same credits as the goal and the route.
+ *
+ * `requiredSgpaForCgpa` is solved over `summarise().credits` and `planForSgpa`
+ * plans over that same total, which Task 11 reconciled. `sgpaProjected` was
+ * the third denominator: it averaged only the courses it could price, so the
+ * app compared a figure over part of the register against a requirement over
+ * all of it. Every reader that subtracts one from the other - the off-target
+ * banner, the shortfall it quotes, the goal gauge - was reading a difference
+ * between two different questions.
+ */
+describe("the projection divides by the credits the goal is solved over", () => {
+  const paper = (code: string, attended: number): Course => ({
+    ...blankCourse(code, code, 4), cie_override: 30, attended, held: 100,
+  });
+
+  it("does not project a semester it cannot half of", () => {
+    // The Task 11 case. A is on 30/40 with an exam to sit; B is debarred at
+    // 40% and will be graded F over credits that stay registered.
+    const courses = [paper("A", 90), paper("B", 40)];
+    const sum = summarise(courses);
+    expect(sum.credits).toBe(8);
+    // Before: 8.00, A's projected B+ averaged over A's four credits alone,
+    // beside a requirement solved over all eight.
+    expect(sum.sgpaProjected).toBe(4);
+    expect(sum.percentProjected).toBe(40);
+
+    const history = { S1: { sgpa: 7.0, creditsRegistered: 20, creditsEarned: 20 } };
+    const horizon = horizonToGraduation("S5", history, sum.credits);
+    const need = requiredSgpaForCgpa(8.0, history, sum.credits, horizon);
+    expect(need.required).toBe(8.294);
+    // The banner's own arithmetic. It used to read "short by 0.29" on a
+    // semester the route cannot take past 5.00; the shortfall is really 4.29.
+    expect(round(need.required! - sum.sgpaProjected, 3)).toBe(4.294);
+    // And it is now on the right side of the plan's own ceiling, which is the
+    // check the two numbers existed to survive.
+    const plan = planForSgpa(courses, need.required!);
+    expect(plan.maxSgpa).toBe(5);
+    expect(sum.sgpaProjected).toBeLessThanOrEqual(plan.maxSgpa!);
+  });
+
+  it("does not report a shortfall on a semester with nothing marked", () => {
+    // The shipped CSE S7 preset on the day it is seeded. Before: an empty
+    // projected population, so `sgpa([])` returned 0.00 and the banner
+    // announced a 7.50 shortfall against a semester nobody has marked.
+    const courses: Course[] = [
+      blankCourse("PCCSI706", "Project", 4, "PRJ 100/0"),
+      blankCourse("UEHUT704", "Humanities", 2, "TH 50/50"),
+    ];
+    const sum = summarise(courses);
+    expect(sum.credits).toBe(6);
+    expect(sum.pending).toBe(2);
+    expect(sum.assessed).toBe(0);
+    // Both courses can still reach the default B+ target, so both project it.
+    expect(sum.sgpaProjected).toBe(8);
+
+    const need = requiredSgpaForCgpa(7.5, {}, sum.credits, NO_HORIZON);
+    expect(need.required).toBe(7.5);
+    // `risky` in App.tsx and `short` in Home.tsx, verbatim.
+    expect(need.required! > sum.sgpaProjected + 0.005).toBe(false);
+    expect(Math.max(0, need.required! - sum.sgpaProjected)).toBe(0);
+  });
+
+  it("counts an unmarked course at what it can reach, never at zero", () => {
+    // The repair that would have re-inflicted the pessimism of three fix
+    // rounds: putting the unmarked project into the denominator at zero
+    // points. Six credits at a B+ is 8.00; the project at a zero would read
+    // 2.67 and the paper alone 8.00, and neither is what this returns.
+    const courses: Course[] = [
+      blankCourse("PCCSI706", "Project", 4, "PRJ 100/0"),
+      { ...blankCourse("UEHUT704", "Humanities", 2, "TH 50/50"),
+        s1: 50, s2: 50, other: 10, attended: 90, held: 100, ese: 50 },
+    ];
+    const sum = summarise(courses);
+    // The paper is settled at an S; the project is unmarked and internal-only,
+    // so the plan cannot price it at all - and the projection still counts it
+    // at the target it can still reach.
+    expect(sum.creditsConfirmed).toBe(2);
+    expect(sum.sgpaConfirmed).toBe(10);
+    expect(sum.sgpaProjected).toBe(round((4 * 8 + 2 * 10) / 6, 3));
+    expect(sum.sgpaProjected).toBe(8.667);
+    // Which is deliberately NOT the floor the route is guaranteed against.
+    // `reachable` has to take the bottom of an open range; a forecast does not.
+    const plan = planForSgpa(courses, 8.667);
+    expect(plan.unpriced).toEqual(["PCCSI706"]);
+    expect(plan.reachable).toBe(false);
+    expect(plan.conditional).toBe(true);
+    expect(plan.sgpa).toBe(3.333);
+    expect(plan.maxSgpa).toBe(round((4 * 10 + 2 * 10) / 6, 3));
+  });
+
+  it("keeps a withdrawn course out of both ends and everything else in", () => {
+    // The three treatments `unplannable` names, on one semester. `out` leaves
+    // the register; `zero` stays in the denominator at a known zero; anything
+    // that can still move counts what it can still reach.
+    const courses: Course[] = [
+      { ...blankCourse("OUT", "OUT", 4), portal_grade: "W", cie_override: 30 },
+      paper("ZERO", 40),
+      blankCourse("MOVES", "MOVES", 2, "PRJ 100/0"),
+    ];
+    const sum = summarise(courses);
+    expect(sum.credits).toBe(6);
+    expect(sum.sgpaProjected).toBe(round((4 * 0 + 2 * 8) / 6, 3));
+    expect(sum.sgpaProjected).toBe(2.667);
+    // The route divides by the same six and agrees about which course is out.
+    expect(planForSgpa(courses, 5).credits).toBe(6);
+  });
+
+  it("recomputes over all 60 corpus semesters without an oracle", () => {
+    // A property, not an expected value: the projection is the credit-weighted
+    // mean over EVERY registered course, with the term each contributes fixed
+    // by its own state. Ranges over the parity corpus, which the fixture is
+    // still the source of even though these fields are not compared to it.
+    const bad: string[] = [];
+    let debarredTerms = 0;
+    let unmarkedTerms = 0;
+    const semesterRows = (fixture.semesters as unknown as Array<{ courses: Course[] }>)
+      .map(({ courses }) => courses);
+    semesterRows.forEach((rows, i) => {
+      const got = summarise(rows);
+      const terms: Array<[number, number]> = [];
+      for (const c of rows) {
+        const ev = evaluate(c);
+        if (isIncomplete(ev.grade)) continue;
+        if (ev.grade !== null) terms.push([ev.credits, GRADE_POINTS[ev.grade]]);
+        else if (ev.attendance !== null && ev.attendance < ATTENDANCE_CONDONE) {
+          terms.push([ev.credits, 0]);
+          debarredTerms += 1;
+        } else {
+          if (!ev.assessed) unmarkedTerms += 1;
+          terms.push([ev.credits, GRADE_POINTS[
+            ev.needTargetBest.possible ? ev.target : ev.maxPossibleGrade]]);
+        }
+      }
+      const credits = terms.reduce((sum, [c]) => sum + c, 0);
+      if (credits !== got.credits) bad.push(`semester ${i}: credits ${credits} vs ${got.credits}`);
+      if (sgpa(terms) !== got.sgpaProjected) {
+        bad.push(`semester ${i}: projected ${sgpa(terms)} vs ${got.sgpaProjected}`);
+      }
+      // Nothing may be projected outside the scale, and the projection can
+      // never beat the confirmed average by more than the scale allows.
+      if (got.sgpaProjected < 0 || got.sgpaProjected > 10) bad.push(`semester ${i}: off scale`);
+    });
+    expect(bad.slice(0, 3).join(" | ")).toBe("");
+    expect(bad.length).toBe(0);
+    // Not vacuous, but only barely, and the thinness is the point of writing
+    // the counts down. Every figure below is an assertion as well as a claim,
+    // so a wrong one fails the suite instead of misleading a reader.
+    //
+    // The two populations this task added to the sum are each represented by
+    // exactly ONE course in the whole corpus. The recomputation above
+    // therefore ranges over real data but leans on a single instance of each;
+    // the hand-written cases in this block carry the rest of the weight.
+    const kinds = semesterRows.flat().map((c) => evaluate(c));
+    expect(semesterRows.length).toBe(60);
+    expect(kinds.length).toBe(276);
+    expect(kinds.filter((ev) => isIncomplete(ev.grade)).length).toBe(0);
+    expect(kinds.filter((ev) => ev.grade !== null).length).toBe(266);
+    expect(kinds.filter((ev) => ev.grade === null).length).toBe(10);
+    expect(debarredTerms).toBe(1);
+    expect(unmarkedTerms).toBe(1);
+    // Both live in semester 55, which is consequently the only one of the 60
+    // whose projection this task moves at all: 5.143 at c698194, 5.778 here.
+    // The `after` half is pinned so it cannot rot; the `before` half is a fact
+    // about a commit and cannot.
+    expect(summarise(semesterRows[55]!).sgpaProjected).toBe(5.778);
   });
 });
