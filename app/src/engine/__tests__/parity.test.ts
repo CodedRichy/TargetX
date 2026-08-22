@@ -69,6 +69,12 @@
  * `lowAttendance`, and it is worth saying plainly that this is thin. The
  * remaining evidence for the rollup is `core.test.ts`.
  *
+ * EVERY MEASURED COUNT ABOVE IS ALSO AN ASSERTION - see "the header's counts
+ * are measured, not remembered" at the foot of this file. Two of them have
+ * been wrong before, once as a plain error and once as a real number stated
+ * against the wrong predicate, and nothing was checking either. A figure that
+ * cannot be re-derived does not belong in this header.
+ *
  * What is left per course is worth stating exactly, since the exclusion list
  * above is long - and the per-course `assessed` is not the rollup field of
  * the same name and is still compared. Per course the comparison still
@@ -268,5 +274,101 @@ describe("the rollup counts what it says it counts", () => {
       const got = summarise(c);
       return got.creditsConfirmed < got.credits;
     })).toBe(true);
+  });
+});
+
+/**
+ * Every measured count in this file's header, re-derived.
+ *
+ * The header is where this branch decided measured counts should live, and it
+ * is the file whose counts have already been wrong twice - once a plain error
+ * ("6 of the 276" when it was 43) and once a real number stated against the
+ * wrong predicate. Nine figures sat in it with nothing checking them, so they
+ * were right by luck rather than by construction. The countermeasure the
+ * branch found for comments elsewhere is to make the number an assertion; this
+ * applies it here.
+ *
+ * A figure that cannot be re-derived does not belong in the header. If one of
+ * these fails, fix the header rather than the expectation - the fixture is
+ * frozen, so a moved number means the ENGINE moved and the exclusion note is
+ * now describing something else.
+ */
+describe("the header's counts are measured, not remembered", () => {
+  const rows = semesters.flatMap(({ courses: c }) => c);
+
+  it("re-derives the rollup exclusion counts", () => {
+    const unmarked = rows.filter((c) => {
+      const ev = evaluate(c);
+      return ev.assessed && ev.cieUnmarked;
+    });
+    const withheld = unmarked.filter((c) => evaluate(c).grade === null);
+    expect(rows.length).toBe(276);
+    expect(unmarked.length).toBe(43);
+    expect(withheld.length).toBe(6);
+    // The four the oracle grades anyway, because they have an ESE recorded.
+    expect(withheld.filter((c) => evaluate(c).ese !== null).length).toBe(4);
+
+    const confirmedDiffs: string[] = [];
+    let assessedDiffs = 0, pendingDiffs = 0, creditsDiffs = 0, lowAttendanceDiffs = 0;
+    semesters.forEach(({ courses: c, summary }) => {
+      const got = summarise(c);
+      if (got.creditsConfirmed !== summary["creditsConfirmed"]) {
+        confirmedDiffs.push(`${got.creditsConfirmed} vs ${summary["creditsConfirmed"]}`);
+      }
+      if (got.assessed !== summary["assessed"]) assessedDiffs += 1;
+      if (got.pending !== summary["pending"]) pendingDiffs += 1;
+      if (got.credits !== summary["credits"]) creditsDiffs += 1;
+      if (JSON.stringify(got.lowAttendance) !== JSON.stringify(summary["lowAttendance"])) {
+        lowAttendanceDiffs += 1;
+      }
+    });
+    expect(semesters.length).toBe(60);
+    expect(confirmedDiffs).toEqual(["21 vs 23", "11 vs 16", "15 vs 19", "19 vs 22"]);
+    expect(assessedDiffs).toBe(1);
+    // The three rollup fields still compared. If any of these stops being 0
+    // the comparison above is failing anyway, but stating it here is what
+    // makes the header's "0 diffs on all three" a checked claim.
+    expect([pendingDiffs, creditsDiffs, lowAttendanceDiffs]).toEqual([0, 0, 0]);
+  });
+
+  it("re-derives the duty-leave exclusion counts", () => {
+    // "Only on the plans where a frozen credit can be wrong at all - where the
+    // claim exceeds the cap, or today's 100% ceiling clips it." That predicate,
+    // spelled out: some claimed leave went to waste, or crediting it would push
+    // the attended count past the classes held.
+    let surplus = 0, deficit = 0, surplusFrozen = 0, deficitFrozen = 0;
+    let skipDiffs = 0, attendDiffs = 0, bandAttendDiffs = 0, otherPlanDiffs = 0;
+    for (const { course, expected } of courses) {
+      const plan = expected.plan as (PlanFields & { skip: number | null; attend: number | null }) | null;
+      if (plan === null) continue;
+      const ev = evaluate(course);
+      // The fixture recorded a plan, so this course has attendance evidence
+      // and `evaluate` builds one too - the shapes are compared field by
+      // field above, which is what makes that safe to assert here.
+      if (ev.plan === null || ev.attBand === null) throw new Error(`no plan for ${course.code}`);
+      const attended = Number(course.attended ?? 0);
+      const held = Number(course.held ?? 0);
+      const frozen = plan.dlWasted > 0 || (held > 0 && attended + plan.dlCredited > held);
+      if (plan.state === "surplus") { surplus += 1; if (frozen) surplusFrozen += 1; }
+      if (plan.state === "deficit") { deficit += 1; if (frozen) deficitFrozen += 1; }
+      if (ev.plan.skip !== plan.skip) skipDiffs += 1;
+      if (ev.plan.attend !== plan.attend) attendDiffs += 1;
+      const band = expected.attBand as (BandFields & { attend: number | null }) | null;
+      if (band !== null && ev.attBand.attend !== band.attend) bandAttendDiffs += 1;
+      // "The other nine fields of the two objects differ on none": the six of
+      // `plan` and the three of `attBand` that `slimPlan`/`slimBand` keep.
+      if (JSON.stringify(slimPlan(ev.plan)) !== JSON.stringify(slimPlan(plan))) otherPlanDiffs += 1;
+      if (band !== null
+          && JSON.stringify(slimBand(ev.attBand)) !== JSON.stringify(slimBand(band))) {
+        otherPlanDiffs += 1;
+      }
+    }
+    expect(courses.length).toBe(612);
+    expect([surplus, deficit]).toEqual([329, 130]);
+    expect([surplusFrozen, deficitFrozen]).toEqual([128, 29]);
+    expect(skipDiffs).toBe(90);
+    expect(attendDiffs).toBe(29);
+    expect(bandAttendDiffs).toBe(29);
+    expect(otherPlanDiffs).toBe(0);
   });
 });

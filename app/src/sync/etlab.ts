@@ -487,7 +487,6 @@ export interface SyncResult {
   semesters: Record<string, { courses: Course[]; creditCheck: ReturnType<typeof verifyCredits> }>;
   history: Record<string, SemesterHistory>;
   current: string | null;
-  needsCredits: string[];
 }
 
 /**
@@ -509,7 +508,6 @@ export function academicsToState(
 ): SyncResult {
   const semesters: SyncResult["semesters"] = {};
   const history: SyncResult["history"] = {};
-  const needsCredits: string[] = [];
 
   for (const [key, entry] of Object.entries(academics.semesters)) {
     const name = `S${key}`;
@@ -551,7 +549,6 @@ export function academicsToState(
       course.portal_grade = item.grade || "";
 
       courses.push(course);
-      needsCredits.push(`${name}/${item.code}`);
     }
 
     if (!courses.length) continue;
@@ -592,7 +589,7 @@ export function academicsToState(
   }
 
   return {
-    semesters, history, needsCredits,
+    semesters, history,
     current: academics.current ? `S${academics.current}` : null,
   };
 }

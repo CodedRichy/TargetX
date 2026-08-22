@@ -10,13 +10,28 @@ import {
   ATTENDANCE_CONDONE, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN, COURSE_TYPES, DL_CAP_PCT,
   GRADE_BANDS, GRADE_MIN, GRADE_POINTS, NO_HORIZON,
   TYPE_KEYS, attendanceMarks, attendancePlan, blankCourse, cgpaFromSemesters,
-  computeCie, courseOptions, eseCutoff, evaluate, horizonToGraduation, isIncomplete,
+  cieBounds, courseOptions, eseCutoff, evaluate, horizonToGraduation, isIncomplete,
   nextAttendanceBand, normaliseGrade, parseEtlab, historyCredits, planForSgpa, requiredEse,
   requiredEseCell, requiredSgpaForCgpa, round, sgpa, statusFor, summarise,
   unconfirmedNames, unconfirmedSemesters,
 } from "../index";
 import fixture from "./parity.json";
 import type { Course, Grade, Letter, SemesterHistory, TypeKey } from "../types";
+
+/**
+ * The CIE floor alone.
+ *
+ * `computeCie` used to be an engine export doing exactly this and nothing
+ * else; Task 10 replaced its every production caller with `cieBounds`, which
+ * returns both ends, and these tests were the only thing keeping it alive.
+ * Shipping a second public way to ask for one end invites a caller to take it
+ * without seeing the other, which is the mistake this branch spent five
+ * rounds undoing - so it lives here instead, where only tests can reach it.
+ */
+const cieOf = (
+  course: Course, attendancePct?: number | null,
+): number => (attendancePct === undefined
+  ? cieBounds(course) : cieBounds(course, attendancePct)).cie;
 
 describe("CIE scaling", () => {
   it("scales each component onto its weight inside a 40-mark CIE", () => {
@@ -27,7 +42,7 @@ describe("CIE scaling", () => {
     // lower bound - not a claim that none of those marks were earned. The
     // scaling is what is under test here; `evaluate` is where the bound is
     // flagged and the grade withheld.
-    expect(computeCie(c)).toBe(25.38);
+    expect(cieOf(c)).toBe(25.38);
   });
 
   it("fills a 50-mark bucket exactly at full components and full attendance", () => {
@@ -35,12 +50,12 @@ describe("CIE scaling", () => {
       ...blankCourse("X", "Y", 3, "TH 50/50"), s1: 50, s2: 50, other: 10, attendance: 90,
     };
     // 18 + 18 + 9 = 45 of components, plus the 5 attendance marks.
-    expect(computeCie(c)).toBe(50.0);
+    expect(cieOf(c)).toBe(50.0);
   });
 
   it("lets a published internal total override the components", () => {
     const c: Course = { ...blankCourse("X", "Y", 3, "TH 40/60"), s1: 10, s2: 10, cie_override: 37 };
-    expect(computeCie(c)).toBe(37);
+    expect(cieOf(c)).toBe(37);
   });
 });
 
@@ -71,30 +86,30 @@ describe("attendance is spent, not just displayed (R 7.5.ii)", () => {
   });
 
   it("pays the full 5 marks from 85% and nothing below 60%", () => {
-    const components = computeCie(dsa({ attendance: 45 }));
-    expect(computeCie(dsa({ attendance: 85 }))).toBe(components + 5);
-    expect(computeCie(dsa({ attendance: 59.9 }))).toBe(components);
+    const components = cieOf(dsa({ attendance: 45 }));
+    expect(cieOf(dsa({ attendance: 85 }))).toBe(components + 5);
+    expect(cieOf(dsa({ attendance: 59.9 }))).toBe(components);
   });
 
   it("earns nothing for attendance nobody has published, without voiding the components", () => {
     const ev = evaluate(dsa({ attendance: "" }));
     expect(ev.attMarks).toBeNull();
     expect(ev.cie).toBe(25.38);
-    expect(ev.cie).toBe(computeCie(dsa({ attendance: 45 })));
+    expect(ev.cie).toBe(cieOf(dsa({ attendance: 45 })));
   });
 
   it("spends the duty-leave-adjusted percentage, not the raw one", () => {
     // 14/18 is 77.78% (3 marks). Two DL classes are claimed but only 1.8 are
     // credited, at the 10% cap on 18 held, which lifts it to 87.78% (5 marks)
     // - and the CIE has to move with it.
-    const raw = computeCie(dsa({ attended: 14, held: 18 }));
-    const withDl = computeCie(dsa({ attended: 14, held: 18, dl: 2 }));
+    const raw = cieOf(dsa({ attended: 14, held: 18 }));
+    const withDl = cieOf(dsa({ attended: 14, held: 18, dl: 2 }));
     expect(withDl - raw).toBe(2);
   });
 
   it("prefers the raw counts over a stale published percentage", () => {
-    const stale = computeCie(dsa({ attendance: 60, attended: 14, held: 18, dl: 2 }));
-    expect(stale).toBe(computeCie(dsa({ attendance: 87.78 })));
+    const stale = cieOf(dsa({ attendance: 60, attended: 14, held: 18, dl: 2 }));
+    expect(stale).toBe(cieOf(dsa({ attendance: 87.78 })));
   });
 
   it("reports the marks earned on the same scale the CIE spends them", () => {
@@ -116,7 +131,7 @@ describe("attendance is spent, not just displayed (R 7.5.ii)", () => {
     // The college's own internal already contains its attendance component;
     // adding five more would count them twice.
     const c = dsa({ cie_override: 37, attendance: 90 });
-    expect(computeCie(c)).toBe(37);
+    expect(cieOf(c)).toBe(37);
   });
 });
 

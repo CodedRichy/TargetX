@@ -93,9 +93,3 @@ export function cieBounds(
   };
 }
 
-/** The floor alone. See `cieBounds`, which computes both ends together. */
-export function computeCie(
-  course: Course, attendancePct: number | null = effectiveAttendance(course),
-): number {
-  return cieBounds(course, attendancePct).cie;
-}
