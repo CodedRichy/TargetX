@@ -1,7 +1,7 @@
 import { For, Show, createSignal } from "solid-js";
 import {
   ATTENDANCE_CONDONE, ATTENDANCE_MIN, COURSE_TYPES, TARGET_CHOICES, TYPE_KEYS,
-  isIncomplete,
+  isIncomplete, requiredEseCell,
 } from "../engine";
 import type { Course, Evaluation, Letter, RequiredEse, TypeKey } from "../engine";
 import { addCourse, removeCourse, rows, updateCourse } from "../state/store";
@@ -19,27 +19,54 @@ const show = (v: number | null | undefined, places = 0) =>
  * student sees "24/60" for a pass on a CIE of 38 and concludes the internals
  * bought them room, when in fact no amount of CIE moves that number.
  *
+ * Which of the two figures is printed is `requiredEseCell`'s decision, not
+ * this component's, because the text report prints the same pair and the two
+ * must not diverge. Where the CIE can still rise, the cell quotes the
+ * best-case figure and marks it as a bound: the floor-priced number is real
+ * but it is the requirement only if the student never attends another class,
+ * and printing it unmarked put an "Impossible" beside a status pill reading
+ * TIGHT on the same row.
+ *
  * `applies` is false wherever the number would be advice about an exam this
  * course is not headed for: nothing assessed yet, so the figure would be
  * invented; an internal still short of a component or of its attendance
- * marks, so the figure is priced off a floor and would read harsher than the
- * truth while looking exact; or a withdrawal, so there is no exam of theirs
- * to sit.
+ * marks, so BOTH figures are guesses about marks that are not the student's
+ * to earn; or a withdrawal, so there is no exam of theirs to sit.
  */
-function Need(props: { need: RequiredEse; applies: boolean }) {
+function Need(props: { need: RequiredEse; best: RequiredEse; applies: boolean }) {
+  const cell = () => requiredEseCell(props.need, props.best);
   return (
     <Show when={props.applies} fallback={<span style={{ color: "var(--text-faint)" }}>{dash}</span>}>
-    <Show when={props.need.possible}
-          fallback={<span class="grade f">{props.need.text}</span>}>
+    <Show when={cell().shown.possible}
+          fallback={<span class="grade f">{cell().shown.text}</span>}>
       <span class="num">
-        {props.need.value}
-        <Show when={props.need.binding === "cutoff"}>
+        <Show when={cell().bound}>
+          <span class="bound" title={boundTitle(props.need, props.best)}>≥</span>
+        </Show>
+        {cell().shown.value}
+        <Show when={cell().shown.binding === "cutoff"}>
           <span class="bound" title="The 40% ESE minimum binds here, not the total.">*</span>
         </Show>
       </span>
     </Show>
     </Show>
   );
+}
+
+/**
+ * Why the printed requirement is a bound, in the student's words.
+ *
+ * Only ever shown on a row where `needApplies` holds, and there every
+ * component is marked - so the whole gap between the two figures is the
+ * attendance marks of R 7.5.ii that are still within reach. That is the one
+ * thing the student can still do about the number, which is why the cell
+ * quotes the reachable end and this string names the other one.
+ */
+function boundTitle(need: RequiredEse, best: RequiredEse): string {
+  const earn = "if you earn the attendance marks still within reach";
+  return need.possible
+    ? `${best.text} ${earn}; ${need.text} if your attendance stays where it is.`
+    : `${best.text} ${earn}. At today's attendance it is out of reach.`;
 }
 
 /** See `Need`. */
@@ -93,6 +120,9 @@ function Cell(props: {
 function Detail(props: { index: number; course: Course; ev: Evaluation }) {
   const spec = () => COURSE_TYPES[(props.course.type ?? "TH 40/60") as TypeKey];
   const set = (patch: Partial<Course>) => updateCourse(props.index, patch);
+  // The same pairing the table cell uses, so the row and its expansion cannot
+  // quote different figures for the same requirement.
+  const passCell = () => requiredEseCell(props.ev.needPass, props.ev.needPassBest);
 
   return (
     <tr class="detail">
@@ -230,10 +260,22 @@ function Detail(props: { index: number; course: Course; ev: Evaluation }) {
                   </Show>
                 }>
                   Best still reachable: <strong>{props.ev.maxPossibleGrade}</strong>.
-                  A pass needs <strong>{props.ev.needPass.text}</strong>
-                  <Show when={props.ev.needPass.binding === "cutoff"}>
-                    {" "}- and that is the 40% exam minimum, so a higher CIE will not
-                    lower it.
+                  <Show when={passCell().shown.possible} fallback={
+                    <> A pass is out of reach: even a full exam on top of the
+                      highest internal still open to this course falls short.</>
+                  }>
+                    {" "}A pass needs <strong>{passCell().shown.text}</strong>
+                    <Show when={passCell().bound}>
+                      {" "}- the least it can cost, and only once you earn the
+                      attendance marks still within reach;{" "}
+                      {props.ev.needPass.possible
+                        ? `at today's attendance it is ${props.ev.needPass.text}`
+                        : "at today's attendance it is out of reach"}
+                    </Show>
+                    <Show when={passCell().shown.binding === "cutoff"}>
+                      {" "}- and that is the 40% exam minimum, so a higher CIE will not
+                      lower it.
+                    </Show>
                   </Show>.
                 </Show>
               }>
@@ -310,9 +352,14 @@ export function Ledger() {
                   <td class="num">
                     <Show when={row.ev.assessed}
                           fallback={<span style={{ color: "var(--text-faint)" }}>{dash}</span>}>
-                      {/* An internal whose attendance component is unknown is a
-                          floor, not a total, and the row must not print it as
-                          one. See `Evaluation.cieIncomplete`. */}
+                      {/* An internal missing a component mark or its
+                          attendance figure is a floor, not a total, and the
+                          row must not print it as one. This marker asks
+                          `cieFloor` - is the CIE unknown - and not whether it
+                          can still move: a fully marked CIE below 85%
+                          attendance is exactly today's mark, and marking it
+                          would call a known number a guess. The required-mark
+                          cells ask the other question. */}
                       <Show when={row.ev.cieFloor}>
                         <span class="bound" title={missingInternal(row.ev)}>≥</span>
                       </Show>
@@ -341,7 +388,8 @@ export function Ledger() {
                     row.ev.grade === "S" || row.ev.grade === "A+" ? " top" : ""}`}>
                     {row.ev.grade ?? dash}
                   </td>
-                  <td><Need need={row.ev.needPass} applies={needApplies(row.ev)} /></td>
+                  <td><Need need={row.ev.needPass} best={row.ev.needPassBest}
+                            applies={needApplies(row.ev)} /></td>
                   <td class="left">
                     <select class="cell-input" value={row.ev.target}
                             onChange={(e) => updateCourse(row.index, {
@@ -349,7 +397,8 @@ export function Ledger() {
                       <For each={TARGET_CHOICES}>{(g) => <option value={g}>{g}</option>}</For>
                     </select>
                   </td>
-                  <td><Need need={row.ev.needTarget} applies={needApplies(row.ev)} /></td>
+                  <td><Need need={row.ev.needTarget} best={row.ev.needTargetBest}
+                            applies={needApplies(row.ev)} /></td>
                   <td class="left">
                     <span class={`pill ${row.status.toLowerCase()}`}>{row.status}</span>
                   </td>

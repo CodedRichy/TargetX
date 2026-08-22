@@ -10,10 +10,11 @@ import {
   ATTENDANCE_CONDONE, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN, COURSE_TYPES, DL_CAP_PCT,
   GRADE_MIN, NO_HORIZON,
   TYPE_KEYS, attendanceMarks, attendancePlan, blankCourse, cgpaFromSemesters,
-  computeCie, courseOptions, eseCutoff, evaluate, horizonToGraduation,
+  computeCie, courseOptions, eseCutoff, evaluate, horizonToGraduation, isIncomplete,
   nextAttendanceBand, normaliseGrade, parseEtlab, historyCredits, planForSgpa, requiredEse,
-  requiredSgpaForCgpa, sgpa, statusFor, summarise,
+  requiredEseCell, requiredSgpaForCgpa, sgpa, statusFor, summarise,
 } from "../index";
+import fixture from "./parity.json";
 import type { Course, Letter, TypeKey } from "../types";
 
 describe("CIE scaling", () => {
@@ -952,7 +953,7 @@ describe("an unmarked component is unknown, not a zero", () => {
     // The floor still prices the requirement, and off the floor a pass really
     // is impossible - which is exactly why nothing may ask it that question.
     expect(ev.needPass.possible).toBe(false);
-    expect(ev.passOpen).toBe(true);
+    expect(ev.needPassBest.possible).toBe(true);
     expect(statusFor(ev)).toBe("PENDING");
     expect(summarise([lab()]).impossible).toEqual([]);
   });
@@ -1230,5 +1231,91 @@ describe("a withdrawn or incomplete course is not a failure", () => {
     const plan = planForSgpa(
       [semester()[0]!, { ...blankCourse("PCCST305", "Physics", 3), portal_grade: "I" }], 7.5);
     expect(plan.reason).toContain("PCCST305 left out: incomplete");
+  });
+});
+
+describe("a requirement is quoted at the end the rest of the app is solved against", () => {
+  // Every component marked, so the internal is not a floor - but attendance is
+  // 80%, so one of the five R 7.5.ii marks is still to be earned and the CIE
+  // can still rise from 24.07 to 25.07. The requirement priced off each end is
+  // a different answer, and one of them is the one every other verdict on the
+  // row already uses.
+  const lab = (): Course => ({
+    ...blankCourse("PCCST504", "Networks Lab", 2, "LAB 75/25"),
+    s1: 23, s2: 2, other: 0, attendance: 80,
+  });
+
+  it("prices the pass off the reachable CIE, not off today's", () => {
+    const ev = evaluate(lab());
+    expect(ev.cieFloor).toBe(false);
+    expect([ev.cie, ev.cieCeiling]).toEqual([24.07, 25.07]);
+    // 50 - 24.07 = 26 of a 25-mark paper; 50 - 25.07 = 25 of it.
+    expect(ev.needPass).toMatchObject({ value: 26, possible: false });
+    expect(ev.needPassBest).toMatchObject({ value: 25, possible: true });
+    const cell = requiredEseCell(ev.needPass, ev.needPassBest);
+    expect([cell.shown.text, cell.bound]).toEqual(["25/25", true]);
+    // And the pill agrees, because it is solved off the same figure.
+    expect(statusFor(ev)).toBe("TIGHT");
+  });
+
+  it("marks nothing where the requirement cannot fall", () => {
+    // Fully marked at 62%: the CIE can still rise by 4 of the 5 attendance
+    // marks, but the 40% ESE minimum is what binds, so the requirement is 24
+    // of 60 at both ends and a bound marker would promise a fall that cannot
+    // happen. This is why the marker asks whether the two figures differ
+    // rather than whether the CIE can move.
+    const th: Course = {
+      ...blankCourse("PCCST505", "Compilers", 4, "TH 40/60"),
+      s1: 45, s2: 45, other: 9, attendance: 62,
+    };
+    const ev = evaluate(th);
+    expect(ev.cieCeiling).toBeGreaterThan(ev.cie);
+    expect(ev.needPass.value).toBe(24);
+    expect(ev.needPassBest.value).toBe(24);
+    expect(requiredEseCell(ev.needPass, ev.needPassBest).bound).toBe(false);
+    // The target can fall, though, so that column is marked on the same row.
+    expect(ev.target).toBe("B+");
+    expect([ev.needTarget.value, ev.needTargetBest.value]).toEqual([43, 39]);
+    expect(requiredEseCell(ev.needTarget, ev.needTargetBest).shown.value).toBe(39);
+  });
+
+  it("never quotes an impossible pass beside a status that says otherwise", () => {
+    // The property, over the whole parity corpus rather than over the two
+    // rows above. Where the required-mark column applies at all - assessed,
+    // not a floor, not a withdrawal - the figure it prints is impossible
+    // exactly when `statusFor` calls the course unreachable.
+    //
+    // Measured on this corpus: 51 of the 612 courses print a marked bound,
+    // and on 8 of them the floor-priced figure read "Impossible" where the
+    // printed one does not. All 8 already carry a published grade, so the
+    // corpus does not by itself reproduce the pill disagreement the LAB row
+    // above does - what it adds is 612 real rows on which the pairing must
+    // never invent one.
+    const rows = (fixture.courses as unknown as Array<{ course: Course }>)
+      .map(({ course }) => course);
+    const bad: string[] = [];
+    let rescued = 0;
+    let bounded = 0;
+    rows.forEach((course, i) => {
+      const ev = evaluate(course);
+      if (!ev.assessed || ev.cieFloor || isIncomplete(ev.grade)) return;
+      const cell = requiredEseCell(ev.needPass, ev.needPassBest);
+      // The floor-priced figure is never below the best-case one, or the
+      // interval is upside down.
+      if (ev.needPass.value < ev.needPassBest.value) bad.push(`case ${i}: floor below ceiling`);
+      const tcell = requiredEseCell(ev.needTarget, ev.needTargetBest);
+      if (cell.bound || tcell.bound) bounded += 1;
+      if ((!ev.needPass.possible && cell.shown.possible)
+          || (!ev.needTarget.possible && tcell.shown.possible)) rescued += 1;
+      if (ev.grade !== null) return;
+      const unreachable = statusFor(ev) === "UNREACHABLE";
+      if (unreachable !== !cell.shown.possible) {
+        bad.push(`case ${i}: cell ${cell.shown.text} vs status ${statusFor(ev)}`);
+      }
+    });
+    expect(bad.slice(0, 3).join(" | ")).toBe("");
+    expect(rows.length).toBe(612);
+    expect(bounded).toBe(51);
+    expect(rescued).toBe(8);
   });
 });

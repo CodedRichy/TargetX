@@ -183,28 +183,44 @@ export interface Evaluation {
    */
   cieUnmarked: boolean;
   /**
-   * True when `cie` is a lower bound rather than the internal - either flag
-   * above. This is what the arithmetic keys on: no grade is derived off a
-   * floor (the ESE-cutoff F excepted, which never reads the CIE at all), the
-   * status is PENDING, the required-mark columns say nothing, and the CIE
-   * cell is marked as a bound.
+   * True when `cie` is a lower bound rather than the internal as it stands
+   * today - either flag above. This is what the arithmetic keys on: no grade
+   * is derived off a floor (the ESE-cutoff F excepted, which never reads the
+   * CIE at all), the status is PENDING, the required-mark columns say
+   * nothing, and the CIE cell is marked as a bound.
+   *
+   * Not to be confused with `cieCeiling > cie`, which is the wider question of
+   * whether the CIE can still rise at all: a fully marked internal below 85%
+   * attendance has this flag false and that gap open, because the attendance
+   * marks of R 7.5.ii are still there to be earned. Anything deciding whether
+   * a number derived from the CIE is exact must compare the two ends.
    */
   cieFloor: boolean;
   plan: AttendancePlan | null;
   attMarks: number | null;
   attBand: AttendanceBand | null;
   credits: number;
+  /**
+   * What a pass / the target costs in the exam if the CIE stays exactly where
+   * it is: priced off `cie`, so this is the MOST either can cost. On a row
+   * whose CIE can still rise it is an upper bound and not the answer, and
+   * `.possible` on it is not the possibility question - it says "impossible"
+   * for a course whose attendance marks or component marks are simply not all
+   * in yet. Ask `needPassBest.possible` for that, and pair the two through
+   * `requiredEseCell` before printing either.
+   */
   needPass: RequiredEse;
   needTarget: RequiredEse;
   target: Letter;
   /**
-   * Is a pass / the target still reachable, asked of `cieCeiling` rather than
-   * of `cie`. Distinct from `needPass.possible`, which is the same question
-   * asked of the floor and therefore says "impossible" for a course whose
-   * marks are simply not all in yet.
+   * The same two questions asked of `cieCeiling`: the LEAST a pass / the
+   * target can cost, and - through `.possible` - whether either is still
+   * reachable at all. One shared answer, because `statusFor`, `summarise`,
+   * Home and both surfaces that print a required mark all ask it, and three
+   * private copies of one question is how they drift apart.
    */
-  passOpen: boolean;
-  targetOpen: boolean;
+  needPassBest: RequiredEse;
+  needTargetBest: RequiredEse;
   /** The best grade `cieCeiling` plus a full exam could still produce. */
   maxPossibleGrade: Grade;
 }

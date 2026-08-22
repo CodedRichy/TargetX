@@ -43,19 +43,22 @@
  *     task moved nothing downstream of it.
  *   - `creditsConfirmed` and `assessed` in the rollup (task 10 fix 2): the
  *     oracle grades a course off a CIE that is short an unmarked component,
- *     reading a blank series exam as a zero. 6 of the 276 courses across the
- *     corpus semesters are assessed with a component still unmarked; on 4 of
- *     them the oracle derives a grade this engine now withholds (three Fs
- *     that are not certain - the highest CIE each can still reach clears the
- *     pass - and one A+ that its own unmarked component can only raise).
- *     Those four move `creditsConfirmed` on 4 of the 60 semesters (21 vs 23,
- *     11 vs 16, 15 vs 19, 19 vs 22) and `assessed` on 1, where one of them is
- *     also debarred and so leaves the projection with its grade. What is lost
- *     is real: `creditsConfirmed` is a field these tasks move, and it was the
- *     fixture's standing check that credits enter and leave `confirmed` for
- *     the right reasons. `core.test.ts` carries that check directly instead.
- *     `pending`, `credits` and `lowAttendance` are unaffected - measured, 0
- *     diffs on all three across all 60 - and stay in.
+ *     reading a blank series exam as a zero. 43 of the 276 courses across the
+ *     corpus semesters are assessed with a component still unmarked, and on 6
+ *     of those this engine withholds the grade. Four of the six have an ESE
+ *     recorded, so the oracle derives a grade for them (three Fs that are not
+ *     certain - the highest CIE each can still reach clears the pass - and one
+ *     A+ that its own unmarked component can only raise); the other two have
+ *     no ESE, so the oracle withholds too and nothing moves. Those four move
+ *     `creditsConfirmed` on 4 of the 60 semesters (21 vs 23, 11 vs 16, 15 vs
+ *     19, 19 vs 22) and `assessed` on 1, where one of them is also debarred
+ *     and so leaves the projection with its grade. What is lost is real:
+ *     `creditsConfirmed` is a field these tasks move, and it was the fixture's
+ *     standing check that credits enter and leave `confirmed` for the right
+ *     reasons. The property test at the foot of this file carries that check
+ *     instead, over the same 60 semesters and without the oracle. `pending`,
+ *     `credits` and `lowAttendance` are unaffected - measured, 0 diffs on all
+ *     three across all 60 - and stay in.
  *
  * One further field is dropped and it is not an exclusion at all: `unsettled`
  * (task 10 fix 1) has no counterpart in the fixture, because the Python engine
@@ -81,8 +84,8 @@
  */
 import { describe, expect, it } from "vitest";
 import fixture from "./parity.json";
-import { evaluate, summarise } from "../index";
-import type { Course, Evaluation } from "../types";
+import { GRADE_POINTS, evaluate, isIncomplete, sgpa, summarise } from "../index";
+import type { Course, Evaluation, Grade } from "../types";
 
 interface Expected {
   cie: number; cieMax: number; eseMax: number; ese: number | null;
@@ -193,5 +196,77 @@ describe("parity with the Python engine", () => {
     });
     expect(mismatches.slice(0, 3).join("\n")).toBe("");
     expect(mismatches.length).toBe(0);
+  });
+});
+
+/**
+ * What the narrowed rollup fields lost, asserted over the whole corpus instead
+ * of against the oracle.
+ *
+ * `creditsConfirmed` and `assessed` are no longer compared to the Python
+ * numbers, so the protection they carried - that credits enter and leave
+ * `confirmed` for the right reasons, on real data rather than on hand-picked
+ * examples - has to come from somewhere. It comes from a property: a course's
+ * credits are confirmed exactly when its grade is settled. That ranges over
+ * all 60 corpus semesters and 276 courses, it does not need an oracle, and it
+ * fails the moment a course is dropped from or added to `confirmed` for any
+ * reason other than having a grade.
+ */
+describe("the rollup counts what it says it counts", () => {
+  const settled = (c: Course) => {
+    const ev = evaluate(c);
+    return ev.grade !== null && !isIncomplete(ev.grade) ? ev : null;
+  };
+
+  it("confirms exactly the credits of the courses whose grade is settled", () => {
+    const bad: string[] = [];
+    semesters.forEach(({ courses: rows }, i) => {
+      const got = summarise(rows);
+      const graded = rows.map(settled).filter((ev): ev is Evaluation => ev !== null);
+      const credits = graded.reduce((sum, ev) => sum + ev.credits, 0);
+      // `settled` has already excluded null, "I" and "W", so every grade left
+      // here carries a grade point.
+      const mean = sgpa(graded.map((ev) => [ev.credits, GRADE_POINTS[ev.grade as Grade]]));
+      if (got.creditsConfirmed !== credits) {
+        bad.push(`semester ${i}: creditsConfirmed ${got.creditsConfirmed} vs ${credits}`);
+      }
+      if (got.sgpaConfirmed !== mean) {
+        bad.push(`semester ${i}: sgpaConfirmed ${got.sgpaConfirmed} vs ${mean}`);
+      }
+      // A confirmed credit is always a registered one, and the registered
+      // count is every course that is not a withdrawal or an incomplete.
+      const registered = rows.filter((c) => !isIncomplete(evaluate(c).grade))
+        .reduce((sum, c) => sum + evaluate(c).credits, 0);
+      if (got.credits !== registered) bad.push(`semester ${i}: credits ${got.credits} vs ${registered}`);
+      if (got.creditsConfirmed > got.credits) bad.push(`semester ${i}: confirmed exceeds registered`);
+      // `assessed` is the projection's population: every settled course is in
+      // it, and nothing outside the registered set ever is.
+      if (got.assessed < graded.length) bad.push(`semester ${i}: assessed ${got.assessed} < graded ${graded.length}`);
+      if (got.assessed > rows.filter((c) => !isIncomplete(evaluate(c).grade)).length) {
+        bad.push(`semester ${i}: assessed ${got.assessed} exceeds the registered count`);
+      }
+    });
+    expect(bad.slice(0, 3).join(" | ")).toBe("");
+    expect(bad.length).toBe(0);
+  });
+
+  it("is not a vacuous property on this corpus", () => {
+    // The property only bites where a grade is withheld, so the corpus has to
+    // contain such courses - and it is exactly the six that took the rollup
+    // fields out of the oracle comparison in the first place. Measured over
+    // the 276 semester courses: 43 are assessed with a component still
+    // unmarked, and on these six that withholds a grade the oracle derives.
+    const rows = semesters.flatMap(({ courses: c }) => c);
+    const unmarked = rows.filter((c) => { const ev = evaluate(c); return ev.assessed && ev.cieUnmarked; });
+    const withheld = unmarked.filter((c) => evaluate(c).grade === null);
+    expect(rows.length).toBe(276);
+    expect(unmarked.length).toBe(43);
+    expect(withheld.length).toBe(6);
+    // And at least one semester really does confirm fewer credits than it
+    // registers because of them, or the assertion above would prove nothing.
+    expect(semesters.some(({ courses: c }) => {
+      const got = summarise(c);
+      return got.creditsConfirmed < got.credits;
+    })).toBe(true);
   });
 });

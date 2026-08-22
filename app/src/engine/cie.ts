@@ -49,11 +49,17 @@ export function componentMax(course: Course, key: string, defaultMax: number): n
  *     point of `attBand` and of this app.
  *
  * Anything asking what a student still HAS reads the floor; anything asking
- * what is still POSSIBLE reads the ceiling. `evaluate` flags the gap between
- * them (`Evaluation.cieFloor`) and withholds any grade that would have to be
- * read off a floor - R 7.5.ii makes attendance the fourth component of the
- * internal, and a band read off a sum that is short of a component is a band
- * the data does not support.
+ * what is still POSSIBLE reads the ceiling. `Evaluation.cieFloor` flags the
+ * one case where the floor is not even today's mark - a component or the
+ * attendance figure missing - and `evaluate` withholds any grade that would
+ * have to be read off it: R 7.5.ii makes attendance the fourth component of
+ * the internal, and a band read off a sum that is short of a component is a
+ * band the data does not support. That flag is NOT the gap between the two
+ * ends. The gap is wider: it also opens on a fully marked internal below 85%
+ * attendance, where the CIE is exactly today's mark and still has attendance
+ * marks left to earn. Asking `cieFloor` when the question is "can this number
+ * still move" is how a required mark came to be printed as though it were
+ * exact.
  *
  * `attendancePct` defaults to the same effective figure `evaluate` uses;
  * callers that have already derived it pass it in rather than deriving it

@@ -5,7 +5,9 @@ import {
   attendanceMarks, attendancePlan, effectiveAttendance, nextAttendanceBand,
 } from "./attendance";
 import { cieBounds, eseCutoff, specFor } from "./cie";
-import { gradeForTotal, isIncomplete, normaliseGrade, requiredEse } from "./grade";
+import {
+  gradeForTotal, isIncomplete, normaliseGrade, requiredEse, requiredEseCell,
+} from "./grade";
 import type {
   Course, Evaluation, Grade, Incomplete, Letter, MarkInput, Status,
 } from "./types";
@@ -47,8 +49,13 @@ export function evaluate(course: Course): Evaluation {
     ({ key }) => toOptionalFloat((course as Record<string, MarkInput>)[key]) === null,
   );
   // `cieFloor`: either of the above, i.e. `cie` is a LOWER BOUND rather than
-  // the internal. This is the one the arithmetic keys on; the two halves are
-  // kept apart only so a screen can name which field is missing.
+  // the internal as it stands today. This is the one the arithmetic keys on;
+  // the two halves are kept apart only so a screen can name which field is
+  // missing. It is not the same question as "can the CIE still rise": a fully
+  // marked internal below 85% attendance is exactly today's mark and still
+  // has attendance marks to earn, so `cieCeiling > cie` with this flag false.
+  // Anything deciding whether a derived number is exact must compare the two
+  // ends, not read this.
   const cieFloor = cieIncomplete || cieUnmarked;
 
 
@@ -131,22 +138,19 @@ export function evaluate(course: Course): Evaluation {
     attMarks: attendanceMarks(attendance, spec.attMax),
     attBand: nextAttendanceBand(course.attended, course.held, course.dl ?? 0),
     credits: clamp(toFloat(course.credits, 0), 0, 20),
-    // The two requirements are quoted off `cie`, the figure that can be
-    // proved, so they are the MOST a grade can cost. Where the CIE is a floor
-    // that makes `.possible` read false for grades the missing marks would
-    // still allow, which is why nothing consults it for a possibility - the
-    // three fields below answer that question instead - and why both surfaces
-    // that print these blank them on a floor row (`needApplies` in the
-    // Ledger, `settled` in the text report).
+    // Both ends of the same two questions. The `cie` pair is the MOST a grade
+    // can cost - the requirement if nothing about the internal improves - and
+    // the `cieCeiling` pair is the LEAST, along with the only honest answer to
+    // whether either is still possible at all. Nothing consults the floor pair
+    // for a possibility: on a row whose CIE can still rise it calls impossible
+    // what the outstanding marks would still allow. The two surfaces that
+    // print a required mark pair them through `requiredEseCell` rather than
+    // choosing an end each.
     needPass: requiredEse(cie, "P", eseMax),
     needTarget: requiredEse(cie, target, eseMax),
     target,
-    // Is it still open, and how far can it still go: three questions about the
-    // best case, so all three are priced off the top of the interval. One
-    // shared answer, because `statusFor`, `summarise` and Home all ask it and
-    // three private copies of the same question is how they drift apart.
-    passOpen: requiredEse(cieCeiling, "P", eseMax).possible,
-    targetOpen: requiredEse(cieCeiling, target, eseMax).possible,
+    needPassBest: requiredEse(cieCeiling, "P", eseMax),
+    needTargetBest: requiredEse(cieCeiling, target, eseMax),
     maxPossibleGrade: gradeForTotal(cieCeiling + eseMax),
   };
 }
@@ -188,19 +192,20 @@ export function statusFor(ev: Evaluation): Status {
   }
   // A published grade settles the matter; a projection built without an ESE
   // mark (portals never publish the exam score) is not grounds to call a
-  // finished course unreachable. `passOpen` rather than `needPass.possible`:
+  // finished course unreachable. The best-case pair rather than `needPass`:
   // unreachable has to mean unreachable at the BEST case, or a course with one
   // series mark in and the rest to come gets stamped with a verdict its own
   // row contradicts.
-  if (!ev.passOpen && ev.grade === null) return "UNREACHABLE";
+  if (!ev.needPassBest.possible && ev.grade === null) return "UNREACHABLE";
   if (ev.grade === "F") return "FAILED";
   if (isDebarred(ev)) return "DEBARRED";
   if (ev.eligible === false) return "SHORTAGE";
-  // TIGHT stays on the floor-priced figure deliberately: it is a warning about
-  // how hard the requirement LOOKS, and the requirement on screen is the
-  // floor-priced one. Pricing the warning off the ceiling and the number off
-  // the floor would leave the two disagreeing on the same row.
-  if (ev.grade === null && ev.eseMax && ev.needPass.value / ev.eseMax > 0.7) return "TIGHT";
+  // TIGHT is a warning about how hard the requirement LOOKS, so it is priced
+  // off the same figure the row prints - `requiredEseCell` quotes the best
+  // case wherever the two differ, and a warning solved against the other end
+  // would disagree with the number beside it.
+  const shown = requiredEseCell(ev.needPass, ev.needPassBest).shown;
+  if (ev.grade === null && ev.eseMax && shown.value / ev.eseMax > 0.7) return "TIGHT";
   return "SAFE";
 }
 
@@ -296,7 +301,7 @@ export function summarise(courses: Course[]): Summary {
     if (ev.grade !== null) {
       confirmed.push([ev.credits, GRADE_POINTS[ev.grade]]);
       projected.push([ev.credits, GRADE_POINTS[ev.grade]]);
-    } else if (ev.targetOpen) {
+    } else if (ev.needTargetBest.possible) {
       // Not yet written: project the target if reachable, else the best grade
       // still mathematically on the table.
       projected.push([ev.credits, GRADE_POINTS[ev.target]]);
@@ -304,7 +309,7 @@ export function summarise(courses: Course[]): Summary {
       projected.push([ev.credits, GRADE_POINTS[ev.maxPossibleGrade]]);
     }
 
-    if (!ev.passOpen && ev.grade === null) {
+    if (!ev.needPassBest.possible && ev.grade === null) {
       // A published grade settles the matter; do not warn that a course
       // already on the record is unreachable.
       impossible.push(label);

@@ -62,6 +62,34 @@ describe("the text report lines up", () => {
     expect(lines[3]!.indexOf("CR") + 2).toBe(13);
   });
 
+  it("never prints Impossible over a status that says otherwise", () => {
+    // Every component marked, so the internal is not a floor and the columns
+    // apply - but attendance is 80%, so the CIE can still rise by the last of
+    // its R 7.5.ii marks and the requirement can still fall. Priced off
+    // today's CIE of 24.07 a pass costs 26 of 25 and reads "Impossible";
+    // priced off the 25.07 the CIE can still reach it costs 25 of 25, which is
+    // what `statusFor` is solved against and why the pill reads TIGHT. The
+    // column has to quote the same end the pill does.
+    const lab: Course = {
+      ...blankCourse("PCCST504", "Networks Lab", 2, "LAB 75/25"),
+      s1: 23, s2: 2, other: 0, attendance: 80,
+    };
+    const ev = evaluate(lab);
+    expect(ev.cieFloor).toBe(false);
+    expect(ev.needPass.text).toBe("Impossible");
+    expect(ev.needPassBest.text).toBe("25/25");
+    const text = reportText([row(lab)] as never, "S5", summarise([lab]) as never);
+    const line = text.split("\n").find((l) => l.startsWith("PCCST504"))!;
+    expect(line).toContain(">=25/25");
+    expect(line).toContain("TIGHT");
+    // The target really is gone at both ends - B+ needs 50 of a 25-mark paper
+    // - so that column keeps the word, and this is what makes the assertion
+    // above about the pass column and not about the string in general.
+    expect(ev.needTargetBest.possible).toBe(false);
+    expect(line.slice(41, 54)).toContain("Impossible");
+    expect(SEPARATORS.map((i) => line[i])).toEqual(SEPARATORS.map(() => " "));
+  });
+
   it("says nothing in the required-mark columns for an unsettled internal", () => {
     const unsettled = courses()[1]!;
     const text = reportText([row(unsettled)] as never, "S5",

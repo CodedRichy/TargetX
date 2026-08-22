@@ -89,17 +89,23 @@ export function Home() {
         out.push({ code, severity: "bad", rank: 0,
                    detail: "failed — needs a supplementary attempt" });
       } else if (ev.grade === null && ev.cieIncomplete && ev.assessed) {
-        // Marks are in but attendance is not, so the internal is short of its
-        // R 7.5.ii component and every figure below it would be priced off a
-        // floor. One field fixes it, so say which field. A course whose only
-        // gap is an unmarked series exam is deliberately NOT listed here:
-        // there is nothing the student can do about it, and a concern nobody
-        // can act on is noise. The semester tile counts those instead.
+        // Attendance is not recorded, so the internal is short of its R 7.5.ii
+        // component and every figure below it would be priced off a floor.
+        // That is one field the student can fill in themselves, which is why
+        // it is listed - a course whose only gap is an unmarked series exam is
+        // deliberately NOT listed here: there is nothing they can do about it,
+        // and a concern nobody can act on is noise. The semester tile counts
+        // those instead. When both are missing the attendance field is still
+        // the actionable half, but it is not the whole story and the detail
+        // must not imply that filling it in settles the internal.
         out.push({ code, severity: "warn", rank: 2,
-                   detail: "attendance not recorded — its internal is incomplete, "
-                     + "so no grade is being read off it" });
-      } else if (ev.grade === null && ev.assessed && !ev.passOpen) {
-        // `passOpen` rather than `needPass.possible`: the latter is solved
+                   detail: ev.cieUnmarked
+                     ? "attendance not recorded and a component still unmarked "
+                       + "— its internal is incomplete, so no grade is being read off it"
+                     : "attendance not recorded — its internal is incomplete, "
+                       + "so no grade is being read off it" });
+      } else if (ev.grade === null && ev.assessed && !ev.needPassBest.possible) {
+        // The best-case figure rather than `needPass.possible`: the latter is solved
         // against the floor, so it calls a pass impossible for a course that
         // simply has marks still to come. Telling a student their pass is gone
         // over an unwritten series exam is the worst false alarm this screen
@@ -112,7 +118,7 @@ export function Home() {
                    detail: plan?.attend
                      ? `below 75% — ${plan.attend} classes in a row to be eligible`
                      : "below 75% — not eligible to sit the exam" });
-      } else if (ev.grade === null && ev.assessed && !ev.targetOpen) {
+      } else if (ev.grade === null && ev.assessed && !ev.needTargetBest.possible) {
         out.push({ code, severity: "warn", rank: 3,
                    detail: `target out of reach — best still open is ${ev.maxPossibleGrade}` });
       }

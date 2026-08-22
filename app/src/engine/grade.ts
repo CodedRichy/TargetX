@@ -80,3 +80,30 @@ export function requiredEse(
   const possible = need <= eseMax;
   return { value: need, possible, text: possible ? `${need}/${eseMax}` : "Impossible", binding };
 }
+
+/**
+ * Which of a row's two required-ESE figures to print, and whether it is a bound.
+ *
+ * Every row carries two answers to "what does this cost in the exam":
+ * `Evaluation.needPass` priced off `cie`, and `needPassBest` priced off
+ * `cieCeiling`. They can part company wherever the CIE can still move, and
+ * where they do the figure to quote is the best-case one, marked as a bound -
+ * because that is the one the rest of the app is already solved against
+ * (`statusFor`, `summarise` and the plan all price off `cieCeiling`).
+ * Quoting the floor-priced figure unmarked is how a cell came to read
+ * "Impossible" beside a status pill reading TIGHT.
+ *
+ * `bound` is deliberately keyed on the two figures differing, not on the CIE
+ * being able to move: where the 40% ESE minimum binds, a rising CIE does not
+ * lower the requirement by a single mark, and marking that number as a bound
+ * would promise a fall that cannot happen. It is also false when the best case
+ * is impossible, where both figures say "Impossible" and there is no number to
+ * bound, and on a course graded on its internal alone, where the two answers
+ * differ in whether the grade is reachable but not by any number of marks.
+ */
+export function requiredEseCell(
+  need: RequiredEse, best: RequiredEse,
+): { shown: RequiredEse; bound: boolean } {
+  const shown = best.possible ? best : need;
+  return { shown, bound: shown.value !== need.value };
+}

@@ -1,9 +1,9 @@
 import { unwrap } from "solid-js/store";
 import {
   CATALOGUE_URL, blankCourse, catalogueVersion, courseFromCode, parseEtlab,
-  setCatalogue,
+  requiredEseCell, setCatalogue,
 } from "../engine";
-import type { Course, PresetCourse } from "../engine";
+import type { Course, PresetCourse, RequiredEse } from "../engine";
 import type { SyncResult } from "../sync/etlab";
 import type { GradeCard } from "../sync/gradecard";
 import { edit, migrateHistory, state } from "./store";
@@ -235,27 +235,39 @@ export function reportText(rows: Array<{ course: Course; ev: Record<string, unkn
   ];
   for (const row of rows) {
     const ev = row.ev as Record<string, never>;
-    const need = ev["needPass"] as unknown as { text: string };
-    const target = ev["needTarget"] as unknown as { text: string };
-    // An internal missing its attendance component is a floor, not a total:
-    // ">=" marks it, and the required-mark columns say nothing rather than
-    // quoting a figure priced off it. See `Evaluation.cieIncomplete`.
+    // Two different questions, and conflating them is what put "Impossible"
+    // in a required-mark column beside a status of TIGHT. `floor` asks whether
+    // the CIE is unknown - a component or the attendance figure missing - and
+    // it is what the ">=" on the CIE marks and what blanks the required-mark
+    // columns, because on such a row both figures are guesses about marks that
+    // are not the student's to earn. The columns themselves then ask the other
+    // question through `requiredEseCell`: a fully marked CIE below 85%
+    // attendance is exactly today's mark, but the requirement priced off it
+    // can still fall, so the cell quotes the reachable end and marks it.
     //
-    // The marker costs two characters, so the column is wide enough to hold
-    // them: the CIE is printed to one decimal like the ledger cell, which caps
-    // a settled cell at "100.0/100" (9) and a marked-but-unsettled one at
-    // ">=95.0/100" (10), the floor being at most cieMax - attMax whenever the
-    // marker shows. A column that overflows shifts every column to the right
-    // of it on that row alone, and this is a table meant to be pasted whole.
-    const settled = ev["assessed"] && !ev["cieFloor"];
+    // The marker costs two characters, so both kinds of column are wide enough
+    // to hold them: the CIE is printed to one decimal like the ledger cell,
+    // which caps a settled cell at "100.0/100" (9) and a marked-but-unsettled
+    // one at ">=95.0/100" (10), the floor being at most cieMax - attMax
+    // whenever the marker shows; the widest required mark a course type can
+    // produce is ">=60/60" (7) - 60 is the largest `eseMax` in
+    // `COURSE_TYPES` - against columns of 10 and 12, and the word
+    // "Impossible" (10) still fits both. A column that overflows shifts every column to
+    // the right of it on that row alone, and this is a table meant to be
+    // pasted whole.
+    const req = (k: string) => ev[k] as unknown as RequiredEse;
+    const pass = requiredEseCell(req("needPass"), req("needPassBest"));
+    const target = requiredEseCell(req("needTarget"), req("needTargetBest"));
+    const floor = Boolean(ev["cieFloor"]);
+    const settled = Boolean(ev["assessed"]) && !floor;
     const cie = Number(ev["cie"]).toFixed(1);
     lines.push([
       (row.course.code || "?").padEnd(10),
       String(ev["credits"] ?? "").padStart(2),
-      String(ev["assessed"] ? `${settled ? "" : ">="}${cie}/${ev["cieMax"]}` : "-").padStart(10),
+      String(ev["assessed"] ? `${floor ? ">=" : ""}${cie}/${ev["cieMax"]}` : "-").padStart(10),
       String(ev["attendance"] == null ? "-" : Math.round(Number(ev["attendance"]))).padStart(5),
-      String(settled ? need.text : "-").padStart(10),
-      String(settled ? target.text : "-").padStart(12),
+      String(settled ? `${pass.bound ? ">=" : ""}${pass.shown.text}` : "-").padStart(10),
+      String(settled ? `${target.bound ? ">=" : ""}${target.shown.text}` : "-").padStart(12),
       String(ev["grade"] ?? "-").padStart(6),
       "  " + row.status,
     ].join(" "));
