@@ -1825,8 +1825,22 @@ describe("the projection divides by the credits the goal is solved over", () => 
     expect(unmarkedTerms).toBe(1);
     // Both live in semester 55, which is consequently the only one of the 60
     // whose projection this task moves at all: 5.143 at c698194, 5.778 here.
-    // The `after` half is pinned so it cannot rot; the `before` half is a fact
-    // about a commit and cannot.
+    // Re-derived rather than remembered - the superseded rule averaged only
+    // the courses it could price, dropping the unassessed and the ungraded
+    // debarred from the sum entirely instead of giving each a term.
+    const supersededRule = (rows: Course[]) => sgpa(rows.flatMap((c) => {
+      const ev = evaluate(c);
+      if (isIncomplete(ev.grade)) return [];
+      if (ev.grade !== null) return [[ev.credits, GRADE_POINTS[ev.grade]] as [number, number]];
+      if (!ev.assessed) return [];
+      if (ev.attendance !== null && ev.attendance < ATTENDANCE_CONDONE) return [];
+      return [[ev.credits, GRADE_POINTS[
+        ev.needTargetBest.possible ? ev.target : ev.maxPossibleGrade]] as [number, number]];
+    }));
+    const moved = semesterRows.filter(
+      (rows) => summarise(rows).sgpaProjected !== supersededRule(rows));
+    expect(moved.length).toBe(1);
+    expect(supersededRule(semesterRows[55]!)).toBe(5.143);
     expect(summarise(semesterRows[55]!).sgpaProjected).toBe(5.778);
   });
 });

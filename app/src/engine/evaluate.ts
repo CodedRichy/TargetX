@@ -194,8 +194,8 @@ export function statusFor(ev: Evaluation): Status {
     // most the course can score and it is under the pass mark - so it is not a
     // grade read off a bound and the floor does not block it. It is the same
     // test the settled path below applies, in the same position relative to
-    // DEBARRED, so one course cannot be UNREACHABLE on the ledger and PENDING
-    // one attendance field later.
+    // DEBARRED and SHORTAGE, so one course cannot be UNREACHABLE on the ledger
+    // and PENDING one attendance field later.
     if (!ev.needPassBest.possible) return "UNREACHABLE";
     if (isDebarred(ev)) return "DEBARRED";
     if (ev.eligible === false) return "SHORTAGE";
@@ -278,6 +278,12 @@ export interface Summary {
   /** `sgpaProjected` x 10, so the same population and the same caveats. */
   percentProjected: number;
   atRisk: string[];
+  /**
+   * Courses whose pass is out of reach at the TOP of their internal - exactly
+   * the courses `statusFor` calls UNREACHABLE, which is asserted as a property
+   * rather than left to drift. The goal bar's pill and the ledger row are two
+   * renderings of this one fact and they are on screen together.
+   */
   impossible: string[];
   lowAttendance: string[];
 }
@@ -334,7 +340,8 @@ export function summarise(courses: Course[]): Summary {
     // which is an assumption nobody made on purpose and which cuts both ways -
     // it flatters a semester whose priced courses are its best and punishes
     // one whose priced courses are its worst. Measured on the 60 corpus
-    // semesters, the one semester this repair moves went UP, 5.143 -> 5.778.
+    // semesters, exactly one moves and it moved UP, 5.143 -> 5.778. Both the
+    // count and the figure are re-derived and asserted in `core.test.ts`.
     // Every course that is not withdrawn or incomplete gets a term
     // here, and which term follows the rule this engine applies everywhere
     // else - a result that can still move counts what it can still REACH, and

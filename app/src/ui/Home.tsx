@@ -88,6 +88,23 @@ export function Home() {
       if (ev.grade === "F") {
         out.push({ code, severity: "bad", rank: 0,
                    detail: "failed — needs a supplementary attempt" });
+      } else if (ev.grade === null && !ev.needPassBest.possible) {
+        // Ahead of the attendance clause, and with no `assessed` gate, so this
+        // chain reaches the same verdict `statusFor` does on the same course.
+        // Below the attendance clause it did not: a lab that cannot be passed
+        // whatever happens next was described here as merely waiting on an
+        // attendance figure, while its ledger row said UNREACHABLE and the
+        // header pill counted it. The certainty comes from the branch
+        // condition - `cieCeiling` plus a whole paper is under the pass mark -
+        // so no missing field can rescue it and none needs waiting for.
+        //
+        // The best-case figure rather than `needPass.possible`: the latter is
+        // solved against the floor, so it calls a pass impossible for a course
+        // that simply has marks still to come. Telling a student their pass is
+        // gone over an unwritten series exam is the worst false alarm this
+        // screen could raise.
+        out.push({ code, severity: "bad", rank: 1,
+                   detail: "a pass is no longer reachable from the internals" });
       } else if (ev.grade === null && ev.cieIncomplete && ev.assessed) {
         // Attendance is not recorded, so the internal is short of its R 7.5.ii
         // component and every figure below it would be priced off a floor.
@@ -104,14 +121,6 @@ export function Home() {
                        + "— its internal is incomplete, so no grade is being read off it"
                      : "attendance not recorded — its internal is incomplete, "
                        + "so no grade is being read off it" });
-      } else if (ev.grade === null && ev.assessed && !ev.needPassBest.possible) {
-        // The best-case figure rather than `needPass.possible`: the latter is solved
-        // against the floor, so it calls a pass impossible for a course that
-        // simply has marks still to come. Telling a student their pass is gone
-        // over an unwritten series exam is the worst false alarm this screen
-        // could raise.
-        out.push({ code, severity: "bad", rank: 1,
-                   detail: "a pass is no longer reachable from the internals" });
       } else if (ev.eligible === false) {
         const plan = ev.plan;
         out.push({ code, severity: "warn", rank: 2,
