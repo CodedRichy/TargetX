@@ -15,7 +15,7 @@ import {
   requiredEseCell, requiredSgpaForCgpa, round, sgpa, statusFor, summarise,
 } from "../index";
 import fixture from "./parity.json";
-import type { Course, Letter, TypeKey } from "../types";
+import type { Course, Grade, Letter, TypeKey } from "../types";
 
 describe("CIE scaling", () => {
   it("scales each component onto its weight inside a 40-mark CIE", () => {
@@ -1779,5 +1779,190 @@ describe("the projection divides by the credits the goal is solved over", () => 
     // The `after` half is pinned so it cannot rot; the `before` half is a fact
     // about a commit and cannot.
     expect(summarise(semesterRows[55]!).sgpaProjected).toBe(5.778);
+  });
+});
+
+/**
+ * `reachable` has to survive the student doing exactly what the plan says.
+ *
+ * `courseOptions` prices its ladder off `Evaluation.cieCeiling`, which counts
+ * the `attMax` attendance marks a student has not earned yet. That is the
+ * right end to quote from - the alternative collapses ladders and writes off
+ * courses that can still be passed - but summing the quoted GRADES then
+ * promises a total the quoted MARKS do not secure. `PlanRow.secured` is the
+ * other end of each row and `SgpaPlan.sgpaGuaranteed` is the sum of it.
+ */
+describe("the route guarantees what it quotes", () => {
+  /** LAB 50/50, 4 credits, everything marked, 70 of 100 classes attended. */
+  const lab = (): Course => ({
+    ...blankCourse("P", "P", 4, "LAB 50/50"),
+    s1: 10, s2: 12, other: 7, attended: 70, held: 100,
+  });
+
+  it("does not promise a pass the quoted mark does not buy", () => {
+    const ev = evaluate(lab());
+    // Nothing is unmarked and the attendance is recorded, so the CIE is not a
+    // floor - it is exactly today's internal. It can still rise, but only by
+    // the three attendance marks 70% has not earned.
+    expect(ev.cieFloor).toBe(false);
+    expect(ev.cie).toBe(16.04);
+    expect(ev.cieCeiling).toBe(19.04);
+    expect(ev.attMarks).toBe(2);
+
+    const plan = planForSgpa([lab()], 5.5);
+    // The quote is unchanged - 31 really is the least a pass could cost, and
+    // the row still says so through `cieUnknown`.
+    expect(plan.plan[0]!.ese).toBe(31);
+    expect(plan.plan[0]!.grade).toBe("P");
+    expect(plan.plan[0]!.cieUnknown).toBe(true);
+    // What changed is the promise. Score 31 and attend nothing more and the
+    // total is 16.04 + 31 = 47.04, an F - which is what `secured` says and
+    // what `evaluate` confirms.
+    expect(plan.plan[0]!.secured).toBe("F");
+    expect(evaluate({ ...lab(), ese: 31 }).total).toBe(47.04);
+    expect(evaluate({ ...lab(), ese: 31 }).grade).toBe("F");
+    // At c698194 this plan read `reachable: true` with no caveat of any kind.
+    expect(plan.reachable).toBe(false);
+    expect(plan.conditional).toBe(true);
+    expect(plan.bound).toEqual(["P"]);
+    expect(plan.sgpa).toBe(5.5);
+    expect(plan.sgpaGuaranteed).toBe(0);
+  });
+
+  /** TH 40/60, fully marked, 62% attended: CIE 29 today, 33 at its ceiling. */
+  const th = (): Course => ({
+    ...blankCourse("TH1", "TH1", 4, "TH 40/60"),
+    s1: 40, s2: 40, other: 8, attended: 62, held: 100,
+  });
+
+  it("does not warn on a row whose requirement is the same at both ends", () => {
+    const ev = evaluate(th());
+    expect([ev.cie, ev.cieCeiling, ev.attMarks, ev.eseCutoff]).toEqual([29, 33, 1, 24]);
+    // A pass costs max(50 - cie, 24) at either end, and the 40% ESE minimum
+    // wins both times: a rising CIE buys the requirement down by nothing. So
+    // the row is priced off a CIE that CAN move and is still not bound.
+    const plan = planForSgpa([th()], 5.5);
+    expect(plan.plan[0]!.ese).toBe(24);
+    expect(plan.plan[0]!.cieUnknown).toBe(true);
+    expect(plan.plan[0]!.secured).toBe("P");
+    expect(plan.reachable).toBe(true);
+    expect(plan.conditional).toBeUndefined();
+    expect(plan.bound).toBeUndefined();
+    expect(plan.sgpaGuaranteed).toBe(plan.sgpa);
+  });
+
+  it("warns on the same row when the requirement does differ", () => {
+    // Same course, same attendance, harder target. B+ needs 75: 42 off the
+    // ceiling and 46 off today's CIE, so 42 buys a B and not the B+ quoted.
+    // The discriminator is the QUOTED REQUIREMENT, not the row.
+    const plan = planForSgpa([th()], 8.0);
+    expect(plan.plan[0]!.grade).toBe("B+");
+    expect(plan.plan[0]!.ese).toBe(42);
+    expect(plan.plan[0]!.secured).toBe("B");
+    expect(plan.reachable).toBe(false);
+    expect(plan.conditional).toBe(true);
+    expect(plan.bound).toEqual(["TH1"]);
+    expect(plan.sgpa).toBe(8);
+    expect(plan.sgpaGuaranteed).toBe(7.5);
+  });
+
+  it("does not take an unmarked component off the guarantee", () => {
+    // The pessimism this must not re-inflict. A LAB 75/25 with one series mark
+    // in has 28 marks of unmarked components; taking those off as well as the
+    // attendance would call its route unreachable, which is the exact failure
+    // three of Task 10's fix rounds went into removing. Absence of a mark is
+    // not a zero on this axis either - and here the attendance marks ARE all
+    // earned, so nothing is outstanding at all.
+    const half = (): Course => ({
+      ...blankCourse("LAB1", "LAB1", 2, "LAB 75/25"), s1: 10, attended: 90, held: 100,
+    });
+    const ev = evaluate(half());
+    expect([ev.cie, ev.cieCeiling, ev.attMarks, ev.cieFloor]).toEqual([13.4, 41.4, 5, true]);
+    const plan = planForSgpa([half(), {
+      ...blankCourse("OK", "OK", 4, "TH 40/60"), cie_override: 30, attended: 95, held: 100,
+    }], 6.0);
+    expect(plan.plan.find((r) => r.code === "LAB1")!.secured).toBe("P");
+    expect(plan.reachable).toBe(true);
+    expect(plan.bound).toBeUndefined();
+    expect(plan.sgpaGuaranteed).toBe(plan.sgpa);
+  });
+
+  it("has nothing outstanding on a published internal, whatever the attendance", () => {
+    // A published total already contains the college's own attendance marks,
+    // so both ends of the CIE are that figure and nothing is owed - even at
+    // 70%, where the course's own attendance is worth 2 of the 5 marks and a
+    // subtraction off the ceiling would take the other 3 off a settled total.
+    const pub: Course = {
+      ...blankCourse("PUB", "PUB", 3, "TH 40/60"), cie_override: 30, attended: 70, held: 100,
+    };
+    const ev = evaluate(pub);
+    expect([ev.cie, ev.cieCeiling, ev.attMarks]).toEqual([30, 30, 2]);
+    const plan = planForSgpa([pub], 8.0);
+    expect(plan.plan[0]!.secured).toBe("B+");
+    expect(plan.reachable).toBe(true);
+    expect(plan.sgpaGuaranteed).toBe(8);
+  });
+
+  it("keeps the promise on every reachable route it builds", () => {
+    // The sweep the fix was designed against, and the only evidence that the
+    // guarantee holds in general. Deliberately clean inputs: every component
+    // marked and every attendance recorded, so nothing is `cieFloor` and no
+    // course is `unpriced` - the shortfall can only come from attendance marks
+    // the ladder counted before they were earned.
+    //
+    // Executing a route means scoring exactly the mark it quotes in every
+    // course and changing nothing else. At c698194, 2539 of the 5379 routes
+    // this population produced said `reachable: true` and then missed.
+    const types: TypeKey[] = [...TYPE_KEYS];
+    let seed = 20000;
+    const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    let reachable = 0, conditional = 0, broken = 0, unknownRows = 0, guaranteeWrong = 0;
+    for (let i = 0; i < 20000; i += 1) {
+      const courses: Course[] = [];
+      const k = 2 + Math.floor(rnd() * 4);
+      for (let j = 0; j < k; j += 1) {
+        const type = types[Math.floor(rnd() * types.length)]!;
+        courses.push({
+          ...blankCourse(`C${j}`, `C${j}`, 1 + Math.floor(rnd() * 4), type),
+          s1: Math.round(rnd() * 50), s2: Math.round(rnd() * 50), other: Math.round(rnd() * 10),
+          attended: Math.round(rnd() * 100), held: 100,
+        });
+      }
+      // If this ever fires the population has stopped being the clean one and
+      // the counts below stop meaning what they say.
+      if (courses.some((c) => evaluate(c).cieFloor)) throw new Error("dirty input");
+      const target = round(1 + rnd() * 8, 2);
+      const plan = planForSgpa(courses, target);
+      if (plan.conditional) conditional += 1;
+      if (plan.plan.some((row) => row.cieUnknown)) unknownRows += 1;
+      if (!plan.reachable) continue;
+      reachable += 1;
+      const byCode = new Map(courses.map((c) => [c.code!, c]));
+      let points = 0;
+      for (const row of plan.plan) {
+        const after = evaluate({ ...byCode.get(row.code)!, ese: row.ese });
+        points += (after.grade === null || isIncomplete(after.grade)
+          ? 0 : GRADE_POINTS[after.grade as Grade]) * after.credits;
+      }
+      const got = round(points / plan.credits!, 3);
+      if (got < target - 1e-9) broken += 1;
+      if (got !== plan.sgpaGuaranteed) guaranteeWrong += 1;
+    }
+    // The promise, and the reason this task exists.
+    expect(broken).toBe(0);
+    // And `sgpaGuaranteed` is not merely a bound - it is the figure executing
+    // the route actually yields, on all 2840.
+    expect(guaranteeWrong).toBe(0);
+    // Every count is an assertion so a wrong one fails rather than misleads.
+    // 5379 routes were reachable at c698194; 2840 of them still are. The other
+    // 2539 are now `conditional`, and every one of them is a plan that missed.
+    // Discriminators measured on the same 5379 before choosing this one: "any
+    // row priced off a movable CIE" fires 3825 times and is wrong on 1286 of
+    // them; "the quoted mark differs from the requirement at today's CIE"
+    // fires 3603 times and is wrong on 1064; this one fires 2539 and is wrong
+    // on none.
+    expect(reachable).toBe(2840);
+    expect(conditional).toBe(2539);
+    expect(unknownRows).toBe(3825);
   });
 });

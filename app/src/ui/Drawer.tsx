@@ -88,13 +88,16 @@ export function Drawer() {
         <Show when={goalPlan()}>{(plan) => (
           <Show when={((plan().reachable || plan().conditional) && plan().plan.length > 0) || plan().reason}>
             <div class="chart-block">
-              {/* A conditional plan is not the cheapest anything: the greedy
-                  ran out of rungs before it covered the target, so what is
-                  shown is the top of every ladder. With no rows at all there
-                  is nothing on offer to title - the block is then only the
-                  explanation below it. */}
+              {/* Keyed on `unpriced`, not on `conditional`: where the greedy
+                  ran out of rungs because a course cannot be priced at all,
+                  what is shown is the top of every ladder and "cheapest" is
+                  the wrong word for it. A route that is merely not GUARANTEED
+                  - the marks it quotes are floors priced off internals that
+                  have not settled - is still the cheapest one there is, and
+                  the caveat for it is the note below. With no rows at all
+                  there is nothing on offer to title. */}
               <h4>
-                {plan().conditional && plan().plan.length > 0
+                {(plan().unpriced?.length ?? 0) > 0 && plan().plan.length > 0
                   ? "Best still on offer" : "Cheapest route"}
               </h4>
               <Show when={(plan().reachable || plan().conditional) && plan().plan.length > 0}>
@@ -118,26 +121,52 @@ export function Drawer() {
                         <Show when={row.cieUnknown}>
                           <span style={{ color: "var(--warn)" }}> · internals not settled yet</span>
                         </Show>
+                        {/* `cieUnknown` above says the mark was priced off an
+                            internal that can still rise; this says the rise is
+                            load-bearing. The two are not the same row set -
+                            where a 40% exam minimum binds at both ends of the
+                            internal, a rising CIE buys the requirement down by
+                            nothing and the mark is exact - so the warning
+                            colour belongs on this one. */}
+                        <Show when={row.secured !== row.grade}>
+                          <span style={{ color: "var(--warn)" }}>
+                            {" "}· {row.secured} on today's internal
+                          </span>
+                        </Show>
                       </span>
                     </div>
                   )}</For>
                 </dl>
-                <Show when={!plan().conditional}>
+                <Show when={(plan().unpriced?.length ?? 0) === 0}>
                   <p class="chart-note">
                     Balanced on the difficulty of each next grade, not on total marks -
                     a plan demanding 60/60 in two papers is not a plan.
                   </p>
                 </Show>
               </Show>
-              {/* The route alone does not carry the target, and the rest
-                  rides on a course with no exam and no settled internal. Say
-                  which one, and say what the route does get to. */}
-              <Show when={plan().conditional}>
+              {/* Two different shortfalls, two different sentences, and a
+                  plan can carry both. `unpriced` is out of the student's hands
+                  this week; `bound` is a mark the plan quoted off an internal
+                  that has not settled, and doing exactly what the route says
+                  lands a band lower unless it does. Both quote
+                  `sgpaGuaranteed` rather than `sgpa`, because the point of the
+                  sentence is what survives the student doing only this. */}
+              <Show when={plan().conditional && (plan().unpriced?.length ?? 0) > 0}>
                 <p class="chart-note" style={{ color: "var(--warn)" }}>
-                  This route reaches {plan().sgpa?.toFixed(2)} of the{" "}
+                  This route reaches {plan().sgpaGuaranteed?.toFixed(2)} of the{" "}
                   {plan().target?.toFixed(2)} needed on its own. The rest rides on
                   marks nobody has entered yet: {plan().unpriced?.join(", ")} - no exam
                   to sit, and the internal not settled.
+                </p>
+              </Show>
+              <Show when={plan().conditional && (plan().bound?.length ?? 0) > 0}>
+                <p class="chart-note" style={{ color: "var(--warn)" }}>
+                  Scoring exactly these marks and nothing else reaches{" "}
+                  {plan().sgpaGuaranteed?.toFixed(2)}, not{" "}
+                  {plan().target?.toFixed(2)}: the marks quoted for{" "}
+                  {plan().bound?.join(", ")} assume the internal reaches its
+                  ceiling. Earn the outstanding attendance marks as well and the
+                  route lands where it says.
                 </p>
               </Show>
               <Show when={plan().reason}>

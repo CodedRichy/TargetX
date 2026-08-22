@@ -1,6 +1,7 @@
 import {
   ATTENDANCE_CONDONE, GRADE_BANDS, GRADE_POINTS, TOTAL_PASS_MARK,
 } from "./constants";
+import { specFor } from "./cie";
 import { evaluate, isDebarred } from "./evaluate";
 import { isIncomplete, requiredEse } from "./grade";
 import type { Course, Evaluation, Grade, SemesterHistory } from "./types";
@@ -280,43 +281,72 @@ export interface PlanRow {
   eseMax: number;
   /** `ese` is a floor priced from an unsettled CIE. See `CourseOption`. */
   cieUnknown: boolean;
+  /**
+   * The grade `ese` marks actually secure if the attendance stays where it is.
+   *
+   * A bound on the ATTENDANCE axis alone. An unmarked component still counts
+   * its whole weight here, exactly as `cieCeiling` counts it - see `heldCie`
+   * for why taking that half off too would be the wrong kind of honest.
+   *
+   * Equal to `grade` on most rows. Where it is lower, `ese` was priced off
+   * `Evaluation.cieCeiling` and buys `grade` only once the internal reaches
+   * it: score exactly `ese` and change nothing else and this is what comes
+   * back. That is the difference `SgpaPlan.reachable` is decided against, and
+   * it is per row rather than per plan because the two ends of the internal
+   * often produce the SAME requirement - a 40% ESE minimum binding at both
+   * ends costs a rising CIE nothing - and a row like that is not bound at all.
+   */
+  secured: Grade;
 }
 
 export interface SgpaPlan {
   /**
-   * The route reaches the target whatever the `unpriced` courses do.
+   * Score every `ese` in `plan` and the target is met. A guarantee, and it is
+   * decided against `PlanRow.secured` rather than against `PlanRow.grade`.
    *
-   * A guarantee against THAT unknown and no other, and the distinction is not
-   * academic. Where the answer turns on a course the plan has no mark to move,
-   * this is false and `conditional` is true, so a caller reading this field
-   * alone gets the floor of the `unpriced` range rather than its convenient
-   * end.
+   * The two differ because `courseOptions` prices its ladder off
+   * `Evaluation.cieCeiling` - deliberately, because pricing off the CIE a
+   * course has today calls letters impossible that its own outstanding marks
+   * could still buy, and a part-marked lab then takes the whole semester's
+   * plan down with it. The cost of that choice is that a quoted mark is the
+   * LEAST its grade could cost, so summing the quoted grades would promise a
+   * total the quoted marks do not secure. Measured over 20000 randomised
+   * course sets with every component marked and every attendance recorded -
+   * so nothing is `cieFloor` and nothing is `unpriced` - 5379 routes summed to
+   * the target at the ceiling and only 2840 of them still did once the
+   * unearned attendance marks came back out. This field is the second number.
    *
-   * It is NOT a guarantee against the other unknown on the same object. A
-   * `PlanRow` with `cieUnknown` set was priced off `Evaluation.cieCeiling`,
-   * which counts `attMax` attendance marks the student has not earned yet
-   * (deliberately - `attBand` on the same evaluation is the engine telling
-   * them how many classes that takes). Its `ese` is therefore the LEAST that
-   * grade could cost, and a student who scores exactly it, attends nothing
-   * more, and moves no other mark can still land a band lower. Measured over
-   * 20000 randomised course sets with every component marked and every
-   * attendance recorded - so no course is `cieFloor` and none is `unpriced` -
-   * 13741 produced a reachable route: 8203 of the 11306 carrying a
-   * `cieUnknown` row fell short when executed exactly, and 0 of the 2435
-   * without one did. Worst case in that sweep: LAB 50/50, 4 credits,
-   * 10/50 12/50 7/10 with 70 of 100 classes attended, quoted P at 31 of 50 -
-   * execute it exactly and the total is 16.04 + 31 = 47.04, an F, an SGPA of
-   * 0.00 against a target of 5.50.
+   * It is NOT a promise that no better route exists: 2409 of those 2539 could
+   * have been carried at today's CIE by a harder route, which the greedy does
+   * not look for because it stops at the first route that covers the target.
+   * So `reachable: false` here means "this route does not guarantee it", not
+   * "nothing does" - `maxSgpa` is the field that answers the second question.
    *
-   * Whoever renders a route has to carry `cieUnknown` through with it, the way
-   * the Drawer does ("at least 31 in the exam - internals not settled yet").
-   * This field cannot say it for them.
+   * Also a guarantee against the `unpriced` range, and again the floor of it:
+   * where the answer turns on a course the plan has no mark to move, this is
+   * false and `conditional` is true.
    */
   reachable: boolean;
   /**
-   * The route falls short on its own but the target is still open, because the
-   * `unpriced` courses could carry the rest. Never true alongside `reachable`,
-   * and never true when the target is out of reach at every end.
+   * The route does not carry the target on what today's marks guarantee, but
+   * the target is still open. Never true alongside `reachable`, and never true
+   * when the target is out of reach at every end.
+   *
+   * Two causes, each named by its own list, and a plan can carry both:
+   * `unpriced` - courses the route cannot price at all, whose grade points
+   * could still cover the rest - and `bound`, courses whose quoted mark only
+   * buys its quoted grade once the internal reaches its ceiling. Whoever
+   * renders this has to read which list is non-empty; the two are different
+   * advice. An unpriced shortfall is out of the student's hands this week, a
+   * bound one is the attendance and the outstanding components.
+   *
+   * The FLAG is the discriminator, not the lists. Over the sweep described on
+   * `reachable`: a row merely priced off a movable CIE (`PlanRow.cieUnknown`)
+   * is present on 3825 of the 5379 routes and 1286 of those reach the target
+   * anyway; a row that is actually `bound` is present on 3603 and 1064 of
+   * those do; the flag fires on 2539 and every one of them misses. A caveat
+   * that is wrong a quarter of the time it appears trains a student to skip
+   * the one that is not.
    */
   conditional?: boolean;
   /**
@@ -327,10 +357,28 @@ export interface SgpaPlan {
    */
   unpriced?: string[];
   /**
-   * The SGPA this route yields with every `unpriced` course scoring nothing -
-   * the floor of that range, and the figure `reachable` is decided against.
+   * The SGPA this route yields if every quoted grade lands: every `unpriced`
+   * course scoring nothing, and every internal reaching `cieCeiling`. The
+   * figure the rows literally add up to.
    */
   sgpa?: number;
+  /**
+   * The SGPA the same route yields with every quoted mark scored and no
+   * further attendance earned. `PlanRow.secured` summed instead of
+   * `PlanRow.grade`, and the figure `reachable` is decided against.
+   *
+   * Equal to `sgpa` wherever `bound` is empty. Whoever tells a student what a
+   * route gets them should quote this one: it is the number that survives them
+   * doing exactly what the plan says and nothing else.
+   */
+  sgpaGuaranteed?: number;
+  /**
+   * Courses in the route whose quoted mark buys its quoted grade only if the
+   * internal reaches `Evaluation.cieCeiling` - `PlanRow.secured` below
+   * `PlanRow.grade`. Listed whether or not the shortfall turns on them, so a
+   * screen can mark the rows; `conditional` is the flag that says it matters.
+   */
+  bound?: string[];
   target?: number;
   /**
    * The credits the SGPA is divided by: every course registered this semester
@@ -442,6 +490,60 @@ function unplannable(ev: Evaluation): Excluded | null {
 }
 
 /**
+ * The CIE a course holds once the attendance marks it has NOT earned are
+ * taken back out, and nothing else is.
+ *
+ * `cieCeiling` counts all `attMax` attendance marks whatever the current
+ * percentage - deliberately, since those marks are the one part of an internal
+ * a student can still walk in and earn, and `attBand` says how many classes it
+ * takes. That is the right end to PRICE a ladder from and the wrong end to
+ * promise a total against: the marks are not earned yet.
+ *
+ * Only that half comes off. An unmarked component keeps its whole weight, the
+ * way `cieCeiling` counts it, because absence of a mark is not a zero - taking
+ * that half off too turns a guarantee into the pessimism three fix rounds went
+ * into removing, and measurably does: subtracting both halves flips three of
+ * this file's own committed cases from a route to no route at all - the
+ * half-marked lab, the semester carrying an unevaluated mini project, and the
+ * semester whose attendance never synced. An UNRECORDED attendance comes off
+ * nothing either, by the same rule as Task 3's - a blank field is not evidence
+ * of a shortage, so nothing is KNOWN to be outstanding.
+ *
+ * Never below `cie`: on a published internal total both ends are that total
+ * and its attendance marks are already inside it, so nothing is outstanding
+ * however the percentage reads.
+ */
+function heldCie(course: Course, ev: Evaluation): number {
+  const { attMax } = specFor(course.type);
+  const unearned = ev.attMarks === null ? 0 : Math.max(0, attMax - ev.attMarks);
+  return Math.max(ev.cie, round(ev.cieCeiling - unearned, 2));
+}
+
+/**
+ * The grade `ese` marks secure without the outstanding attendance marks.
+ *
+ * `courseOptions` prices its ladder off `Evaluation.cieCeiling`, so a rung's
+ * mark is the LEAST that grade could cost. This is the other end of the same
+ * question: hand it the mark and it walks the ladder priced off `heldCie`
+ * instead, which is what the student ends up with if they score exactly that
+ * mark and attend nothing further. F where the mark buys no letter at all.
+ *
+ * Scoped to attendance, like `heldCie`: an unmarked component still counts at
+ * its whole weight, so this is not a claim about what the internal will be.
+ *
+ * `requiredEse` is non-decreasing in the band minimum, so the highest letter
+ * the mark pays for is the answer and there is no need to check the rest.
+ */
+function securedGrade(course: Course, ev: Evaluation, ese: number): Grade {
+  const cie = heldCie(course, ev);
+  for (const [letter] of GRADE_BANDS) {
+    const need = requiredEse(cie, letter, ev.eseMax);
+    if (need.possible && need.value <= ese + 1e-9) return letter;
+  }
+  return "F";
+}
+
+/**
  * The route to a target SGPA: which subject to push, and how far.
  *
  * The cheapest one where the priced courses can carry the target - see the
@@ -535,6 +637,7 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
 
   const ladders: CourseOption[][] = [];
   const labels: string[] = [];
+  const evs: Array<{ course: Course; ev: Evaluation }> = [];
   let current = 0;
 
   for (const course of plannable) {
@@ -555,6 +658,7 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
     }
     ladders.push(options);
     labels.push(label);
+    evs.push({ course, ev: evaluate(course) });
     current += options[0]!.gp * options[0]!.credits;
   }
 
@@ -605,22 +709,35 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
 
   const plan: PlanRow[] = chosen.map((at, i) => {
     const pick = ladders[i]![at]!;
+    // A locked row is a published grade: there is no mark to score and
+    // nothing left to secure it against.
+    const from = evs[i]!;
+    const secured = pick.locked ? pick.grade : securedGrade(from.course, from.ev, pick.ese);
     return {
       code: labels[i]!, grade: pick.grade, ese: pick.ese, credits: pick.credits,
-      locked: pick.locked, eseMax: pick.eseMax, cieUnknown: pick.cieUnknown,
+      locked: pick.locked, eseMax: pick.eseMax, cieUnknown: pick.cieUnknown, secured,
     };
   });
   plan.sort((a, b) => b.ese - a.ese);
 
-  const reachable = current >= neededPoints - 1e-9;
+  // What the route is worth if the student scores every quoted mark and
+  // nothing else about any internal moves. `current` is the other end: the
+  // same route with every internal reaching its ceiling.
+  const held = plan.reduce((sum, row) => sum + GRADE_POINTS[row.secured] * row.credits, 0);
+  const bound = plan.filter((row) => row.secured !== row.grade).map((row) => row.code);
+
+  const reachable = held >= neededPoints - 1e-9;
   return {
     reachable,
     // The gate above has already ruled out "short at every end", so a route
-    // that cannot carry the target on its own is one the unpriced courses
-    // could still finish.
+    // that does not carry the target on what today's marks guarantee is one
+    // that the unpriced courses or the outstanding internals could still
+    // finish. Which of the two is named by the lists.
     ...(reachable ? {} : { conditional: true }),
     ...open,
+    ...(bound.length > 0 ? { bound } : {}),
     sgpa: round(current / totalCredits, 3),
+    sgpaGuaranteed: round(held / totalCredits, 3),
     target: targetSgpa,
     credits: totalCredits,
     plan,
