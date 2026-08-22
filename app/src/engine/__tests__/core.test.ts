@@ -2020,6 +2020,7 @@ describe("the route guarantees what it quotes", () => {
     const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
     let plans = 0, anyCieUnknown = 0, anyBound = 0, notGuaranteed = 0;
     let cieUnknownButFine = 0, boundButFine = 0, harderRouteExists = 0;
+    let routesOverDelivering = 0, rowsOverDelivering = 0;
     for (let i = 0; i < 20000; i += 1) {
       const courses: Course[] = [];
       const k = 2 + Math.floor(rnd() * 4);
@@ -2046,6 +2047,13 @@ describe("the route guarantees what it quotes", () => {
       if (c) notGuaranteed += 1;
       if (a && !c) cieUnknownButFine += 1;
       if (b && !c) boundButFine += 1;
+      // A row can also come out ABOVE its quoted grade, where the 40% ESE
+      // minimum sets the price of a cheap rung and the mark it forces
+      // overshoots the band it was bought for. Counted here so the figure
+      // `bound`'s doc quotes is an assertion rather than a remembered number.
+      const over = plan.plan.filter((row) => GRADE_POINTS[row.secured] > GRADE_POINTS[row.grade]);
+      if (over.length > 0) routesOverDelivering += 1;
+      rowsOverDelivering += over.length;
       if (!c) continue;
       // `reachable`'s doc claims a harder route would have carried most of
       // these at today's internal. Re-derived here rather than asserted from
@@ -2070,6 +2078,11 @@ describe("the route guarantees what it quotes", () => {
     // present on 3204 and 665 of them do; the chosen discriminator fires on
     // 2539 and, per the sweeps above, none of those reach it.
     expect(plans).toBe(5379);
+    // Quoted by `SgpaPlan.bound`'s doc and by heldCie's. A shipped doc carried
+    // 88 here, wrong by an order of magnitude; pinned so the next wrong one
+    // fails instead of misleading.
+    expect(routesOverDelivering).toBe(932);
+    expect(rowsOverDelivering).toBe(1021);
     expect(anyCieUnknown).toBe(3825);
     expect(cieUnknownButFine).toBe(1286);
     expect(anyBound).toBe(3204);
@@ -2170,7 +2183,7 @@ describe("the route guarantees what it quotes", () => {
     expect(notExact).toBe(0);
     // Every count is an assertion so a wrong one fails rather than misleads.
     // Non-vacuity first: the counterexample class the old sweep excluded is
-    // present in 15138 of the 20000 semesters and survives into 1151 of the
+    // present in 15138 of the 20000 semesters and survives into 1550 of the
     // reachable routes, so `broken === 0` is a statement about it and not a
     // statement about its absence.
     expect(blankSets).toBe(15138);

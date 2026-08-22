@@ -812,8 +812,10 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
   // quoted grade: where the 40% ESE minimum sets the price of a cheap rung, the
   // mark it forces can overshoot the band it was bought for - measured, a P
   // quoted at 16 of 40 against a CIE of 49.21 lands a C+. That row is
-  // over-delivering, not bound, and 88 of the 5379 clean-population routes have
-  // one. Naming them would put a warning on good news.
+  // over-delivering, not bound. Measured on the clean population: 932 of its
+  // 5379 routes carry 1021 such rows, both pinned in `core.test.ts` so the
+  // figure fails rather than misleads if it drifts. Naming them would put a
+  // warning on good news.
   const bound = plan
     .filter((row) => GRADE_POINTS[row.secured] < GRADE_POINTS[row.grade])
     .map((row) => row.code);
