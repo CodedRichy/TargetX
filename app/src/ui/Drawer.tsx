@@ -90,8 +90,13 @@ export function Drawer() {
             <div class="chart-block">
               {/* A conditional plan is not the cheapest anything: the greedy
                   ran out of rungs before it covered the target, so what is
-                  shown is the top of every ladder. */}
-              <h4>{plan().conditional ? "Best still on offer" : "Cheapest route"}</h4>
+                  shown is the top of every ladder. With no rows at all there
+                  is nothing on offer to title - the block is then only the
+                  explanation below it. */}
+              <h4>
+                {plan().conditional && plan().plan.length > 0
+                  ? "Best still on offer" : "Cheapest route"}
+              </h4>
               <Show when={(plan().reachable || plan().conditional) && plan().plan.length > 0}>
                 <dl style={{ margin: 0 }}>
                   <For each={plan().plan}>{(row) => (

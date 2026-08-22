@@ -263,14 +263,25 @@ export function summarise(courses: Course[]): Summary {
     // weighing the semester by a course that will never be graded here hands
     // those credits the semester's own average.
     //
-    // `credits` is what the LIVE goal solve weighs this semester by, and that
-    // is its whole readership: `store.ts` hands it to `requiredSgpaForCgpa`
-    // and nothing else reads it. It is never persisted - an archived
-    // semester's registered credits come from the grade card, from the portal,
-    // or from the student's own keyboard. `planForSgpa` does not read it
-    // either, but it now sums the SAME total over the same rule, which is what
-    // makes the target and the route answers to one question; see
-    // `unplannable` in goals.ts for what that costs each excluded course.
+    // `credits` is the registered total for the semester in progress, and it
+    // is deliberately not described here by who reads it: four successive
+    // versions of this comment have named that set and all four named it
+    // wrong, which is the tell that the set is the wrong thing to write down.
+    // What is stable is the rule. Anything that weighs the semester in
+    // progress divides by or compares against this number - the goal solve,
+    // the settled-of-registered readouts and the is-there-anything-here gates
+    // are examples rather than the list - so it has to be the total KTU would
+    // weigh by, which is every course registered bar the withdrawn and
+    // incomplete.
+    //
+    // Live only. What an ARCHIVED semester weighs by is written by whichever
+    // ingest path saved it, from its own sum or from the student's keyboard;
+    // this figure is never persisted and never read back.
+    //
+    // `planForSgpa` does not read it either, but it sums the SAME total over
+    // the same rule, which is what makes the target and the route answers to
+    // one question; see `unplannable` in goals.ts for what that costs each
+    // course the route cannot move.
     if (isIncomplete(ev.grade)) continue;
 
     const label = course.code || course.name || "?";

@@ -281,12 +281,33 @@ export interface PlanRow {
 
 export interface SgpaPlan {
   /**
-   * The route reaches the target WHATEVER the courses it could not price do.
+   * The route reaches the target whatever the `unpriced` courses do.
    *
-   * A guarantee, not a best case. Where the answer turns on a course the plan
-   * has no mark to move - see `unpriced` - this is false and `conditional` is
-   * true, so a caller that reads this field alone gets the safe end of the
-   * range rather than the convenient one.
+   * A guarantee against THAT unknown and no other, and the distinction is not
+   * academic. Where the answer turns on a course the plan has no mark to move,
+   * this is false and `conditional` is true, so a caller reading this field
+   * alone gets the floor of the `unpriced` range rather than its convenient
+   * end.
+   *
+   * It is NOT a guarantee against the other unknown on the same object. A
+   * `PlanRow` with `cieUnknown` set was priced off `Evaluation.cieCeiling`,
+   * which counts `attMax` attendance marks the student has not earned yet
+   * (deliberately - `attBand` on the same evaluation is the engine telling
+   * them how many classes that takes). Its `ese` is therefore the LEAST that
+   * grade could cost, and a student who scores exactly it, attends nothing
+   * more, and moves no other mark can still land a band lower. Measured over
+   * 20000 randomised course sets with every component marked and every
+   * attendance recorded - so no course is `cieFloor` and none is `unpriced` -
+   * 13741 produced a reachable route: 8203 of the 11306 carrying a
+   * `cieUnknown` row fell short when executed exactly, and 0 of the 2435
+   * without one did. Worst case in that sweep: LAB 50/50, 4 credits,
+   * 10/50 12/50 7/10 with 70 of 100 classes attended, quoted P at 31 of 50 -
+   * execute it exactly and the total is 16.04 + 31 = 47.04, an F, an SGPA of
+   * 0.00 against a target of 5.50.
+   *
+   * Whoever renders a route has to carry `cieUnknown` through with it, the way
+   * the Drawer does ("at least 31 in the exam - internals not settled yet").
+   * This field cannot say it for them.
    */
   reachable: boolean;
   /**
@@ -396,7 +417,13 @@ function unplannable(ev: Evaluation): Excluded | null {
 }
 
 /**
- * Cheapest route to a target SGPA: which subject to push, and how far.
+ * The route to a target SGPA: which subject to push, and how far.
+ *
+ * The cheapest one where the priced courses can carry the target - see the
+ * greedy below. Where they cannot, the greedy runs out of rungs and what comes
+ * back is the most they can give, with `conditional` set; "cheapest" is the
+ * wrong word for that plan, and the Drawer titles it differently wherever it
+ * has rows to show.
  *
  * The target and the route are two halves of ONE piece of arithmetic, so they
  * divide by one denominator: every credit registered this semester bar the
