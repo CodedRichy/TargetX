@@ -42,6 +42,15 @@
  *     into the CIE, which makes it the fixture's standing evidence that this
  *     task moved nothing downstream of it.
  *
+ * One further field is dropped from the rollup and it is not an exclusion:
+ * `unsettled` (task 10 fix 1) has no counterpart in the fixture at all,
+ * because the Python engine has no notion of a CIE waiting on an attendance
+ * figure. There is no oracle value to compare it against, so no protection is
+ * given up by leaving it out; `core.test.ts` covers it directly. Every field
+ * the fixture DOES carry is still compared, `pending`, `assessed`, `credits`
+ * and `creditsConfirmed` among them, and all four are fields these tasks can
+ * move.
+ *
  * What is left is worth stating exactly, since the exclusion list above is
  * long. Per course the comparison still asserts `cieMax`, `eseMax`, `ese`,
  * `eseCutoff`, `assessed`, `credits`, `target`, and nine attendance fields:
@@ -130,7 +139,8 @@ function slimSummary(summary: Record<string, unknown>) {
   const {
     sgpaConfirmed: _sgpaConfirmed, sgpaProjected: _sgpaProjected,
     percentConfirmed: _percentConfirmed, percentProjected: _percentProjected,
-    atRisk: _atRisk, impossible: _impossible, ...rest
+    atRisk: _atRisk, impossible: _impossible,
+    unsettled: _unsettled, ...rest
   } = summary;
   return rest;
 }

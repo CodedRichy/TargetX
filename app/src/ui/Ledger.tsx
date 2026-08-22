@@ -194,8 +194,14 @@ function Detail(props: { index: number; course: Course; ev: Evaluation }) {
                     Attendance has not been recorded, so the internal is still
                     missing its attendance marks and no grade can be read off a
                     total that is short of them. Enter attended and held
-                    classes, or an attendance percentage, and the grade
-                    follows.
+                    classes, or an attendance percentage, and the internal
+                    settles.{" "}
+                    <Show when={props.ev.eseMax > 0} fallback={
+                      <>The grade comes with it - this course is graded on its
+                        internal alone.</>
+                    }>
+                      The grade follows once the exam mark is in as well.
+                    </Show>
                   </Show>
                 }>
                   Best still reachable: <strong>{props.ev.maxPossibleGrade}</strong>.

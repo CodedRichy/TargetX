@@ -35,8 +35,21 @@ export function evaluate(course: Course): Evaluation {
   // published internal total is not affected: it already contains the
   // college's own attendance marks, so an unknown percentage costs it
   // nothing.
+  // (`spec.attMax > 0` is defensive rather than live: all six `COURSE_TYPES`
+  // entries go through `withAttendance`, which pays the regulation's 5 marks.
+  // A type that paid none would have no missing component and no interval.)
   const published = toOptionalFloat(course.cie_override);
   const cieIncomplete = published === null && attendance === null && spec.attMax > 0;
+  // The other end of that interval. An unknown is only half killed by refusing
+  // to call it zero: whatever asks what is still REACHABLE has to be handed a
+  // bound that the marks already recorded allow, or it will reach for
+  // `cieMax` and offer a grade the course can no longer attain. The clamp is
+  // inert while components + attMax total cieMax exactly (the invariant
+  // `COURSE_TYPES` is tested for), and keeps the figure honest if a future
+  // weights table breaks that.
+  const cieCeiling = cieIncomplete
+    ? round(clamp(cie + spec.attMax, 0, spec.cieMax), 2)
+    : cie;
 
   // A grade published by the university is final. It outranks anything this
   // app could derive, and it arrives WITHOUT an ESE mark - portals publish the
@@ -91,6 +104,7 @@ export function evaluate(course: Course): Evaluation {
   return {
     cie,
     cieMax: spec.cieMax,
+    cieCeiling,
     eseMax,
     ese,
     eseCutoff: cutoff,
@@ -105,10 +119,20 @@ export function evaluate(course: Course): Evaluation {
     attMarks: attendanceMarks(attendance, spec.attMax),
     attBand: nextAttendanceBand(course.attended, course.held, course.dl ?? 0),
     credits: clamp(toFloat(course.credits, 0), 0, 20),
+    // The two requirements are quoted off `cie`, the figure that can be
+    // proved: on a `cieIncomplete` course they are therefore the MOST a grade
+    // can cost, and `.possible` there can read false for a grade the missing
+    // attendance marks would still allow. Whoever prints them says so - the
+    // Ledger and the text report both blank them on such a row - and anyone
+    // asking whether something is still open asks `cieCeiling` instead, as
+    // `summarise` does below.
     needPass: requiredEse(cie, "P", eseMax),
     needTarget: requiredEse(cie, target, eseMax),
     target,
-    maxPossibleGrade: gradeForTotal(cie + eseMax),
+    // "Possible" is a question about the best case, so it is the only one of
+    // the three priced off the top of the interval. `cieCeiling` is `cie` for
+    // every course whose CIE is settled, so nothing else moves.
+    maxPossibleGrade: gradeForTotal(cieCeiling + eseMax),
   };
 }
 
@@ -167,6 +191,18 @@ export function sgpa(pairs: Array<[number, number]>): number {
 
 export interface Summary {
   pending: number;
+  /**
+   * Assessed, ungraded, and waiting on an attendance figure rather than on an
+   * exam (`Evaluation.cieIncomplete`).
+   *
+   * A third state, and it is in neither of the two counts beside it: such a
+   * course HAS been assessed, so `pending` never sees it, and it is projected
+   * like any other ungraded course, so `assessed` counts it. Without this
+   * figure a screen reads `pending === 0` and says every subject is assessed
+   * while `creditsConfirmed` sits at zero, which is the reassurance this
+   * engine exists to withhold.
+   */
+  unsettled: number;
   assessed: number;
   sgpaConfirmed: number;
   sgpaProjected: number;
@@ -188,6 +224,7 @@ export function summarise(courses: Course[]): Summary {
   const lowAttendance: string[] = [];
   let totalCredits = 0;
   let pending = 0;
+  let unsettled = 0;
 
   for (const course of courses) {
     const ev = evaluate(course);
@@ -199,8 +236,9 @@ export function summarise(courses: Course[]): Summary {
     // `requiredSgpaForCgpa`, and again once the semester is archived - and
     // weighing it by a course that will never be graded here hands those
     // credits the semester's own average. (`planForSgpa` does not read this
-    // total at all; it sums its own over the courses it can plan, which since
-    // Task 4 excludes a debarred course as well as this one.)
+    // total at all; it sums its own over the courses it can plan, and it
+    // leaves out more kinds than this one - `unplannable` in goals.ts is the
+    // list, and it is the only place that stays in step with itself.)
     if (isIncomplete(ev.grade)) continue;
 
     const label = course.code || course.name || "?";
@@ -226,10 +264,24 @@ export function summarise(courses: Course[]): Summary {
       continue;
     }
 
+    // Is the target still open, and is a pass still open: two questions about
+    // what is REACHABLE, so both are asked of the top of the CIE interval
+    // rather than of `cie` - as is `maxPossibleGrade`, which `evaluate`
+    // already prices that way and which the projection below reads. On a course
+    // whose attendance has not been recorded `cie` is a floor, and asking
+    // these off it scores the missing marks as zeros one layer above the
+    // suppression that refused to do exactly that: a fully-marked project
+    // course would be filed as unreachable and projected at an F while its
+    // own row reads PENDING. `cieCeiling` is `cie` wherever the CIE is
+    // settled, so this is the same question it always was for those.
+    if (ev.grade === null && ev.assessed && ev.cieIncomplete) unsettled += 1;
+    const targetOpen = requiredEse(ev.cieCeiling, ev.target, ev.eseMax).possible;
+    const passOpen = requiredEse(ev.cieCeiling, "P", ev.eseMax).possible;
+
     if (ev.grade !== null) {
       confirmed.push([ev.credits, GRADE_POINTS[ev.grade]]);
       projected.push([ev.credits, GRADE_POINTS[ev.grade]]);
-    } else if (ev.needTarget.possible) {
+    } else if (targetOpen) {
       // Not yet written: project the target if reachable, else the best grade
       // still mathematically on the table.
       projected.push([ev.credits, GRADE_POINTS[ev.target]]);
@@ -237,7 +289,7 @@ export function summarise(courses: Course[]): Summary {
       projected.push([ev.credits, GRADE_POINTS[ev.maxPossibleGrade]]);
     }
 
-    if (!ev.needPass.possible && ev.grade === null) {
+    if (!passOpen && ev.grade === null) {
       // A published grade settles the matter; do not warn that a course
       // already on the record is unreachable.
       impossible.push(label);
@@ -249,6 +301,7 @@ export function summarise(courses: Course[]): Summary {
 
   return {
     pending,
+    unsettled,
     assessed: projected.length,
     sgpaConfirmed: sgpa(confirmed),
     sgpaProjected: sgpa(projected),

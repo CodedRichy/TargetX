@@ -55,8 +55,13 @@ function Kpis() {
           <span class="kpi-label">Projected</span>
           <span class="kpi-value num">{summary().sgpaProjected.toFixed(2)}</span>
           <span class="kpi-note">
-            <Show when={summary().pending > 0} fallback={<>all subjects assessed</>}>
-              {summary().pending} not yet assessed
+            <Show when={summary().pending > 0 || summary().unsettled > 0}
+                  fallback={<>all subjects assessed</>}>
+              {[
+                summary().pending > 0 ? `${summary().pending} not yet assessed` : null,
+                summary().unsettled > 0
+                  ? `${summary().unsettled} awaiting attendance` : null,
+              ].filter(Boolean).join(" · ")}
             </Show>
           </span>
         </div>

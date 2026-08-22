@@ -231,7 +231,7 @@ export function reportText(rows: Array<{ course: Course; ev: Record<string, unkn
     `TargetX - ${semester}`,
     new Date().toISOString().slice(0, 10),
     "",
-    "CODE       CR  CIE     ATT%   NEED-PASS  NEED-TARGET  GRADE  STATUS",
+    "CODE       CR  CIE        ATT%   NEED-PASS  NEED-TARGET  GRADE  STATUS",
   ];
   for (const row of rows) {
     const ev = row.ev as Record<string, never>;
@@ -240,11 +240,19 @@ export function reportText(rows: Array<{ course: Course; ev: Record<string, unkn
     // An internal missing its attendance component is a floor, not a total:
     // ">=" marks it, and the required-mark columns say nothing rather than
     // quoting a figure priced off it. See `Evaluation.cieIncomplete`.
+    //
+    // The marker costs two characters, so the column is wide enough to hold
+    // them: the CIE is printed to one decimal like the ledger cell, which caps
+    // a settled cell at "100.0/100" (9) and a marked-but-unsettled one at
+    // ">=95.0/100" (10), the floor being at most cieMax - attMax whenever the
+    // marker shows. A column that overflows shifts every column to the right
+    // of it on that row alone, and this is a table meant to be pasted whole.
     const settled = ev["assessed"] && !ev["cieIncomplete"];
+    const cie = Number(ev["cie"]).toFixed(1);
     lines.push([
       (row.course.code || "?").padEnd(10),
       String(ev["credits"] ?? "").padStart(2),
-      String(ev["assessed"] ? `${settled ? "" : ">="}${ev["cie"]}/${ev["cieMax"]}` : "-").padStart(7),
+      String(ev["assessed"] ? `${settled ? "" : ">="}${cie}/${ev["cieMax"]}` : "-").padStart(10),
       String(ev["attendance"] == null ? "-" : Math.round(Number(ev["attendance"]))).padStart(5),
       String(settled ? need.text : "-").padStart(10),
       String(settled ? target.text : "-").padStart(12),

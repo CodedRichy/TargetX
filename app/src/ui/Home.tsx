@@ -95,7 +95,12 @@ export function Home() {
         out.push({ code, severity: "warn", rank: 2,
                    detail: "attendance not recorded — its internal is incomplete, "
                      + "so no grade is being read off it" });
-      } else if (ev.grade === null && !ev.needPass.possible) {
+      } else if (ev.grade === null && ev.assessed && !ev.needPass.possible) {
+        // `assessed` is load-bearing: on an internal-only course with nothing
+        // marked, `needPass` is solved against a CIE of zero and reports the
+        // pass impossible. Nothing has been graded there at all, and the row
+        // itself says PENDING - "no longer reachable" would be the same
+        // absence-read-as-zero the engine refuses one layer down.
         out.push({ code, severity: "bad", rank: 1,
                    detail: "a pass is no longer reachable from the internals" });
       } else if (ev.eligible === false) {
@@ -322,10 +327,19 @@ export function Home() {
               <Show when={summary().credits > 0} fallback={
                 <>No subjects in {state.activeSemester} yet.</>
               }>
-              <Show when={summary().pending > 0} fallback={<>Every subject has been assessed.</>}>
-                <strong class="num">{summary().pending}</strong> subject
-                {summary().pending === 1 ? "" : "s"} not yet assessed — they are
-                excluded from both numbers rather than counted as zero.
+              <Show when={summary().pending > 0 || summary().unsettled > 0}
+                    fallback={<>Every subject has been assessed.</>}>
+                <Show when={summary().pending > 0}>
+                  <strong class="num">{summary().pending}</strong> subject
+                  {summary().pending === 1 ? "" : "s"} not yet assessed — they are
+                  excluded from both numbers rather than counted as zero.{" "}
+                </Show>
+                <Show when={summary().unsettled > 0}>
+                  <strong class="num">{summary().unsettled}</strong> subject
+                  {summary().unsettled === 1 ? " is" : "s are"} waiting on an
+                  attendance figure — the internal is short of its attendance
+                  marks, so no grade is being read off it yet.
+                </Show>
               </Show>
               </Show>
             </p>

@@ -172,11 +172,13 @@ export interface CourseOption {
   credits: number;
   eseMax: number;
   /**
-   * Priced from a full CIE because the course's internal is not settled, so
-   * `ese` is the least this grade could cost rather than what it will cost.
-   * Whoever shows this row has to say so. Two ways in: nothing has been
-   * marked at all, or marks exist but attendance does not, which leaves the
-   * CIE short of its R 7.5.ii component (`Evaluation.cieIncomplete`).
+   * Priced from the best CIE the course can still reach, because its internal
+   * is not settled - so `ese` is the least this grade could cost rather than
+   * what it will cost, and whoever shows this row has to say so. Two ways in:
+   * nothing has been marked at all, or marks exist but attendance does not,
+   * which leaves the CIE short of its R 7.5.ii component
+   * (`Evaluation.cieIncomplete`). See `courseOptions` for which bound each of
+   * the two gets; they are not the same one.
    */
   cieUnknown: boolean;
 }
@@ -193,11 +195,22 @@ export interface CourseOption {
  * the figure `evaluate` reports is a floor rather than the internal. Reverse-
  * solving off a floor overstates every rung, and off a near-zero it calls
  * every letter impossible and drops the course - one ungraded lab would then
- * take the whole semester's plan with it. So the ladder is priced from a full
- * CIE bucket instead, which is the strongest bound that is actually true:
- * whatever the internal turns out to be, the grade cannot cost less than
- * this. `cieUnknown` is set on every such row so the figure is never read as
- * a settled requirement.
+ * take the whole semester's plan with it. So the ladder is priced from the
+ * HIGHEST CIE the course can still reach, and `cieUnknown` is set on every
+ * such row so the figure is read as the least the grade could cost rather
+ * than as a settled requirement.
+ *
+ * Which bound that is depends on what is missing, and the difference is the
+ * whole point. With nothing marked at all, every component is still open and
+ * the bound is the full bucket. With the components marked and only the
+ * attendance percentage missing, it is `Evaluation.cieCeiling` - the marks
+ * recorded plus the attendance component, and no more. Reaching for the full
+ * bucket in that second case prices the ladder off marks the course has
+ * already ruled out, and the plan then offers grades that cannot be reached
+ * at 100% in the exam: measured on a 4-credit TH 40/60 with 10/50, 10/50 and
+ * 2/10 recorded and no attendance, the bucket says A+ costs 45 of 60 when the
+ * true best is 12 + 60 = 72, a B. A cost that is too low is the one a student
+ * acts on.
  *
  * On an internal-only course that bound is zero for every letter, since there
  * is no exam to spend anything in. True, and useless to a planner - see
@@ -224,7 +237,11 @@ export function courseOptions(course: Course): CourseOption[] {
 
   const options: CourseOption[] = [];
   const cieUnknown = !ev.assessed || ev.cieIncomplete;
-  const cie = cieUnknown ? ev.cieMax : ev.cie;
+  // An assessed course is priced at its own internal, or at the top of the
+  // interval when the attendance is what is missing - `cieCeiling` is one or
+  // the other. An unassessed one keeps the whole bucket: nothing is marked,
+  // so nothing has been ruled out.
+  const cie = ev.assessed ? ev.cieCeiling : ev.cieMax;
   for (const [letter, , gp] of GRADE_BANDS) {
     const need = requiredEse(cie, letter, ev.eseMax);
     if (need.possible) {

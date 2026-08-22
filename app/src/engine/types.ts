@@ -111,6 +111,24 @@ export interface AttendanceBand {
 export interface Evaluation {
   cie: number;
   cieMax: number;
+  /**
+   * The highest CIE this course can still reach - the top of the interval
+   * `[cie, cieCeiling]`, where `cie` is the bottom.
+   *
+   * Not `cieMax`, which is the bucket's capacity and says nothing about what
+   * the marks already recorded allow. This is `cie` itself for every course
+   * whose CIE is settled, and `cie + CourseSpec.attMax` (never above `cieMax`)
+   * while `cieIncomplete` is true, that being the only component still
+   * unpriced there. Anything asking what is still POSSIBLE - can this course
+   * still pass, what is the best grade left, what could a grade cost at least
+   * - must ask it of this figure; `cie` would answer the same question as
+   * though the missing marks were zeros.
+   *
+   * An unmarked series exam is a different unknown, and this field does not
+   * model it: a blank component reads as a zero in both ends of the interval,
+   * exactly as it did before.
+   */
+  cieCeiling: number;
   eseMax: number;
   ese: number | null;
   eseCutoff: number;
@@ -140,6 +158,14 @@ export interface Evaluation {
    * zero: no grade is derived while this is true, because a band read off a
    * bound is a band the data does not support. A published `cie_override`
    * clears it, that total already being the college's own arithmetic.
+   *
+   * A published `portal_grade` does NOT clear it - the internal really is
+   * short of a component - but nothing is derived there either: that grade is
+   * reported because the university published it, not because this app read
+   * it off `cie`. So a course can carry this flag and still report a grade.
+   *
+   * `cieCeiling` is the other end of the same interval, and is what anything
+   * asking what is still reachable must read.
    */
   cieIncomplete: boolean;
   plan: AttendancePlan | null;

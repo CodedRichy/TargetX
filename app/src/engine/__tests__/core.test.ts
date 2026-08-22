@@ -7,20 +7,24 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  ATTENDANCE_CONDONE, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN, COURSE_TYPES, DL_CAP_PCT, NO_HORIZON,
+  ATTENDANCE_CONDONE, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN, COURSE_TYPES, DL_CAP_PCT,
+  GRADE_MIN, NO_HORIZON,
   TYPE_KEYS, attendanceMarks, attendancePlan, blankCourse, cgpaFromSemesters,
   computeCie, courseOptions, eseCutoff, evaluate, horizonToGraduation,
   nextAttendanceBand, normaliseGrade, parseEtlab, historyCredits, planForSgpa, requiredEse,
   requiredSgpaForCgpa, sgpa, statusFor, summarise,
 } from "../index";
-import type { Course, TypeKey } from "../types";
+import type { Course, Letter, TypeKey } from "../types";
 
 describe("CIE scaling", () => {
   it("scales each component onto its weight inside a 40-mark CIE", () => {
     const c: Course = { ...blankCourse("PCCST302", "DSA", 4, "TH 40/60"), s1: 40, s2: 30, other: 8 };
     // Components share cieMax - attMax = 35, so the weights are 13.125/13.125/8.75:
     // 40/50*13.125 + 30/50*13.125 + 8/10*8.75 = 10.5 + 7.875 + 7 = 25.375.
-    // Attendance is blank here and so earns nothing.
+    // Attendance is blank, so its component cannot be priced and the sum is a
+    // lower bound - not a claim that none of those marks were earned. The
+    // scaling is what is under test here; `evaluate` is where the bound is
+    // flagged and the grade withheld.
     expect(computeCie(c)).toBe(25.38);
   });
 
@@ -270,7 +274,8 @@ describe("an unknown attendance is not spent as a zero inside the CIE", () => {
     expect(plan.reachable).toBe(true);
     expect(plan.plan.length).toBe(2);
     expect(plan.credits).toBe(8);
-    // Priced from a full CIE bucket, so every rung is a floor and says so.
+    // Priced from the best CIE each course can still reach, so every rung is
+    // the least that grade could cost and says so.
     expect(plan.plan.every((row) => row.cieUnknown)).toBe(true);
   });
 
@@ -292,6 +297,139 @@ describe("an unknown attendance is not spent as a zero inside the CIE", () => {
     expect(plan.plan.map((row) => row.code)).not.toContain("PRJST501");
     expect(plan.reason).toContain("attendance is not recorded");
     expect(plan.credits).toBe(8);
+  });
+});
+
+describe("an unknown attendance is not spent as a full CIE either", () => {
+  /**
+   * The other end of the same null. Refusing to read a blank attendance as a
+   * zero is half the fix: the ladder then read it as a whole empty CIE bucket
+   * and offered grades the recorded marks had already ruled out. Zero and
+   * `cieMax` are the same mistake with the sign flipped, and this one made a
+   * student's number BETTER than the truth, which is the kind they act on.
+   *
+   * TH 40/60, 4 credits, 10/50 and 10/50 in the series, 2/10 elsewhere:
+   * 10/50*13.125 + 10/50*13.125 + 2/10*8.75 = 2.625 + 2.625 + 1.75 = 7. With
+   * attendance unrecorded the CIE lies in [7, 12], so the best total the
+   * course can reach is 12 + 60 = 72 - a B. Nothing above B is on the table
+   * at any exam mark, and the bucket's 40 is not a bound the course allows.
+   */
+  const weak = (): Course => ({
+    ...blankCourse("H1", "Hard", 4, "TH 40/60"), s1: 10, s2: 10, other: 2,
+  });
+
+  it("bounds the CIE by the marks recorded, not by the size of the bucket", () => {
+    const ev = evaluate(weak());
+    expect(ev.cie).toBe(7);
+    expect(ev.cieIncomplete).toBe(true);
+    expect(ev.cieMax).toBe(40);
+    expect(ev.cieCeiling).toBe(12);
+    // Read off the top of the interval: 12 + 60 = 72.
+    expect(ev.maxPossibleGrade).toBe("B");
+  });
+
+  /**
+   * The one test here that must pass on the commit BEFORE the flag existed as
+   * well as on this one. It asserts only the property both are owed - nothing
+   * unattainable is on the ladder - because the pricing that broke it was a
+   * REGRESSION: the earlier code was wrong in the safe direction and offered
+   * too few grades, and a test that pinned the exact set would hide that.
+   */
+  it("offers no grade that 60 out of 60 could not reach", () => {
+    for (const option of courseOptions(weak())) {
+      // 12 at the very best, plus the whole exam: 72. `courseOptions` walks
+      // GRADE_BANDS, so an offered grade is always a Letter and never an F.
+      expect(GRADE_MIN[option.grade as Letter]).toBeLessThanOrEqual(72);
+    }
+    const plan = planForSgpa([weak()], 9.0);
+    expect(plan.reachable).toBe(false);
+    expect(plan.plan).toEqual([]);
+  });
+
+  it("prices each rung off the top of the interval, not off the whole bucket", () => {
+    const offered = courseOptions(weak());
+    expect(offered.every((o) => o.cieUnknown)).toBe(true);
+    // Not merely safe - tight. The floor-priced version stopped at C+.
+    expect(offered.map((o) => o.grade)).toEqual(["P", "D", "C", "C+", "B"]);
+    // B is 70 in total and the CIE can reach 12, so 58 of 60 is the least the
+    // exam could be asked for. Off the empty bucket it read 30.
+    expect(offered.find((o) => o.grade === "B")!.ese).toBe(58);
+    // A pass is 50 in total, so 38 - above the 24-mark ESE cutoff, which is
+    // what the floor-priced version was quoting.
+    expect(offered.find((o) => o.grade === "P")!.ese).toBe(38);
+    expect(planForSgpa([weak()], 9.0).maxSgpa).toBe(7.5);
+  });
+
+  it("leaves a course with nothing marked at all priced from the bucket", () => {
+    // Every component is still open there, so the whole bucket genuinely is
+    // available and this path is unchanged.
+    const fresh = blankCourse("H2", "Fresh", 4, "TH 40/60");
+    const ev = evaluate(fresh);
+    expect(ev.assessed).toBe(false);
+    expect(ev.cieCeiling).toBe(5);
+    expect(courseOptions(fresh).find((o) => o.grade === "S")!.ese).toBe(50);
+  });
+
+  it("does not file a course as unreachable over marks nobody has recorded", () => {
+    // PRJ 100/0, internals all marked, attendance blank: floor 47.5, ceiling
+    // 52.5, and a pass is 50 - so a pass is genuinely open. Read off the
+    // floor, the rollup called the course impossible and projected it at an F
+    // while its own row read PENDING.
+    const project: Course = {
+      ...blankCourse("PRJ1", "Project", 4, "PRJ 100/0"), s1: 25, s2: 25, other: 5,
+    };
+    const ev = evaluate(project);
+    expect(ev.cie).toBe(47.5);
+    expect(ev.cieCeiling).toBe(52.5);
+    expect(ev.maxPossibleGrade).toBe("P");
+    expect(statusFor(ev)).toBe("PENDING");
+
+    const sum = summarise([project]);
+    expect(sum.impossible).toEqual([]);
+    expect(sum.sgpaProjected).toBe(5.5);
+  });
+
+  it("counts it as a third state, neither pending nor settled", () => {
+    const marked = (code: string): Course => ({
+      ...blankCourse(code, "Paper", 4, "TH 40/60"), s1: 45, s2: 45, other: 9,
+    });
+    const sum = summarise([marked("A1"), marked("B1")]);
+    // Assessed, so `pending` never sees them; ungraded, so nothing is
+    // confirmed. Without the third count a screen reads "every subject has
+    // been assessed" over a confirmed SGPA of zero.
+    expect(sum.pending).toBe(0);
+    expect(sum.unsettled).toBe(2);
+    expect(sum.assessed).toBe(2);
+    expect(sum.creditsConfirmed).toBe(0);
+    expect(sum.credits).toBe(8);
+
+    // Attendance in, and the count clears even though the exams are unwritten.
+    const settled = summarise([
+      { ...marked("A1"), attendance: 90 }, { ...marked("B1"), attendance: 90 },
+    ]);
+    expect(settled.unsettled).toBe(0);
+    expect(settled.pending).toBe(0);
+    // Nothing has been marked here at all, so this one is pending instead.
+    expect(summarise([blankCourse("C1", "New", 4)]).unsettled).toBe(0);
+    expect(summarise([blankCourse("C1", "New", 4)]).pending).toBe(1);
+  });
+
+  it("keeps a settled course's ceiling at its own CIE", () => {
+    // The interval collapses wherever the CIE is known, which is what keeps
+    // every other course in the engine reading exactly as it did.
+    const known = evaluate({
+      ...blankCourse("D1", "Paper", 4, "TH 40/60"),
+      s1: 45, s2: 45, other: 9, attendance: 90,
+    });
+    expect(known.cieIncomplete).toBe(false);
+    expect(known.cieCeiling).toBe(known.cie);
+    expect(known.cieCeiling).toBe(36.5);
+
+    // A published internal total is the college's own arithmetic, attendance
+    // marks included, so it is settled with no attendance figure at all.
+    const override = evaluate({ ...blankCourse("D2", "Paper", 4), cie_override: 30 });
+    expect(override.cieIncomplete).toBe(false);
+    expect(override.cieCeiling).toBe(30);
   });
 });
 
