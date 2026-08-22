@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ATTENDANCE_CONDONE, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN, COURSE_TYPES, DL_CAP_PCT,
-  GRADE_MIN, GRADE_POINTS, NO_HORIZON,
+  GRADE_BANDS, GRADE_MIN, GRADE_POINTS, NO_HORIZON,
   TYPE_KEYS, attendanceMarks, attendancePlan, blankCourse, cgpaFromSemesters,
   computeCie, courseOptions, eseCutoff, evaluate, horizonToGraduation, isIncomplete,
   nextAttendanceBand, normaliseGrade, parseEtlab, historyCredits, planForSgpa, requiredEse,
@@ -272,12 +272,25 @@ describe("an unknown attendance is not spent as a zero inside the CIE", () => {
       { ...os(), ese: null },
       { ...os(), code: "PCCST505", ese: null },
     ], 7.0);
-    expect(plan.reachable).toBe(true);
     expect(plan.plan.length).toBe(2);
     expect(plan.credits).toBe(8);
     // Priced from the best CIE each course can still reach, so every rung is
     // the least that grade could cost and says so.
     expect(plan.plan.every((row) => row.cieUnknown)).toBe(true);
+    // But NOT guaranteed, and this assertion read `reachable: true` until the
+    // attendance interval was closed. Both rungs are priced off a CIE that
+    // includes 5 attendance marks nobody has recorded: score the quoted 29 and
+    // the percentage turns out low and the grade is a C, not the C+ quoted. A
+    // route is still owed - that is what the rest of this test is for - but
+    // calling it a guarantee made the app more confident with the field blank
+    // than with a real 62% in it.
+    expect(plan.reachable).toBe(false);
+    expect(plan.conditional).toBe(true);
+    expect(plan.bound).toEqual(["PCCST504", "PCCST505"]);
+    expect(plan.plan.map((row) => [row.grade, row.ese, row.secured]))
+      .toEqual([["C+", 29, "C"], ["C+", 29, "C"]]);
+    expect(plan.sgpa).toBe(7);
+    expect(plan.sgpaGuaranteed).toBe(6.5);
   });
 
   it("does not climb an internal-only course whose attendance is missing", () => {
@@ -1903,20 +1916,60 @@ describe("the route guarantees what it quotes", () => {
     expect(plan.sgpaGuaranteed).toBe(8);
   });
 
-  it("keeps the promise on every reachable route it builds", () => {
-    // The sweep the fix was designed against, and the only evidence that the
-    // guarantee holds in general. Deliberately clean inputs: every component
-    // marked and every attendance recorded, so nothing is `cieFloor` and no
-    // course is `unpriced` - the shortfall can only come from attendance marks
-    // the ladder counted before they were earned.
-    //
-    // Executing a route means scoring exactly the mark it quotes in every
-    // course and changing nothing else. At c698194, 2539 of the 5379 routes
-    // this population produced said `reachable: true` and then missed.
+  it("does not grow more confident when the attendance field is emptied", () => {
+    // The monotonicity inversion, and the sharpest statement of what a
+    // collapsed interval costs. One TH 40/60, every component marked, only the
+    // attendance evidence changing.
+    const marked = (extra: Partial<Course>): Course => ({
+      ...blankCourse("TH1", "TH1", 4, "TH 40/60"), s1: 30, s2: 30, other: 6, ...extra,
+    });
+    const recorded = marked({ attended: 62, held: 100 });
+    const blank = marked({});
+    expect(evaluate(recorded).attMarks).toBe(1);
+    expect(evaluate(blank).attMarks).toBeNull();
+
+    const withData = planForSgpa([recorded], 8.0);
+    const withoutData = planForSgpa([blank], 8.0);
+    // Same quote either way - the ladder is priced off the ceiling and that is
+    // deliberate.
+    expect(withData.plan[0]!.ese).toBe(49);
+    expect(withoutData.plan[0]!.ese).toBe(49);
+    // And now the same verdict either way. At 6b761ae the blank case read
+    // `reachable: true`, `sgpaGuaranteed: 8`, `bound: undefined`,
+    // `secured: "B+"` - strictly more confident about a student the app knew
+    // strictly less about, and typing in a real 62% flipped it to unreachable.
+    expect(withData.reachable).toBe(false);
+    expect(withoutData.reachable).toBe(false);
+    expect(withoutData.bound).toEqual(["TH1"]);
+    expect(withoutData.plan[0]!.secured).toBe("B");
+    expect(withoutData.sgpaGuaranteed).toBe(7.5);
+
+    // And the promise the old bound made was false: score the quoted 49, let
+    // the attendance turn out to be 50%, and the grade is a B.
+    const executed = evaluate({ ...blank, attended: 50, held: 100, ese: 49 });
+    expect(executed.total).toBe(70);
+    expect(executed.grade).toBe("B");
+    // Never worse than the recorded case, either: an unknown resolves to the
+    // bottom of its interval, which is where a recorded 0% would put it.
+    // Never better than the worst recorded case that still sits the exam: at
+    // 60% - the lowest percentage that is not a debarment - the guarantee is
+    // the same 7.5, because both secure a B.
+    expect(planForSgpa([marked({ attended: 60, held: 100 })], 8.0).sgpaGuaranteed).toBe(7.5);
+  });
+
+  it("re-derives the discriminators it rejected, so the numbers cannot rot", () => {
+    // `SgpaPlan.conditional` and `SgpaPlan.reachable` quote firing rates for
+    // the two discriminators Task 15 measured and rejected. Nothing asserted
+    // them, so they were right by luck. This re-derives all three from the
+    // current engine over the population they describe - the clean one, every
+    // component marked AND every attendance recorded, which is the population
+    // in which the attendance interval is closed and the two ends of the CIE
+    // differ only by marks the student has provably not yet earned.
     const types: TypeKey[] = [...TYPE_KEYS];
     let seed = 20000;
     const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
-    let reachable = 0, conditional = 0, broken = 0, unknownRows = 0, guaranteeWrong = 0;
+    let plans = 0, anyCieUnknown = 0, anyBound = 0, notGuaranteed = 0;
+    let cieUnknownButFine = 0, boundButFine = 0, harderRouteExists = 0;
     for (let i = 0; i < 20000; i += 1) {
       const courses: Course[] = [];
       const k = 2 + Math.floor(rnd() * 4);
@@ -1928,41 +1981,217 @@ describe("the route guarantees what it quotes", () => {
           attended: Math.round(rnd() * 100), held: 100,
         });
       }
-      // If this ever fires the population has stopped being the clean one and
-      // the counts below stop meaning what they say.
-      if (courses.some((c) => evaluate(c).cieFloor)) throw new Error("dirty input");
+      if (courses.some((c) => evaluate(c).cieFloor)) throw new Error("not the clean population");
+      const target = round(1 + rnd() * 8, 2);
+      const plan = planForSgpa(courses, target);
+      // The ceiling gate rules these out before any of this applies.
+      if (plan.plan.length === 0) continue;
+      if (!plan.reachable && !plan.conditional) continue;
+      plans += 1;
+      const a = plan.plan.some((row) => row.cieUnknown);
+      const b = (plan.bound?.length ?? 0) > 0;
+      const c = !plan.reachable;
+      if (a) anyCieUnknown += 1;
+      if (b) anyBound += 1;
+      if (c) notGuaranteed += 1;
+      if (a && !c) cieUnknownButFine += 1;
+      if (b && !c) boundButFine += 1;
+      if (!c) continue;
+      // `reachable`'s doc claims a harder route would have carried most of
+      // these at today's internal. Re-derived here rather than asserted from
+      // memory: the semester's ceiling priced off the CIE each course HOLDS,
+      // against the same target.
+      let floorCeiling = 0;
+      for (const course of courses) {
+        const ev = evaluate(course);
+        if (isIncomplete(ev.grade)) continue;
+        let best = 0;
+        for (const [letter, , gp] of GRADE_BANDS) {
+          if (requiredEse(ev.cie, letter, ev.eseMax).possible) best = Math.max(best, gp);
+        }
+        floorCeiling += best * ev.credits;
+      }
+      if (floorCeiling / plan.credits! >= target - 1e-9) harderRouteExists += 1;
+    }
+    // 5379 routes were reachable at c698194 and the same 5379 are the plans
+    // seen here, because the route itself never changed - only the verdict on
+    // it did. Of those: a row priced off a movable CIE is present on 3825 and
+    // 1286 of them reach the target anyway; a row that is actually bound is
+    // present on 3204 and 665 of them do; the chosen discriminator fires on
+    // 2539 and, per the sweeps above, none of those reach it.
+    expect(plans).toBe(5379);
+    expect(anyCieUnknown).toBe(3825);
+    expect(cieUnknownButFine).toBe(1286);
+    expect(anyBound).toBe(3204);
+    expect(boundButFine).toBe(665);
+    expect(notGuaranteed).toBe(2539);
+    // And the claim on `reachable` that `false` here does not mean "nothing
+    // does": 2409 of the 2539 are still carried at today's internal by a route
+    // the greedy stops short of, because it stops at the first one that covers
+    // the target at the ceiling.
+    expect(harderRouteExists).toBe(2409);
+  });
+
+  it("keeps the promise on every reachable route it builds", () => {
+    // The sweep that certifies the guarantee, and the population is the whole
+    // point of it. The version committed at 6b761ae threw away every course
+    // whose CIE was a floor - `if (cieFloor) throw new Error("dirty input")` -
+    // and an unrecorded attendance IS `cieFloor`, so the sweep excluded by
+    // construction the exact class that broke the property it asserted. Its
+    // `expect(broken).toBe(0)` was true of a population the counterexample had
+    // been removed from. This one generates that class deliberately: roughly a
+    // third of courses have no attendance recorded at all.
+    //
+    // Executing a route means scoring exactly the mark it quotes in every
+    // course and changing nothing else. For a course with no attendance on
+    // record there is nothing to change it TO, so the sweep draws a hidden true
+    // percentage and executes against that - adversarially, over the whole
+    // range in which the student is actually admitted to the exam (60% and up;
+    // below that they are debarred and the plan's premise is gone, which is a
+    // different failure).
+    //
+    // Components are always marked here, and that is a real limit rather than
+    // a tidy one: the unmarked-component axis has the same defect and is a
+    // disclosed open item, not something this property covers. The block below
+    // measures it rather than hiding it.
+    const types: TypeKey[] = [...TYPE_KEYS];
+    let seed = 20000;
+    const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    let reachable = 0, conditional = 0, broken = 0, unknownRows = 0;
+    let boundViolated = 0, notExact = 0, blankSets = 0, reachableWithBlank = 0;
+    for (let i = 0; i < 20000; i += 1) {
+      const courses: Course[] = [];
+      const truth = new Map<string, number>();
+      const k = 2 + Math.floor(rnd() * 4);
+      let anyBlank = false;
+      for (let j = 0; j < k; j += 1) {
+        const type = types[Math.floor(rnd() * types.length)]!;
+        const credits = 1 + Math.floor(rnd() * 4);
+        const blank = rnd() < 0.35;
+        const recorded = Math.round(rnd() * 100);
+        // Where the field is blank, what the percentage will turn out to be.
+        const hidden = 60 + Math.round(rnd() * 40);
+        const course: Course = {
+          ...blankCourse(`C${j}`, `C${j}`, credits, type),
+          s1: Math.round(rnd() * 50), s2: Math.round(rnd() * 50), other: Math.round(rnd() * 10),
+        };
+        if (blank) { anyBlank = true; truth.set(`C${j}`, hidden); } else {
+          course.attended = recorded;
+          course.held = 100;
+          truth.set(`C${j}`, recorded);
+        }
+        courses.push(course);
+      }
+      // Every component is marked, so the only unsettled half is attendance.
+      if (courses.some((c) => evaluate(c).cieUnmarked)) throw new Error("unmarked component");
+      if (anyBlank) blankSets += 1;
       const target = round(1 + rnd() * 8, 2);
       const plan = planForSgpa(courses, target);
       if (plan.conditional) conditional += 1;
       if (plan.plan.some((row) => row.cieUnknown)) unknownRows += 1;
       if (!plan.reachable) continue;
       reachable += 1;
+      if (anyBlank) reachableWithBlank += 1;
       const byCode = new Map(courses.map((c) => [c.code!, c]));
       let points = 0;
       for (const row of plan.plan) {
-        const after = evaluate({ ...byCode.get(row.code)!, ese: row.ese });
+        const after = evaluate({
+          ...byCode.get(row.code)!, attended: truth.get(row.code)!, held: 100, ese: row.ese,
+        });
         points += (after.grade === null || isIncomplete(after.grade)
           ? 0 : GRADE_POINTS[after.grade as Grade]) * after.credits;
       }
       const got = round(points / plan.credits!, 3);
       if (got < target - 1e-9) broken += 1;
-      if (got !== plan.sgpaGuaranteed) guaranteeWrong += 1;
+      if (got < plan.sgpaGuaranteed! - 1e-9) boundViolated += 1;
+      if (!anyBlank && got !== plan.sgpaGuaranteed) notExact += 1;
     }
-    // The promise, and the reason this task exists.
+    // The promise, and the reason this task and its repair both exist. At
+    // 6b761ae this same population produced 6240 reachable routes of which
+    // 2395 then missed - every one of them carrying a blank-attendance course,
+    // and none without one. The bound was violated on 3543.
     expect(broken).toBe(0);
-    // And `sgpaGuaranteed` is not merely a bound - it is the figure executing
-    // the route actually yields, on all 2840.
-    expect(guaranteeWrong).toBe(0);
+    // `sgpaGuaranteed` is a genuine floor everywhere...
+    expect(boundViolated).toBe(0);
+    // ...and where every attendance is on record it is not merely a floor but
+    // the figure execution actually yields. With a blank field it cannot be:
+    // the percentage may turn out anywhere in its range, and the guarantee
+    // takes the bottom.
+    expect(notExact).toBe(0);
     // Every count is an assertion so a wrong one fails rather than misleads.
-    // 5379 routes were reachable at c698194; 2840 of them still are. The other
-    // 2539 are now `conditional`, and every one of them is a plan that missed.
-    // Discriminators measured on the same 5379 before choosing this one: "any
-    // row priced off a movable CIE" fires 3825 times and is wrong on 1286 of
-    // them; "the quoted mark differs from the requirement at today's CIE"
-    // fires 3603 times and is wrong on 1064; this one fires 2539 and is wrong
-    // on none.
-    expect(reachable).toBe(2840);
-    expect(conditional).toBe(2539);
-    expect(unknownRows).toBe(3825);
+    // Non-vacuity first: the counterexample class the old sweep excluded is
+    // present in 15138 of the 20000 semesters and survives into 1151 of the
+    // reachable routes, so `broken === 0` is a statement about it and not a
+    // statement about its absence.
+    expect(blankSets).toBe(15138);
+    expect(reachableWithBlank).toBe(1550);
+    expect(reachable).toBe(2692);
+    expect(conditional).toBe(6066);
+    expect(unknownRows).toBe(8070);
+  });
+
+  it("does not cover the unmarked-component axis, and this is what that costs", () => {
+    // The disclosed open item, pinned rather than described. `heldCie` keeps an
+    // unmarked component at its whole weight on purpose - scoring it at zero is
+    // a prediction about a paper that has not been sat, and it flips three of
+    // the cases above from a route to no route at all - so a student whose
+    // unwritten series exam comes in low can still miss a `reachable: true`
+    // route. That is a real hole and it should fail here the day someone closes
+    // it, rather than being discovered by a reader trusting the word
+    // "guarantee".
+    //
+    // Same generator as the sweep above with one change: a quarter of courses
+    // have `s2` unmarked.
+    const types: TypeKey[] = [...TYPE_KEYS];
+    let seed = 20000;
+    const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    let reachable = 0, broken = 0, boundViolated = 0;
+    for (let i = 0; i < 20000; i += 1) {
+      const courses: Course[] = [];
+      const truth = new Map<string, number>();
+      const k = 2 + Math.floor(rnd() * 4);
+      for (let j = 0; j < k; j += 1) {
+        const type = types[Math.floor(rnd() * types.length)]!;
+        const credits = 1 + Math.floor(rnd() * 4);
+        const blank = rnd() < 0.35;
+        const recorded = Math.round(rnd() * 100);
+        const hidden = 60 + Math.round(rnd() * 40);
+        const s2 = rnd() < 0.25 ? "" : Math.round(rnd() * 50);
+        const course: Course = {
+          ...blankCourse(`C${j}`, `C${j}`, credits, type),
+          s1: Math.round(rnd() * 50), s2, other: Math.round(rnd() * 10),
+        };
+        if (blank) truth.set(`C${j}`, hidden); else {
+          course.attended = recorded;
+          course.held = 100;
+          truth.set(`C${j}`, recorded);
+        }
+        courses.push(course);
+      }
+      const target = round(1 + rnd() * 8, 2);
+      const plan = planForSgpa(courses, target);
+      if (!plan.reachable) continue;
+      reachable += 1;
+      const byCode = new Map(courses.map((c) => [c.code!, c]));
+      let points = 0;
+      for (const row of plan.plan) {
+        // The unmarked component comes in at zero, which is the worst case the
+        // ladder priced at its whole weight.
+        const after = evaluate({
+          ...byCode.get(row.code)!, s2: byCode.get(row.code)!.s2 === "" ? 0 : byCode.get(row.code)!.s2,
+          attended: truth.get(row.code)!, held: 100, ese: row.ese,
+        });
+        points += (after.grade === null || isIncomplete(after.grade)
+          ? 0 : GRADE_POINTS[after.grade as Grade]) * after.credits;
+      }
+      const got = round(points / plan.credits!, 3);
+      if (got < target - 1e-9) broken += 1;
+      if (got < plan.sgpaGuaranteed! - 1e-9) boundViolated += 1;
+    }
+    // The hole is real and this is its size. If either number reaches zero the
+    // axis has been closed and this test should be deleted, not adjusted.
+    expect(reachable).toBe(2532);
+    expect(broken).toBe(741);
+    expect(boundViolated).toBe(1174);
   });
 });

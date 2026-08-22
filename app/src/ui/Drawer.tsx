@@ -128,7 +128,7 @@ export function Drawer() {
                             internal, a rising CIE buys the requirement down by
                             nothing and the mark is exact - so the warning
                             colour belongs on this one. */}
-                        <Show when={row.secured !== row.grade}>
+                        <Show when={plan().bound?.includes(row.code)}>
                           <span style={{ color: "var(--warn)" }}>
                             {" "}· {row.secured} on today's internal
                           </span>
