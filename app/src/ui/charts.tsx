@@ -19,10 +19,15 @@ const fmt = (n: number, places = 2) => n.toFixed(places);
 /**
  * One published semester on the trend line.
  *
- * `credits` is the weight the running CGPA divides by - registered credits,
- * or the earned total where a save predates the split. It is whatever
- * `historyCredits` returned, never a raw field off `SemesterHistory`, so the
- * line behind the bars is weighted exactly like the real CGPA.
+ * `credits` is the weight the running CGPA divides by, and it is whatever
+ * `historyCredits` returned rather than a raw field off `SemesterHistory`, so
+ * the line behind the bars is weighted exactly like the real CGPA. Three
+ * cases, and the third is the one an earlier version of this comment left
+ * out: registered credits; the earned total where a save predates the split;
+ * and ZERO where the save knows neither. A zero-weight semester still draws
+ * its bar at full height - the SGPA is real and was really earned - while
+ * contributing nothing to the line, so the two disagree on purpose. The
+ * History notice is where that is explained; nothing here can say it.
  */
 interface TrendPoint { name: string; sgpa: number; credits: number }
 

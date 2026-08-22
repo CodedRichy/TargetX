@@ -1,5 +1,7 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
-import { evaluate, isGraded, sgpa as computeSgpa, GRADE_POINTS } from "../engine";
+import {
+  evaluate, isGraded, sgpa as computeSgpa, unconfirmedNames, GRADE_POINTS,
+} from "../engine";
 import type { SemesterHistory } from "../engine";
 import { overall, setHistory, state, edit, trend } from "../state/store";
 import { TrendChart } from "./charts";
@@ -73,8 +75,14 @@ export function History() {
    * Semesters with no registered credit total: a save that only ever knew the
    * earned one, a sync that could not price every course from the curriculum
    * and refused to guess, or a credit box left blank.
+   *
+   * Split, because the consequence differs. `fellBack` is still in the CGPA
+   * with a divisor that is too small; `droppedOut` knows neither total, weighs
+   * zero, and is not in the CGPA at all.
    */
   const unconfirmed = () => overall().unconfirmed;
+  const fellBack = () => unconfirmedNames(unconfirmed(), "earned");
+  const droppedOut = () => unconfirmedNames(unconfirmed(), "none");
 
   return (
     <div class="screen">
@@ -118,18 +126,30 @@ export function History() {
             <div class="notice">
               <strong>
                 {unconfirmed().length === 1
-                  ? `${unconfirmed()[0]} has no registered credit total.`
+                  ? `${unconfirmed()[0]!.name} has no registered credit total.`
                   : `${unconfirmed().length} semesters have no registered credit total.`}
               </strong> KTU divides the CGPA by the credits you registered for.
               A failed course still counts in the denominator; a course marked
               I or W does not — the university left it out of that semester's
               published SGPA, so it has to be left out of the credits that SGPA
-              is multiplied by. Where TargetX has the earned total it weights
-              by that instead, which understates the divisor wherever there is
-              a backlog; where it has neither, the semester does not count at
-              all. Type the registered total — failures in, I and W out — into
+              is multiplied by.{" "}
+              <Show when={fellBack().length > 0}>
+                {fellBack().join(", ")} {fellBack().length === 1 ? "is" : "are"} weighted
+                by the earned total instead, which understates the divisor wherever
+                there is a backlog.{" "}
+              </Show>
+              <Show when={droppedOut().length > 0}>
+                <strong>
+                  {droppedOut().join(", ")} {droppedOut().length === 1 ? "is" : "are"} not
+                  in the CGPA above at all
+                </strong> — neither total is known, so there is nothing to weigh
+                {droppedOut().length === 1 ? " it" : " them"} by and no figure has been
+                invented. The average you are reading is over the other semesters.{" "}
+              </Show>
+              Type the registered total — failures in, I and W out — into
               the Registered credits column
-              {unconfirmed().length === 1 ? "" : ` for ${unconfirmed().join(", ")}`} and
+              {unconfirmed().length === 1
+                ? "" : ` for ${unconfirmedNames(unconfirmed()).join(", ")}`} and
               the CGPA above becomes the one KTU would print.
             </div>
           </Show>

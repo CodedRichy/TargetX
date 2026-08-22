@@ -14,27 +14,65 @@ import { round, toFloat } from "./util";
  * Where they are unknown - a save written before TargetX told the two totals
  * apart - the earned total stands in, so the CGPA a student has been looking
  * at does not shift under them with nothing on screen to explain it. Those
- * semesters are named in `CgpaResult.unconfirmed` so the History screen can
- * ask for the real figure instead.
+ * semesters are named in `CgpaResult.unconfirmed` with basis `earned` so the
+ * History screen can ask for the real figure instead.
+ *
+ * Where NEITHER total is known this yields 0, and a semester weighing zero is
+ * not in the CGPA at all - not a small error in the divisor but an average
+ * over a different set of semesters. No figure is invented to fill the gap:
+ * substituting a guessed credit load is exactly the kind of prediction from
+ * missing data this engine exists to refuse. It is reported instead, with
+ * basis `none`, and every surface that prints the CGPA has to say so.
  */
 export function historyCredits(entry: SemesterHistory): number {
   return entry.creditsRegistered ?? entry.creditsEarned ?? 0;
 }
 
 /**
+ * What a semester is weighed by when the registered total is missing.
+ *
+ *   - `earned` - `creditsEarned` stands in. The semester is still IN the CGPA
+ *     and still moves it; the divisor is merely too small wherever there is a
+ *     backlog, so the figure reads slightly high.
+ *   - `none` - neither total is known, `historyCredits` yields 0, and the
+ *     semester is NOT IN THE CGPA AT ALL. Its SGPA contributes nothing and its
+ *     credits contribute nothing.
+ *
+ * Two facts, not one, and the gap between them is the gap between a number
+ * that is a little off and a number computed over a different set of
+ * semesters. They were a single `string[]` until this split, and every screen
+ * described all of them with the sentence that is only true of `earned`.
+ */
+export type UnconfirmedBasis = "earned" | "none";
+
+export interface UnconfirmedSemester {
+  name: string;
+  basis: UnconfirmedBasis;
+}
+
+/**
  * Semesters whose CGPA weight is not the registered total KTU uses.
  *
- * Two different states, and this list does not tell them apart. Where
- * `creditsEarned` is known the weight falls back to it. Where neither total is
- * known `historyCredits` yields 0, so the semester weighs nothing at all and
- * drops out of the CGPA. Both are a figure the student should be asked for;
- * only the first is a fallback.
+ * Both states are a figure the student should be asked for, and only `earned`
+ * is a fallback - `none` is an omission. `historyCredits` is the function that
+ * decides which, so this reads the same two fields in the same order rather
+ * than deciding it a second way alongside it.
  */
-export function unconfirmedSemesters(history: Record<string, SemesterHistory>): string[] {
+export function unconfirmedSemesters(
+  history: Record<string, SemesterHistory>,
+): UnconfirmedSemester[] {
   return Object.entries(history)
     .filter(([, v]) => v.creditsRegistered == null)
-    .map(([name]) => name);
+    .map(([name, v]): UnconfirmedSemester => ({
+      name,
+      basis: v.creditsEarned == null ? "none" : "earned",
+    }));
 }
+
+/** The names alone, optionally of one basis, for a screen listing them. */
+export const unconfirmedNames = (
+  rows: UnconfirmedSemester[], basis?: UnconfirmedBasis,
+): string[] => rows.filter((r) => basis === undefined || r.basis === basis).map((r) => r.name);
 
 /**
  * The semesters after this one that still count toward the CGPA.
@@ -105,11 +143,13 @@ export interface RequiredSgpa {
   /** The horizon `required` is an average over. */
   horizon: GoalHorizon;
   /**
-   * Past semesters weighted by earned credits because the registered total is
-   * unknown, exactly as in `CgpaResult`. Non-empty means this requirement was
-   * solved against a best-effort CGPA and the screen should say so.
+   * Past semesters without a registered credit total, exactly as in
+   * `CgpaResult`, and split by what stood in for it. Non-empty means this
+   * requirement was solved against a best-effort CGPA and the screen should
+   * say so - and say WHICH, because a `none` semester is not weighed by
+   * anything at all.
    */
-  unconfirmed: string[];
+  unconfirmed: UnconfirmedSemester[];
 }
 
 /**
@@ -803,11 +843,13 @@ export interface CgpaResult {
   credits: number;
   percent: number;
   /**
-   * Semesters weighted by their earned credits because the registered total
-   * is unknown. Non-empty means the CGPA is a best effort, not the figure
-   * KTU would print, and the student has a number to supply.
+   * Semesters with no registered credit total, split by what stood in for it.
+   * Non-empty means this CGPA is a best effort rather than the figure KTU
+   * would print, and the student has a number to supply. A `none` entry means
+   * more than that: `credits` does not include that semester and `cgpa` was
+   * computed without it.
    */
-  unconfirmed: string[];
+  unconfirmed: UnconfirmedSemester[];
 }
 
 export function cgpaFromSemesters(

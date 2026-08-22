@@ -85,7 +85,7 @@ describe("saves written before the two totals were told apart", () => {
     // Reinterpreting 16 as registered would move a real student's CGPA with
     // nothing on screen to explain it, so the old weighting stands and the
     // semester is named instead.
-    expect(cgpaFromSemesters(migrated).unconfirmed).toEqual(["S3"]);
+    expect(cgpaFromSemesters(migrated).unconfirmed).toEqual([{ name: "S3", basis: "earned" }]);
   });
 
   it("survives a second pass unchanged", () => {
@@ -101,7 +101,7 @@ describe("saves written before the two totals were told apart", () => {
     // the card published, so the CGPA still has something to weigh by.
     expect(state.history["S3"]).toEqual(
       { sgpa: 5.05, creditsRegistered: null, creditsEarned: 16 });
-    expect(cgpa().unconfirmed).toEqual(["S3"]);
+    expect(cgpa().unconfirmed).toEqual([{ name: "S3", basis: "earned" }]);
     expect(cgpa().credits).toBe(36);
   });
 });

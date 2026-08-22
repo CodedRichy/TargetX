@@ -1,5 +1,5 @@
 import { For, Show, createMemo } from "solid-js";
-import { ATTENDANCE_MARK_MAX, isIncomplete } from "../engine";
+import { ATTENDANCE_MARK_MAX, isIncomplete, unconfirmedNames } from "../engine";
 import {
   goalRequirement, overall, rows, state, summary, trend,
 } from "../state/store";
@@ -155,10 +155,22 @@ export function Home() {
       const span = n.horizon.semesters === 1 ? first : `${first}–${lastSemester()}`;
       clauses.push(`${span} carry ${n.horizon.credits} credits`);
     }
-    if (n.unconfirmed.length > 0) {
-      const verb = n.unconfirmed.length === 1 ? "is" : "are";
-      clauses.push(
-        `${n.unconfirmed.join(", ")} ${verb} weighted by credits earned rather than registered`);
+    // Two different things happen to a semester with no registered total and
+    // they need two different sentences. Where the earned total stood in, the
+    // semester is still in the CGPA and only its divisor is off. Where neither
+    // total is known it is not in the CGPA at all, and calling that "weighted
+    // by credits earned" - which is what this line said until the engine told
+    // the two apart - names a fallback that did not happen while hiding the
+    // one that did.
+    const fellBack = unconfirmedNames(n.unconfirmed, "earned");
+    const droppedOut = unconfirmedNames(n.unconfirmed, "none");
+    if (fellBack.length > 0) {
+      clauses.push(`${fellBack.join(", ")} ${fellBack.length === 1 ? "is" : "are"}`
+        + " weighted by credits earned rather than registered");
+    }
+    if (droppedOut.length > 0) {
+      clauses.push(`${droppedOut.join(", ")} ${droppedOut.length === 1 ? "is" : "are"}`
+        + " left out of the CGPA entirely, with neither credit total known");
     }
     return clauses.length > 0 ? `Assumes ${clauses.join(", and ")}.` : null;
   };
@@ -191,10 +203,20 @@ export function Home() {
               {/* Registered credits are the denominator - except where a
                   migrated save only knew the earned total, and saying
                   "registered" there would assert something untrue on the
-                  first screen the student reads. History explains which. */}
+                  first screen the student reads. A semester with NEITHER total
+                  is not in this figure at all, which is a stronger caveat than
+                  "unconfirmed" and gets its own words. History explains both. */}
               <span class="tile-note num">
                 <Show when={overall().unconfirmed.length === 0}
-                      fallback={<>{overall().credits} credits, some unconfirmed</>}>
+                      fallback={
+                        <Show when={unconfirmedNames(overall().unconfirmed, "none").length > 0}
+                              fallback={<>{overall().credits} credits, some unconfirmed</>}>
+                          {overall().credits} credits, and{" "}
+                          {unconfirmedNames(overall().unconfirmed, "none").length} semester
+                          {unconfirmedNames(overall().unconfirmed, "none").length === 1 ? "" : "s"}
+                          {" "}not counted
+                        </Show>
+                      }>
                   {overall().credits} credits registered
                 </Show>
               </span>

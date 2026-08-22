@@ -13,9 +13,10 @@ import {
   computeCie, courseOptions, eseCutoff, evaluate, horizonToGraduation, isIncomplete,
   nextAttendanceBand, normaliseGrade, parseEtlab, historyCredits, planForSgpa, requiredEse,
   requiredEseCell, requiredSgpaForCgpa, round, sgpa, statusFor, summarise,
+  unconfirmedNames, unconfirmedSemesters,
 } from "../index";
 import fixture from "./parity.json";
-import type { Course, Grade, Letter, TypeKey } from "../types";
+import type { Course, Grade, Letter, SemesterHistory, TypeKey } from "../types";
 
 describe("CIE scaling", () => {
   it("scales each component onto its weight inside a 40-mark CIE", () => {
@@ -544,7 +545,7 @@ describe("registered credits are the CGPA denominator", () => {
       ...traced,
       S3: { sgpa: 4.75, creditsRegistered: null, creditsEarned: 16 },
     });
-    expect(out.unconfirmed).toEqual(["S3"]);
+    expect(out.unconfirmed).toEqual([{ name: "S3", basis: "earned" }]);
     expect(out.cgpa).toBe(7.417);
   });
 
@@ -810,7 +811,8 @@ describe("a graduation CGPA goal is not a this-semester SGPA goal", () => {
 
   it("names the semesters whose weight it had to guess at", () => {
     const shaky = { ...history, S2: { sgpa: 7.0, creditsRegistered: null, creditsEarned: 23 } };
-    expect(requiredSgpaForCgpa(8.0, shaky, 21, NO_HORIZON).unconfirmed).toEqual(["S2"]);
+    expect(requiredSgpaForCgpa(8.0, shaky, 21, NO_HORIZON).unconfirmed)
+      .toEqual([{ name: "S2", basis: "earned" }]);
     expect(requiredSgpaForCgpa(8.0, history, 21, NO_HORIZON).unconfirmed).toEqual([]);
   });
 });
@@ -2308,5 +2310,67 @@ describe("the row, the header and the plan use one word for one fact", () => {
     expect(rows.length).toBe(612);
     expect(rows.filter((c) => statusFor(evaluate(c)) === "UNREACHABLE").length).toBe(3);
     expect(semesters.flat().filter((c) => statusFor(evaluate(c)) === "UNREACHABLE").length).toBe(1);
+  });
+});
+
+/**
+ * A semester that knows neither credit total is not a weighting fallback.
+ *
+ * `unconfirmedSemesters` returned a bare `string[]` covering two states at
+ * once: one where `creditsEarned` stood in for the registered total, and one
+ * where neither total is known and `historyCredits` yields 0 - which takes the
+ * semester out of the CGPA altogether. Every screen described both with the
+ * sentence that is only true of the first, so the app named a fallback that
+ * did not happen and hid the omission that did, on its largest figure.
+ */
+describe("the CGPA says which semesters it could not weigh", () => {
+  const history = {
+    S1: { sgpa: 9.0, creditsRegistered: null, creditsEarned: null },
+    S2: { sgpa: 6.0, creditsRegistered: 20, creditsEarned: 20 },
+    S3: { sgpa: 7.0, creditsRegistered: null, creditsEarned: 18 },
+  } as unknown as Record<string, SemesterHistory>;
+
+  it("tells the two states apart", () => {
+    // Before the split this was `["S1", "S3"]` and nothing downstream could
+    // tell which was which.
+    expect(unconfirmedSemesters(history)).toEqual([
+      { name: "S1", basis: "none" },
+      { name: "S3", basis: "earned" },
+    ]);
+    expect(unconfirmedNames(unconfirmedSemesters(history))).toEqual(["S1", "S3"]);
+    expect(unconfirmedNames(unconfirmedSemesters(history), "none")).toEqual(["S1"]);
+    expect(unconfirmedNames(unconfirmedSemesters(history), "earned")).toEqual(["S3"]);
+  });
+
+  it("leaves the both-null semester out of the average and says so", () => {
+    // S1 weighs nothing, so the CGPA is over S2 and S3 alone:
+    // (6.0*20 + 7.0*18) / 38 = 246/38.
+    const got = cgpaFromSemesters(history);
+    expect(historyCredits(history["S1"]!)).toBe(0);
+    expect(got.credits).toBe(38);
+    expect(got.cgpa).toBe(round(246 / 38, 3));
+    // No figure is invented for S1. What is owed is the STATEMENT, and the
+    // statement is now available to every screen that prints the number.
+    expect(got.unconfirmed).toEqual([
+      { name: "S1", basis: "none" },
+      { name: "S3", basis: "earned" },
+    ]);
+  });
+
+  it("carries the same split into the goal solve", () => {
+    const need = requiredSgpaForCgpa(8.0, history, 20, NO_HORIZON);
+    expect(need.unconfirmed).toEqual([
+      { name: "S1", basis: "none" },
+      { name: "S3", basis: "earned" },
+    ]);
+    // Home's `assumption()` builds its clauses off exactly these two lists.
+    expect(unconfirmedNames(need.unconfirmed, "earned")).toEqual(["S3"]);
+    expect(unconfirmedNames(need.unconfirmed, "none")).toEqual(["S1"]);
+  });
+
+  it("reports nothing when every semester knows its registered total", () => {
+    expect(cgpaFromSemesters({
+      S1: { sgpa: 9.0, creditsRegistered: 20, creditsEarned: 20 },
+    } as unknown as Record<string, SemesterHistory>).unconfirmed).toEqual([]);
   });
 });
