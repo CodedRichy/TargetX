@@ -1,4 +1,6 @@
-import { ATTENDANCE_CONDONE, GRADE_BANDS, GRADE_POINTS } from "./constants";
+import {
+  ATTENDANCE_CONDONE, GRADE_BANDS, GRADE_POINTS, TOTAL_PASS_MARK,
+} from "./constants";
 import { evaluate, isDebarred } from "./evaluate";
 import { isIncomplete, requiredEse } from "./grade";
 import type { Course, Evaluation, Grade, SemesterHistory } from "./types";
@@ -215,9 +217,10 @@ export interface CourseOption {
  * available is 12 + 60 = 72, a B. A cost that is too low is the one a student
  * acts on. Reaching for `cie` instead is the mirror of it - measured on a
  * LAB 75/25 with one 10/50 series mark in, 28 marks of unmarked components
- * and a floor of 13.4, the floor prices every letter impossible,
- * `courseOptions` returns nothing at all, and one lab with one mark in it
- * takes the whole semester's plan down with it.
+ * and a floor of 13.4, the floor prices every letter impossible and
+ * `courseOptions` returns nothing at all - so the plan writes off as a
+ * certain zero a lab whose unmarked components and attendance marks can still
+ * carry it to a pass at 10 of 25.
  *
  * On an internal-only course that bound is zero for every letter, since there
  * is no exam to spend anything in. True, and useless to a planner - see
@@ -348,8 +351,8 @@ export interface SgpaPlan {
 }
 
 /**
- * What the plan does with a course it cannot ask for an exam mark in, or null
- * where it can.
+ * What the plan does with a course there is no useful exam mark to ask for, or
+ * null where there is.
  *
  * `basis` is the half that matters, because it decides the DENOMINATOR. An
  * SGPA is points over credits, and this is the only place that says which
@@ -359,13 +362,19 @@ export interface SgpaPlan {
  *   - `out` - withdrawn or incomplete. There is no exam of theirs left this
  *     semester and KTU keeps the course out of the SGPA entirely, denominator
  *     included, which is exactly what `summarise` does with it.
- *   - `zero` - debarred. They will not be admitted to the ESE, so the course
- *     scores F: a real grade with a real grade point of 0 over credits that
- *     stay registered (R 9.1 gives F, Ab and FE a grade point of 0 and divides
- *     by the total credits REGISTERED in the semester). Its credits stay in
- *     the denominator and its contribution is a known zero. It still never
- *     appears as a row - instructing a mark in an exam they will not be
- *     admitted to is worse than saying nothing.
+ *   - `zero` - a certain F. A real grade with a real grade point of 0 over
+ *     credits that stay registered (R 9.1 gives F, Ab and FE a grade point of
+ *     0 and divides by the total credits REGISTERED in the semester), so its
+ *     credits stay in the denominator and its contribution is a known zero,
+ *     and it never appears as a row - naming a mark to aim at would be
+ *     instructing a student to spend the one thing they have, study time, on
+ *     a paper that cannot change their result. Two different facts land here:
+ *     a DEBARRED student will not be admitted to the ESE at all, and a course
+ *     whose best remaining total is under the pass mark has an exam left to
+ *     sit that cannot carry it. Both are certain from the branch condition
+ *     rather than from a guess: the second reads `cieCeiling`, the top of the
+ *     internal, so a full paper on top of it is the most the course can
+ *     possibly score.
  *   - `unknown` - internal-only (`eseMax === 0`) with an unsettled CIE. Its
  *     credits are registered like any other, but its grade points are neither
  *     plannable nor known, so one term of the SGPA is a range. `courseOptions`
@@ -413,6 +422,22 @@ function unplannable(ev: Evaluation): Excluded | null {
         : "no exam to aim at, and not every internal mark is in",
     };
   }
+  if (!ev.needPassBest.possible) {
+    // A pass is out of reach at the TOP of the internal, so every letter above
+    // it is too and there is no rung left to sell. The 40% ESE minimum is
+    // never what fails here - it is at most `eseMax`, so it is always payable
+    // - which leaves the aggregate: `cieCeiling` plus a whole paper is the
+    // most this course can score and it is still under the pass mark. An F
+    // that follows from the arithmetic rather than from a forecast, so the
+    // course is counted at a known zero like a debarred one, and the rest of
+    // the semester still gets a route. Only a course with an exam reaches
+    // here: an internal-only one is either caught above or already graded,
+    // since `evaluate` derives its grade the moment the internal settles.
+    return {
+      basis: "zero",
+      why: `even full marks in the exam leave the total under ${TOTAL_PASS_MARK}`,
+    };
+  }
   return null;
 }
 
@@ -451,9 +476,11 @@ function unplannable(ev: Evaluation): Excluded | null {
  * code (a re-registered backlog alongside its current sitting) would otherwise
  * silently collapse into one.
  *
- * `reason` names every course kept out of the route and says which of the
- * three things happened to it, because leaving a course out of the route and
- * leaving it out of the arithmetic are no longer the same sentence.
+ * `reason` names every course kept out of the route and says what happened to
+ * it, because leaving a course out of the route and leaving it out of the
+ * arithmetic are no longer the same sentence. No course kept out ends the
+ * plan: one subject a student cannot pass is a fact about that subject, and
+ * withholding the route for every other subject over it helps nobody.
  */
 export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
   const plannable: Course[] = [];
@@ -514,10 +541,17 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
     const options = courseOptions(course);
     const label = course.code || course.name || "?";
     if (options.length === 0) {
-      return {
-        reachable: false, plan: [], credits: totalCredits, ...open,
-        reason: note(`${label} cannot be passed`),
-      };
+      // Unreachable by construction: `courseOptions` returns nothing only when
+      // no letter is payable, and P is the cheapest letter there is, so an
+      // empty ladder is exactly `!needPassBest.possible` - which `unplannable`
+      // has already taken out above. Kept anyway, and kept as an EXCLUSION
+      // rather than as a return, because the failure it guards against is one
+      // course silently deciding the whole semester: this branch used to end
+      // the plan with "<code> cannot be passed", so a single unpassable lab
+      // left every healthy course beside it with no route at all. Whatever
+      // else goes wrong here, that must not.
+      notes.push(`${label} counted at zero: no grade is still on offer`);
+      continue;
     }
     ladders.push(options);
     labels.push(label);

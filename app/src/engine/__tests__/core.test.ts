@@ -1474,3 +1474,133 @@ describe("a requirement is quoted at the end the rest of the app is solved again
     expect(rescued).toBe(8);
   });
 });
+
+describe("one course a student cannot pass is not a dead semester", () => {
+  // Every component marked and 90% attendance, so the internal is settled at
+  // 6.21 of 75 and cannot rise. A full 25-mark paper on top of it reaches
+  // 31.21, under the 50 a pass needs, so this lab really is an F - the one
+  // case where saying so is not a forecast.
+  const dead = (): Course => ({
+    ...blankCourse("DEAD", "Networks Lab", 2, "LAB 75/25"),
+    s1: 1, s2: 1, other: 0, attendance: 90,
+  });
+  // The same lab with nobody's attendance recorded. The five attendance marks
+  // are counted at their maximum either way, so the verdict does not move -
+  // but the row reads PENDING, and the plan used to contradict it out loud.
+  const deadUnrecorded = (): Course => ({ ...dead(), code: "DEADB", attendance: "" });
+  const healthy = (): Course => ({
+    ...blankCourse("PCCST501", "Networks", 4, "TH 40/60"),
+    s1: 40, s2: 40, other: 8, attendance: 90,
+  });
+
+  it("plans the rest of the semester around it and names it", () => {
+    // The premise first: this is an F at the TOP of its own internal, not
+    // merely a bad row, which is what lets the plan count it at a known zero.
+    const ev = evaluate(dead());
+    expect(ev.cie).toBe(6.21);
+    expect(ev.cieCeiling).toBe(6.21);
+    expect(ev.needPassBest.possible).toBe(false);
+    expect(ev.maxPossibleGrade).toBe("F");
+    expect(courseOptions(dead())).toEqual([]);
+
+    const plan = planForSgpa([dead(), healthy()], 6.0);
+    expect(plan.reachable).toBe(true);
+    expect(plan.plan.map((row) => row.code)).toEqual(["PCCST501"]);
+    // 6.0 over both courses' 6 credits is 36 points, and the dead lab
+    // contributes none of them, so the healthy course has to carry all 36
+    // over its 4 credits: grade point 9, an A+, at 52 of 60.
+    expect(plan.plan[0]!.grade).toBe("A+");
+    expect(plan.plan[0]!.ese).toBe(52);
+    expect(plan.sgpa).toBe(6.0);
+    expect(plan.reason).toBe(
+      "DEAD counted at zero: even full marks in the exam leave the total under 50",
+    );
+    // A course you cannot pass still counts against the SGPA, so its credits
+    // stay in the denominator - the same total `summarise` reports. Dropping
+    // them would divide 36 points by 4 and quote a target this semester does
+    // not have.
+    expect(plan.credits).toBe(6);
+    expect(summarise([dead(), healthy()]).credits).toBe(6);
+    // Not `conditional` either: nothing about this course is unknown, so the
+    // answer is a number rather than a range.
+    expect(plan.conditional).toBeUndefined();
+    expect(plan.unpriced).toBeUndefined();
+  });
+
+  it("does not contradict a PENDING row when the attendance is blank", () => {
+    expect(statusFor(evaluate(deadUnrecorded()))).toBe("PENDING");
+    const plan = planForSgpa([deadUnrecorded(), healthy()], 6.0);
+    expect(plan.reachable).toBe(true);
+    expect(plan.plan.map((row) => row.code)).toEqual(["PCCST501"]);
+    expect(plan.reason).toBe(
+      "DEADB counted at zero: even full marks in the exam leave the total under 50",
+    );
+  });
+
+  it("still refuses the target when the dead course is the whole semester", () => {
+    const plan = planForSgpa([dead()], 6.0);
+    expect(plan.reachable).toBe(false);
+    expect(plan.maxSgpa).toBe(0);
+    expect(plan.credits).toBe(2);
+    expect(plan.reason).toBe(
+      "target is above the best still available; "
+      + "DEAD counted at zero: even full marks in the exam leave the total under 50",
+    );
+  });
+
+  it("never ends a plan over an empty ladder, on any course the engine can build", () => {
+    // Two properties over a pseudo-random corpus spanning every course type,
+    // marks present and absent, attendance either side of both thresholds, an
+    // exam mark or none, and the published grades that outrank all of it.
+    //
+    // First: a plan that offers no rows has to say what the best still
+    // available was, and that best has to be under the target. A plan that
+    // gives up while `maxSgpa` still covers the target has thrown away a route
+    // it had, and one that gives up without stating `maxSgpa` at all has not
+    // even looked - which is precisely what abandoning the whole semester over
+    // one course did.
+    //
+    // Second: an empty ladder is exactly "no pass is left at the top of the
+    // internal", because P is the cheapest letter on the board. That is what
+    // lets `unplannable` carry this rather than the ladder loop, and checking
+    // the two predicates against each other keeps the loop's remaining guard
+    // the unreachable branch its comment says it is.
+    const types: TypeKey[] = [...TYPE_KEYS];
+    const grades = ["", "B+", "W", "I", "F"];
+    let seed = 12345;
+    const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    const maybe = (max: number) => (rnd() < 0.3 ? "" : Math.round(rnd() * max));
+    let empty = 0;
+    let notSat = 0;
+    let disagreed = 0;
+    const collapsed: string[] = [];
+    for (let i = 0; i < 20000; i += 1) {
+      const course: Course = {
+        ...blankCourse(`C${i}`, "", 1 + Math.floor(rnd() * 4), types[Math.floor(rnd() * types.length)]!),
+        s1: maybe(50), s2: maybe(50), other: maybe(10),
+        attended: maybe(100), held: 100,
+        ese: rnd() < 0.5 ? "" : Math.round(rnd() * 60),
+        portal_grade: rnd() < 0.1 ? grades[Math.floor(rnd() * grades.length)]! : null,
+      };
+      const ev = evaluate(course);
+      const noRungs = courseOptions(course).length === 0;
+      if (noRungs) empty += 1;
+      if (isIncomplete(ev.grade)) notSat += 1;
+      const noPassLeft = isIncomplete(ev.grade)
+        || (ev.grade === null && !ev.needPassBest.possible);
+      if (noRungs !== noPassLeft) disagreed += 1;
+      const plan = planForSgpa([course, healthy()], 6.0);
+      if (plan.plan.length === 0 && !((plan.maxSgpa ?? Infinity) < 6.0 - 1e-9)) {
+        collapsed.push(`${i}: ${plan.reason}`);
+      }
+    }
+    expect(disagreed).toBe(0);
+    expect(collapsed.slice(0, 3).join(" | ")).toBe("");
+    // Not vacuous: 1345 of the 20000 courses have no rung to offer - 697 of
+    // them published an I or a W, and the other 648 are the case this block is
+    // about, a course still being sat whose best total cannot reach 50. Each
+    // is paired with a healthy course whose own route has to survive it.
+    expect(empty).toBe(1345);
+    expect(notSat).toBe(697);
+  });
+});
