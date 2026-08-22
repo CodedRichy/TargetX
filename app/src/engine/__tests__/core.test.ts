@@ -1135,7 +1135,10 @@ describe("a debarred course is not planned as a pass", () => {
     expect(plan.conditional).toBeUndefined();
     expect(plan.credits).toBe(8);
     expect(plan.maxSgpa).toBe(5);
-    expect(plan.reason).toContain("PCCST502 counted at zero: attendance below 60%");
+    // "debarred" is the word `statusFor` uses for the same fact, so the plan
+    // and the row now name it the same way.
+    expect(plan.reason)
+      .toContain("PCCST502 counted at zero: debarred, attendance below 60%");
   });
 
   it("plans the target it can actually reach over both courses", () => {
@@ -1534,7 +1537,8 @@ describe("one course a student cannot pass is not a dead semester", () => {
     expect(plan.plan[0]!.ese).toBe(52);
     expect(plan.sgpa).toBe(6.0);
     expect(plan.reason).toBe(
-      "DEAD counted at zero: even full marks in the exam leave the total under 50",
+      "DEAD counted at zero: unreachable, "
+      + "even full marks in the exam leave the total under 50",
     );
     // A course you cannot pass still counts against the SGPA, so its credits
     // stay in the denominator - the same total `summarise` reports. Dropping
@@ -1548,13 +1552,28 @@ describe("one course a student cannot pass is not a dead semester", () => {
     expect(plan.unpriced).toBeUndefined();
   });
 
-  it("does not contradict a PENDING row when the attendance is blank", () => {
-    expect(statusFor(evaluate(deadUnrecorded()))).toBe("PENDING");
+  it("calls it unreachable on the row too when the attendance is blank", () => {
+    // The row used to read PENDING here while the header pill counted the same
+    // course as unreachable and the plan wrote it off - three names for one
+    // fact, two of them rendered together, since App.tsx puts the goal bar
+    // directly above the ledger. A missing attendance figure cannot rescue
+    // this course: `cieCeiling` already counts all five attendance marks, and
+    // a whole paper on top of it is still under the pass mark. The certainty
+    // comes from the branch condition, not from data, so the floor does not
+    // block it.
+    const ev = evaluate(deadUnrecorded());
+    expect(ev.cieFloor).toBe(true);
+    expect(ev.needPassBest.possible).toBe(false);
+    expect(statusFor(ev)).toBe("UNREACHABLE");
+    // And the header count names exactly the same course.
+    expect(summarise([deadUnrecorded(), healthy()]).impossible).toEqual(["DEADB"]);
+
     const plan = planForSgpa([deadUnrecorded(), healthy()], 6.0);
     expect(plan.reachable).toBe(true);
     expect(plan.plan.map((row) => row.code)).toEqual(["PCCST501"]);
     expect(plan.reason).toBe(
-      "DEADB counted at zero: even full marks in the exam leave the total under 50",
+      "DEADB counted at zero: unreachable, "
+      + "even full marks in the exam leave the total under 50",
     );
   });
 
@@ -1564,8 +1583,8 @@ describe("one course a student cannot pass is not a dead semester", () => {
     expect(plan.maxSgpa).toBe(0);
     expect(plan.credits).toBe(2);
     expect(plan.reason).toBe(
-      "target is above the best still available; "
-      + "DEAD counted at zero: even full marks in the exam leave the total under 50",
+      "target is above the best still available; DEAD counted at zero: "
+      + "unreachable, even full marks in the exam leave the total under 50",
     );
   });
 
@@ -2193,5 +2212,101 @@ describe("the route guarantees what it quotes", () => {
     expect(reachable).toBe(2532);
     expect(broken).toBe(741);
     expect(boundViolated).toBe(1174);
+  });
+});
+
+/**
+ * One name per fact, across the three surfaces that state it.
+ *
+ * A course whose pass is out of reach at the top of its internal is stated in
+ * three places at once: the Ledger row pill (`statusFor`), the goal bar's
+ * header pill (`summarise().impossible`), and the plan's reason. App.tsx
+ * renders the goal bar directly above the ledger, so the first two are on
+ * screen together - and they used to disagree the moment the CIE was a floor,
+ * the row reading PENDING while the header counted the same course as
+ * unreachable and the plan wrote it off in a third vocabulary.
+ */
+describe("the row, the header and the plan use one word for one fact", () => {
+  const semesters = (fixture.semesters as unknown as Array<{ courses: Course[] }>)
+    .map(({ courses }) => courses);
+
+  it("names in `impossible` exactly the courses the ledger calls UNREACHABLE", () => {
+    // A property, not an example: the header count and the row pill are two
+    // renderings of one predicate and nothing may make them diverge again.
+    // The 60 corpus semesters cannot exercise this on their own - none of them
+    // has a course that is both unreachable and waiting on a mark - so the
+    // population is the corpus PLUS the two synthetic semesters that do.
+    const dead = (extra: Partial<Course>): Course => ({
+      ...blankCourse("DEAD", "DEAD", 2, "LAB 75/25"), s1: 1, s2: 1, other: 0, ...extra,
+    });
+    const alive: Course = {
+      ...blankCourse("OK", "OK", 4, "TH 40/60"), cie_override: 30, attended: 95, held: 100,
+    };
+    const population = [
+      ...semesters,
+      [dead({ attended: 90, held: 100 }), alive],
+      [dead({}), alive],
+    ];
+    const bad: string[] = [];
+    population.forEach((rows, i) => {
+      const got = summarise(rows).impossible.slice().sort();
+      const want = rows.filter((c) => statusFor(evaluate(c)) === "UNREACHABLE")
+        .map((c) => c.code || c.name || "?").sort();
+      if (JSON.stringify(got) !== JSON.stringify(want)) {
+        bad.push(`semester ${i}: ${JSON.stringify(got)} vs ${JSON.stringify(want)}`);
+      }
+    });
+    expect(bad.join(" | ")).toBe("");
+    // Non-vacuous: the two added semesters both name a course, and the corpus
+    // contributes exactly one more.
+    expect(population.length).toBe(62);
+    expect(population.filter((rows) => summarise(rows).impossible.length > 0).length).toBe(3);
+  });
+
+  it("does not let a floor CIE change which word is used", () => {
+    // Same course twice, differing only in whether the attendance is recorded.
+    // Everything about the verdict follows from `cieCeiling + eseMax < 50`,
+    // which neither field can move.
+    const lab = (extra: Partial<Course>): Course => ({
+      ...blankCourse("DEAD", "DEAD", 2, "LAB 75/25"), s1: 1, s2: 1, other: 0, ...extra,
+    });
+    const alive: Course = {
+      ...blankCourse("OK", "OK", 4, "TH 40/60"), cie_override: 30, attended: 95, held: 100,
+    };
+    for (const course of [lab({ attended: 90, held: 100 }), lab({})]) {
+      const ev = evaluate(course);
+      expect(ev.needPassBest.possible).toBe(false);
+      expect(statusFor(ev)).toBe("UNREACHABLE");
+      expect(summarise([course, alive]).impossible).toEqual(["DEAD"]);
+      // Paired with a healthy course so the plan reports the exclusion rather
+      // than the whole-semester refusal, which prepends its own clause.
+      expect(planForSgpa([course, alive], 6.0).reason).toBe(
+        "DEAD counted at zero: unreachable, "
+        + "even full marks in the exam leave the total under 50",
+      );
+    }
+  });
+
+  it("ranks unreachable above a shortage on a floor CIE, as it already did on a settled one", () => {
+    // The settled path has always returned UNREACHABLE ahead of SHORTAGE and
+    // DEBARRED. The floor branch now does too, so the pill does not depend on
+    // whether a component happens to be marked yet. Measured over the parity
+    // corpus, exactly one of the 612 courses moves - SHORTAGE -> UNREACHABLE -
+    // and none of the 276 semester rows does, so no rollup shifts.
+    // Asserted as the invariant rather than through a hand-built fixture,
+    // because the shape needs an unmarked component AND a recorded shortage
+    // AND an aggregate under the pass mark, and the corpus has exactly one:
+    // UNREACHABLE is now equivalent to its own predicate, with no branch of
+    // `statusFor` able to shadow it.
+    const rows = (fixture.courses as unknown as Array<{ course: Course }>).map((c) => c.course);
+    const shadowed = rows.filter((c) => {
+      const ev = evaluate(c);
+      const should = ev.grade === null && !ev.needPassBest.possible;
+      return should !== (statusFor(ev) === "UNREACHABLE");
+    });
+    expect(shadowed.length).toBe(0);
+    expect(rows.length).toBe(612);
+    expect(rows.filter((c) => statusFor(evaluate(c)) === "UNREACHABLE").length).toBe(3);
+    expect(semesters.flat().filter((c) => statusFor(evaluate(c)) === "UNREACHABLE").length).toBe(1);
   });
 });

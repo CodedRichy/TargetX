@@ -186,6 +186,17 @@ export function statusFor(ev: Evaluation): Status {
     // derived from a bound (`cieFloor`). Attendance is still real and still
     // worth flagging, but nothing can be said about the marks - and nothing
     // can be said about attendance itself when that field is also blank.
+    //
+    // One thing CAN be said, and this branch used to swallow it: if a pass is
+    // out of reach at the TOP of the internal then it is out of reach whatever
+    // the missing figure turns out to be. That is certainty from the branch
+    // condition rather than from data - `cieCeiling` plus a whole paper is the
+    // most the course can score and it is under the pass mark - so it is not a
+    // grade read off a bound and the floor does not block it. It is the same
+    // test the settled path below applies, in the same position relative to
+    // DEBARRED, so one course cannot be UNREACHABLE on the ledger and PENDING
+    // one attendance field later.
+    if (!ev.needPassBest.possible) return "UNREACHABLE";
     if (isDebarred(ev)) return "DEBARRED";
     if (ev.eligible === false) return "SHORTAGE";
     return "PENDING";
@@ -359,6 +370,16 @@ export function summarise(courses: Course[]): Summary {
       projected.push([ev.credits, GRADE_POINTS[ev.maxPossibleGrade]]);
     }
 
+    // `impossible` names exactly the courses `statusFor` calls UNREACHABLE,
+    // and it is tested before the two exits below rather than after them so
+    // that stays true: a debarred course whose pass is also arithmetically out
+    // of reach leaves through the second exit, and its Ledger row says
+    // UNREACHABLE, so the header count has to include it. A published grade
+    // settles the matter - do not warn that a course already on the record is
+    // unreachable - and an unassessed course can never reach here anyway,
+    // since its `cieCeiling` is the whole bucket.
+    if (ev.grade === null && !ev.needPassBest.possible) impossible.push(label);
+
     // Nothing has been assessed yet, so there is no verdict to report beyond
     // the attendance - the course has a projected term above, but it is not
     // one of the courses `assessed` counts.
@@ -387,13 +408,7 @@ export function summarise(courses: Course[]): Summary {
     // been assessed over a confirmed SGPA of zero.
     if (ev.grade === null && ev.assessed && ev.cieFloor) unsettled += 1;
 
-    if (!ev.needPassBest.possible && ev.grade === null) {
-      // A published grade settles the matter; do not warn that a course
-      // already on the record is unreachable.
-      impossible.push(label);
-    } else if (ev.grade === "F") {
-      atRisk.push(label);
-    }
+    if (ev.grade === "F") atRisk.push(label);
     if (ev.eligible === false) lowAttendance.push(label);
   }
 

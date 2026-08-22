@@ -470,7 +470,7 @@ function unplannable(ev: Evaluation): Excluded | null {
   }
   if (ev.grade !== null) return null;
   if (isDebarred(ev)) {
-    return { basis: "zero", why: `attendance below ${ATTENDANCE_CONDONE}%` };
+    return { basis: "zero", why: `debarred, attendance below ${ATTENDANCE_CONDONE}%` };
   }
   if (ev.eseMax === 0 && (!ev.assessed || ev.cieFloor)) {
     if (!ev.assessed) {
@@ -502,7 +502,7 @@ function unplannable(ev: Evaluation): Excluded | null {
     // since `evaluate` derives its grade the moment the internal settles.
     return {
       basis: "zero",
-      why: `even full marks in the exam leave the total under ${TOTAL_PASS_MARK}`,
+      why: `unreachable, even full marks in the exam leave the total under ${TOTAL_PASS_MARK}`,
     };
   }
   return null;
