@@ -19,7 +19,8 @@ npm test               # engine tests, including parity with the Python original
 ```
 
 The original Python build still runs and remains the reference implementation
-for the calculation core and the only one with live etlab sync:
+for the calculation core — the TypeScript engine is held to it by a frozen
+parity corpus:
 
 ```
 pip install customtkinter requests beautifulsoup4
@@ -35,7 +36,7 @@ python targetx.py
 | Calculation engine | Ported to TypeScript. Proven identical to Python across 612 generated course cases and 60 semester rollups (`tools/parity_dump.py`). |
 | Interface | Rebuilt on Solid. No modal dialogs; hand-rolled SVG charts. |
 | Desktop shell | Tauri 2. Single binary, no Python at runtime. |
-| etlab sync | Still Python-only. Deliberately gated: the scraper has been validated against exactly one college, and porting it before that changes is how you end up with a polished cross-platform tool that works at one campus. |
+| etlab sync | Ported. `sync/etlab.ts` does the discovery and parsing; `src-tauri/src/etlab.rs` owns the cookie jar and HTTP so no credential crosses into JS storage. Still validated against exactly one college — treat portal support as unproven anywhere else until a second campus confirms it. |
 
 See `PORT_PLAN.md` for the full reasoning, including the alternatives that were
 rejected and why.
@@ -106,10 +107,11 @@ every hidden input — so `YII_CSRF_TOKEN` (Yii1) and `_csrf` (Yii2) both work �
 and POSTs to that form's own action. Data routes are probed the same way and a
 page is only accepted if course codes actually appear in it.
 
-Your password is never written to disk. Session cookies go to
-`etlab_session.json`, deliberately **separate** from `ktu_data.json`, because a
-live cookie is a bearer credential and your marks file is a thing you might
-export or share. Leave the password blank to re-use a saved session.
+Your password is never written to disk, never logged, and never included in an
+export. Session cookies are held only in the Rust process's in-memory cookie jar
+(`src-tauri/src/etlab.rs`) and are gone when you quit — a live cookie is a bearer
+credential, so it never reaches storage your marks file could carry. Leave the
+password blank to re-use the session from earlier in the same run.
 
 **2. `Import from… → KTU grade card`.** Past semesters → real CGPA. KTU's own
 portal is captcha- and OTP-gated, so TargetX does **not** try to script a login
@@ -154,9 +156,11 @@ from an import get their type inferred from the code (`…L###` → lab,
   target grade you pick, predicted grade, and a status badge —
   `SAFE` / `TIGHT` / `SHORTAGE` / `DEBARRED` / `FAILED` / `UNREACHABLE`.
 - **`Lock SGPA`** freezes a finished semester into history for CGPA maths.
-- **`Export`** writes a formatted `.txt` report and a `.csv` into `exports/`.
-- Everything autosaves to `ktu_data.json` ~400 ms after you stop typing, written
-  atomically so a crash mid-save cannot eat a semester of marks.
+- **`Export`** downloads a formatted `.txt` report, or the full state as `.json`
+  for backup and transfer.
+- Everything autosaves to browser storage (`localStorage`, key
+  `targetx.state.v1`) 250 ms after you stop typing. Storage is per-machine and
+  per-user: it does not sync, so keep a `.json` export if the data matters.
 
 Two SGPA figures are shown on purpose. **Confirmed** counts only subjects with a
 real ESE mark. **Projected** assumes you hit your target where it's reachable,
@@ -168,12 +172,13 @@ and the best grade still mathematically available where it isn't.
 
 | File | Role |
 |---|---|
-| `targetx.py` | UI + calculation core (`evaluate`, `required_ese`, `summarise`) |
-| `etlab_sync.py` | Authenticated etlab client, also runnable as a CLI |
-| `ktu_import.py` | Grade-card and public-page parsers, also a CLI |
-| `curriculum.json` | Editable course catalogue |
-| `ktu_data.json` | Your data. Autosaved. |
-| `etlab_session.json` | Cookies only. Never committed, never exported. |
+| `app/src/engine/` | Calculation core (`evaluate`, `requiredEse`, `summarise`, `goals`, `targets`) |
+| `app/src/sync/etlab.ts` | Authenticated etlab client, over a Rust transport |
+| `app/src/sync/gradecard.ts` | Grade-card and public-page parsers |
+| `app/src-tauri/src/etlab.rs` | Cookie jar and HTTP. In memory only, never a file |
+| `app/src/data/curriculum.json` | Bundled course catalogue, refreshable from the repo |
+| `localStorage["targetx.state.v1"]` | Your data. Autosaved. Not a file |
+| `legacy/` | The retired Python original, kept as the parity oracle |
 
 ## Tests
 
