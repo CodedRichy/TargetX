@@ -6,6 +6,7 @@ export * from "./attendance";
 export * from "./grade";
 export * from "./evaluate";
 export * from "./goals";
+export * from "./targets";
 export * from "./catalogue";
 export * from "./parse";
 export * from "./course";
