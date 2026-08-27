@@ -1,10 +1,12 @@
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createMemo, createSignal } from "solid-js";
 import {
   ATTENDANCE_CONDONE, ATTENDANCE_MIN, COURSE_TYPES, TARGET_CHOICES, TYPE_KEYS,
   isIncomplete, requiredEseCell,
 } from "../engine";
-import type { Course, Evaluation, Letter, RequiredEse, TypeKey } from "../engine";
-import { addCourse, removeCourse, rows, updateCourse } from "../state/store";
+import type {
+  AttendanceTargetGap, Course, Evaluation, Letter, RequiredEse, TypeKey,
+} from "../engine";
+import { addCourse, attendanceGaps, removeCourse, rows, updateCourse } from "../state/store";
 import { AttendanceBar } from "./charts";
 
 const dash = "–";
@@ -110,6 +112,60 @@ function Cell(props: {
 }
 
 /**
+ * The distance to the student's OWN attendance target.
+ *
+ * Rendered as a second sentence beside the eligibility one, never instead of
+ * it. `toTarget` and `toEligible` are two answers to two questions: a course
+ * at 80% has room to miss classes and stay eligible AND owes a run of
+ * consecutive attendance before it stops shedding CIE marks. Quoting only the
+ * first is how an app tells a student at 78% that they are fine.
+ *
+ * Silent where the target is at or below the eligibility line - there the
+ * sentence above is already the stricter of the two and a second one saying
+ * less would only soften it.
+ */
+export function TargetGap(props: { gap: AttendanceTargetGap; ev: Evaluation }) {
+  /**
+   * The same run of classes is already quoted above.
+   *
+   * The attendance-band sentence quotes the run that reaches the next R 7.5.ii
+   * mark band, and where the personal target sits ON a band boundary - which
+   * the default 85 does, being the full-marks band - the two runs are the same
+   * number and printing it twice is noise. Compared by the number the student
+   * would act on, not by the percentage, because that is the thing being
+   * repeated.
+   */
+  const alreadySaid = () =>
+    props.gap.toTarget !== null
+    && props.gap.toTarget.state === "deficit"
+    && props.ev.attBand !== null
+    && props.ev.attBand.nextMarks !== null
+    && props.ev.attBand.attend === props.gap.toTarget.attend;
+
+  return (
+    <Show when={props.gap.toTarget && !props.gap.targetUnderEligibility && !alreadySaid()}>
+      {" "}<Show when={props.gap.toTarget!.state === "surplus"} fallback={
+        <Show when={props.gap.toTarget!.attend !== null} fallback={
+          <span class="out">
+            Your own {props.gap.target!.toFixed(0)}% target is out of reach this semester.
+          </span>
+        }>
+          <span class="down">
+            Your own {props.gap.target!.toFixed(0)}% target is a different number:{" "}
+            <strong>{props.gap.toTarget!.attend}</strong> in a row.
+          </span>
+        </Show>
+      }>
+        <span class="up">
+          Already at or above your own {props.gap.target!.toFixed(0)}% target, with room
+          to miss <strong>{props.gap.toTarget!.skip}</strong> more.
+        </span>
+      </Show>
+    </Show>
+  );
+}
+
+/**
  * The expanded row.
  *
  * This replaces what used to be a modal dialog. A student comparing two
@@ -117,7 +173,9 @@ function Cell(props: {
  * comparing were behind the dialog. Expanding in place keeps the rest of the
  * table on screen.
  */
-function Detail(props: { index: number; course: Course; ev: Evaluation }) {
+function Detail(props: {
+  index: number; course: Course; ev: Evaluation; gap: AttendanceTargetGap;
+}) {
   const spec = () => COURSE_TYPES[(props.course.type ?? "TH 40/60") as TypeKey];
   const set = (patch: Partial<Course>) => updateCourse(props.index, patch);
   // The same pairing the table cell uses, so the row and its expansion cannot
@@ -213,6 +271,7 @@ function Detail(props: { index: number; course: Course; ev: Evaluation }) {
                       <strong>{props.ev.attBand!.nextMarks}</strong> CIE marks
                       instead of {props.ev.attBand!.earned}.
                     </Show>
+                    <TargetGap gap={props.gap} ev={props.ev} />
                   </>
                 )}
               </Show>
@@ -301,6 +360,19 @@ export function Ledger() {
   const [open, setOpen] = createSignal<number | null>(null);
   const toggle = (i: number) => setOpen(open() === i ? null : i);
 
+  /**
+   * Rows paired with their attendance gaps in ONE pass.
+   *
+   * `attendanceGaps()` is index-aligned with `rows()` by construction, and
+   * indexing one from the other is named in the engine report as the way that
+   * pairing breaks silently under a future filter. Zipping them here means a
+   * desync would be a missing gap rather than a wrong one.
+   */
+  const zipped = createMemo(() => {
+    const gaps = attendanceGaps();
+    return rows().map((row, i) => ({ row, gap: gaps[i]! }));
+  });
+
   return (
     <div class="ledger">
       <Show when={rows().length > 0} fallback={
@@ -337,7 +409,7 @@ export function Ledger() {
             </tr>
           </thead>
           <tbody>
-            <For each={rows()}>{(row) => (
+            <For each={zipped()}>{({ row, gap }) => (
               <>
                 <tr class={`row${open() === row.index ? " open" : ""}`}>
                   <td class="left">
@@ -408,7 +480,7 @@ export function Ledger() {
                   </td>
                 </tr>
                 <Show when={open() === row.index}>
-                  <Detail index={row.index} course={row.course} ev={row.ev} />
+                  <Detail index={row.index} course={row.course} ev={row.ev} gap={gap} />
                 </Show>
               </>
             )}</For>

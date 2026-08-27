@@ -1,7 +1,8 @@
 import { For, Show, createSignal, onMount } from "solid-js";
 import {
-  activeCourses, addSemester, goalRequirement, overall, selectSemester,
-  semesterNames, setGoal, state, summary,
+  activeCourses, addSemester, attendanceGaps, goalRequirement, overall,
+  selectSemester, semesterNames, setAttendanceTarget, setGoal, state, summary,
+  targets,
 } from "../state/store";
 import { VIEWS, needsSetup, setView, view } from "../state/nav";
 import { appearance, setTheme, startTheme, theme } from "../state/theme";
@@ -78,15 +79,35 @@ function Kpis() {
  * The question the app exists to answer, so it gets a permanent row rather than
  * a settings dialog: "I want an 8. What does this semester have to do?"
  */
-function GoalBar() {
+export function GoalBar() {
   const [draft, setDraft] = createSignal(
     state.goal?.cgpa != null ? String(state.goal.cgpa) : "");
+  const [attDraft, setAttDraft] = createSignal(
+    targets().attendance === null ? "" : String(targets().attendance));
 
   const commit = (raw: string) => {
     setDraft(raw);
     const value = Number(raw.trim());
     setGoal(raw.trim() === "" || !Number.isFinite(value) ? null : value);
   };
+
+  const commitAtt = (raw: string) => {
+    setAttDraft(raw);
+    const value = Number(raw.trim());
+    setAttendanceTarget(raw.trim() === "" || !Number.isFinite(value) ? null : value);
+  };
+
+  /**
+   * Subjects under the student's OWN attendance target.
+   *
+   * Deliberately a second count beside the shortage pill and never folded into
+   * it. That one reports a regulation breach - below 75%, not eligible - and
+   * this one reports a personal aim being missed. A subject at 80% is on this
+   * list and not on that one, which is the whole point: nothing else in KTU
+   * tells a student that 80% is already costing them CIE marks.
+   */
+  const belowTarget = () => attendanceGaps()
+    .filter((g) => g.toTarget !== null && g.toTarget.state === "deficit").length;
 
   const need = () => goalRequirement();
   const risky = () => {
@@ -99,6 +120,11 @@ function GoalBar() {
       <label for="goal">Target CGPA</label>
       <input id="goal" class="goal-input num" value={draft()} placeholder="8.0"
              onInput={(e) => commit(e.currentTarget.value)} />
+
+      <label for="att-target">Target attendance</label>
+      <input id="att-target" class="goal-input num" value={attDraft()} placeholder="85"
+             title="Your own attendance target. Why 85 and not 75 is on the Targets tab."
+             onInput={(e) => commitAtt(e.currentTarget.value)} />
 
       <Show when={need()} fallback={
         <span class="verdict" style={{ color: "var(--text-faint)" }}>
@@ -125,9 +151,17 @@ function GoalBar() {
         )}
       </Show>
 
+      <Show when={belowTarget() > 0}>
+        <span class="pill mine" style={{ "margin-left": "auto" }}
+              title="Your own target, not the regulation. See the Targets tab.">
+          {belowTarget()} below your {targets().attendance!.toFixed(0)}% target
+        </span>
+      </Show>
       <Show when={summary().lowAttendance.length > 0}>
-        <span class="pill shortage" style={{ "margin-left": "auto" }}>
-          {summary().lowAttendance.length} short on attendance
+        <span class="pill shortage"
+              style={belowTarget() > 0 ? {} : { "margin-left": "auto" }}
+              title="Below the 75% eligibility rule (R 6.2). A different list.">
+          {summary().lowAttendance.length} short of 75%
         </span>
       </Show>
       <Show when={summary().impossible.length > 0}>
