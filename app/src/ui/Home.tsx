@@ -1,5 +1,8 @@
 import { For, Show, createMemo } from "solid-js";
-import { ATTENDANCE_MARK_MAX, isIncomplete, unconfirmedNames } from "../engine";
+import {
+  ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN,
+  attendanceMarks, isIncomplete, unconfirmedNames,
+} from "../engine";
 import {
   goalRequirement, overall, rows, state, summary, trend,
 } from "../state/store";
@@ -18,6 +21,19 @@ import { GoalGauge, TrendChart } from "./charts";
  * then how stale the data is. A card only earns its place if a student would
  * do something differently after reading it.
  */
+
+/**
+ * Attendance marks forfeited by a student sitting exactly on the eligibility
+ * line, out of `ATTENDANCE_MARK_MAX`.
+ *
+ * Derived from the bands, never pasted: this number is the entire argument for
+ * why the app defaults its target to `ATTENDANCE_FULL_MARKS_PCT` rather than
+ * `ATTENDANCE_MIN`, and a stale literal here would be the app teaching a wrong
+ * rule with total confidence. `attendanceMarks` returns null only for an
+ * unparseable input, and `ATTENDANCE_MIN` is a number.
+ */
+const FORFEIT_AT_ELIGIBILITY =
+  ATTENDANCE_MARK_MAX - (attendanceMarks(ATTENDANCE_MIN) ?? 0);
 
 /** A subject worth surfacing, with the reason it made the list. */
 interface Concern {
@@ -53,12 +69,22 @@ export function Home() {
     let lost = 0;
     let counted = 0;
     let cheapest: { code: string; attend: number; marks: number } | null = null;
+    // Subjects a student would call fine: past the eligibility line, short of
+    // the line where attendance stops costing marks. The whole point of the
+    // sentence this feeds is that nothing else in a student's life flags
+    // them - the portal shows a green 78% and says nothing about R 7.5.ii.
+    let blindSpot = 0;
 
     for (const row of rows()) {
       const ev = row.ev;
       if (ev.attMarks === null) continue;
       counted += 1;
       lost += ATTENDANCE_MARK_MAX - ev.attMarks;
+
+      const pct = ev.attendance;
+      if (pct !== null && pct >= ATTENDANCE_MIN && pct < ATTENDANCE_FULL_MARKS_PCT) {
+        blindSpot += 1;
+      }
 
       const band = ev.attBand;
       if (!band || band.nextMarks === null || band.attend <= 0) continue;
@@ -70,7 +96,7 @@ export function Home() {
         };
       }
     }
-    return { lost: Math.round(lost * 10) / 10, counted, cheapest };
+    return { lost: Math.round(lost * 10) / 10, counted, cheapest, blindSpot };
   });
 
   /** Everything breakable, ordered by how bad it is rather than by code. */
@@ -289,7 +315,9 @@ export function Home() {
             <Show when={attendanceCost().counted > 0} fallback={
               <p class="tile-verdict dim">
                 No attendance recorded yet. It is worth up to {ATTENDANCE_MARK_MAX} CIE
-                marks per subject, so it is the cheapest thing here to fix.
+                marks per subject, and all {ATTENDANCE_MARK_MAX} need{" "}
+                {ATTENDANCE_FULL_MARKS_PCT}%, not the {ATTENDANCE_MIN}% you are told
+                about — so it is the cheapest thing here to fix.
               </p>
             }>
               <div class="hero-number tight">
@@ -298,6 +326,18 @@ export function Home() {
                   CIE marks lost across {attendanceCost().counted} subjects
                 </span>
               </div>
+              <Show when={attendanceCost().blindSpot > 0}>
+                <p class="tile-verdict">
+                  <strong class="num">{attendanceCost().blindSpot}</strong> of them are
+                  above {ATTENDANCE_MIN}% and losing marks anyway. Full marks start at{" "}
+                  <strong class="num">{ATTENDANCE_FULL_MARKS_PCT}%</strong> — sitting on{" "}
+                  {ATTENDANCE_MIN}% forfeits{" "}
+                  <span class="unit">
+                    <strong class="num">{FORFEIT_AT_ELIGIBILITY}</strong> of{" "}
+                    {ATTENDANCE_MARK_MAX}
+                  </span>, and nothing else will tell you.
+                </p>
+              </Show>
               <p class="tile-verdict">
                 <Show when={attendanceCost().cheapest} fallback={
                   <>Every subject is already in its top attendance band. Nothing to reclaim.</>

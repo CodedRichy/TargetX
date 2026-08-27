@@ -523,6 +523,10 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
 .tile-verdict.dim { color: var(--text-faint); }
 .tile-verdict.bad { color: var(--warn); }
 .tile-verdict strong { color: var(--text); font-weight: 600; }
+/* A quantity and its denominator are one token to a reader. Without this the
+   tile broke "2 of 5" across a line, leaving a bare 5 that scans as a new
+   number. Scoped to the tile: elsewhere the figures stand alone. */
+.tile-verdict .unit { white-space: nowrap; }
 
 .concerns { display: flex; flex-direction: column; gap: var(--s2); list-style: none; margin: 0; padding: 0; }
 .concerns li {
