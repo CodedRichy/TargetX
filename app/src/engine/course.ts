@@ -1,5 +1,7 @@
 import { inferCredits, lookupCourse } from "./catalogue";
 import { DEFAULT_TYPE } from "./constants";
+import { defaultTargets } from "./targets";
+import type { Targets } from "./targets";
 import type { Course, SemesterHistory, TypeKey } from "./types";
 
 /**
@@ -45,7 +47,17 @@ export interface AppState {
   etlab: Record<string, unknown>;
   semesters: Record<string, Semester>;
   history: Record<string, SemesterHistory>;
-  goal?: { cgpa: number | null };
+  /**
+   * Every personal target the student has set - CGPA, attendance, SGPA per
+   * semester. See `Targets` in engine/targets.ts, and the split it enforces:
+   * KTU's own thresholds are constants and are not reachable from here.
+   *
+   * The field kept the name it had when it held the CGPA target alone, so
+   * `goal.cgpa` is at the same path in an old save and a new one and no key
+   * has to move. Optional because a save may predate it entirely;
+   * `normaliseTargets` is what turns whatever is stored into a complete set.
+   */
+  goal?: Targets;
   /**
    * Whether first-run setup has been completed.
    *
@@ -69,7 +81,7 @@ export function defaultState(): AppState {
     etlab: {},
     semesters: { S1: { courses: [] } },
     history: {},
-    goal: { cgpa: null },
+    goal: defaultTargets(),
     onboarded: false,
   };
 }

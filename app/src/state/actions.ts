@@ -1,7 +1,7 @@
 import { unwrap } from "solid-js/store";
 import {
-  CATALOGUE_URL, blankCourse, catalogueVersion, courseFromCode, parseEtlab,
-  requiredEseCell, setCatalogue,
+  CATALOGUE_URL, blankCourse, catalogueVersion, courseFromCode, defaultTargets,
+  normaliseTargets, parseEtlab, requiredEseCell, setCatalogue,
 } from "../engine";
 import type { Course, PresetCourse, RequiredEse } from "../engine";
 import type { SyncResult } from "../sync/etlab";
@@ -283,9 +283,14 @@ export function importJson(text: string) {
   if (!parsed || typeof parsed !== "object" || !parsed.semesters) {
     throw new Error("That file is not a TargetX backup.");
   }
-  // A backup written before the registered/earned credit split is the same
-  // old shape arriving later, so it goes through the same migration as a load.
-  edit((s) => Object.assign(s, parsed, { history: migrateHistory(parsed.history) }));
+  // A backup written before the registered/earned credit split, or before the
+  // goal widened from a lone CGPA into the full target set, is the same old
+  // shape arriving later - so it goes through the same migrations as a load
+  // rather than a second reading of what those shapes mean.
+  edit((s) => Object.assign(s, parsed, {
+    history: migrateHistory(parsed.history),
+    goal: normaliseTargets(parsed.goal),
+  }));
 }
 
 export function resetEverything() {
@@ -293,7 +298,7 @@ export function resetEverything() {
     s.semesters = { S1: { courses: [] } };
     s.history = {};
     s.activeSemester = "S1";
-    s.goal = { cgpa: null };
+    s.goal = defaultTargets();
     s.onboarded = false;
     s.lastSync = undefined;
   });
