@@ -217,6 +217,10 @@ select.cell-input { text-align: left; width: auto; }
 }
 /* Neither good news nor bad: nothing is riding on these this semester. */
 .pill.pending, .pill.incomplete { background: var(--surface-2); color: var(--text-faint); }
+/* A PERSONAL target being missed, which is not a regulation status and must
+   not wear the regulation's colour. Amber on both would say the two counts in
+   the goal bar are the same kind of fact; they are two different lists. */
+.pill.mine { background: var(--brand-wash); color: var(--brand-bright); }
 
 /* The asterisk that says the 40% ESE minimum is binding, not the aggregate. */
 .bound { color: var(--warn); font-weight: 600; }
@@ -317,3 +321,132 @@ tr.row:hover .del { opacity: 1; }
   text-transform: uppercase;
 }
 .chart-note { color: var(--text-faint); font-size: var(--text-xs); margin: var(--s2) 0 0; }
+
+/* --- targets -------------------------------------------------------------- */
+
+/*
+ * The drawer's Targets tab.
+ *
+ * Same card language as the rest of the drawer - chart blocks separated by
+ * space and hairlines, never a card inside a card. The tab is wider than its
+ * siblings because it carries two routes and a per-course table; the analytics
+ * tab is charts sized to 340 and must not be stretched to match.
+ */
+.drawer-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-bottom: var(--s5);
+}
+
+.drawer.wide { width: 460px; }
+
+@media (max-width: 1100px) {
+  .drawer.wide { width: 340px; }
+}
+
+/* A target field: label left, the same input the goal bar uses right. */
+.field label {
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+.faint { color: var(--text-faint); }
+
+/*
+ * THE CEILING: what is still available above a route that falls short.
+ *
+ * A left rule rather than a panel, because a nested card inside a chart block
+ * is clutter with no hierarchy. Verdigris and not a semantic colour: this is
+ * an instrument reading, and the semantic trio belongs to status alone - the
+ * good/bad of the reading is carried by the sentence under it.
+ */
+.ceiling {
+  border-left: 2px solid var(--brand-deep);
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: var(--s4) 0 0;
+  padding-left: var(--s3);
+}
+.ceiling-figure {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.1;
+}
+.ceiling .chart-note { margin-top: var(--s1); }
+
+/* The regulation reference. Terms in brand, values in body - the same
+   vocabulary the glossary uses, so the two read as one kind of thing. */
+.floors { margin: var(--s3) 0 0; }
+.floors dt {
+  color: var(--brand-bright);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-wide);
+  margin-top: var(--s3);
+}
+.floors dd {
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  margin: var(--s1) 0 0;
+}
+
+/*
+ * One course, both attendance answers.
+ *
+ * Two columns, deliberately unequal in emphasis rather than in width: they are
+ * peers, and a student who reads only the left one is the reader this layout
+ * exists to stop. The labels are always both present, even where one answer is
+ * a dash, so the absence of an answer is visible as an absence.
+ */
+.gap-row {
+  align-items: baseline;
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  gap: var(--s3);
+  padding: var(--s3) 0;
+}
+.gap-row:first-of-type { border-top: 0; }
+.gap-code { color: var(--text); font-weight: 600; min-width: 6ch; }
+.gap-now { color: var(--text-dim); min-width: 4ch; }
+.gap-answers {
+  display: grid;
+  flex: 1;
+  gap: var(--s2) var(--s4);
+  grid-template-columns: 1fr 1fr;
+}
+.gap-answers > div { display: flex; flex-direction: column; gap: 0.1rem; }
+.gap-answer { font-size: var(--text-sm); line-height: 1.4; }
+.gap-answer .up { color: var(--good); }
+.gap-answer .down { color: var(--warn); }
+.gap-answer .out { color: var(--danger); }
+.gap-answer strong { color: var(--text); font-weight: 600; }
+
+/* The route panels sit one under the other and must not blur into each
+   other: each is a different target and the seam says so.
+   NOT `.route` - screens.css already owns that name for the setup step's
+   choice card, and reusing it dressed every route row in a bordered, hover-
+   lit panel with an oversized <strong>. Caught by looking at a screenshot. */
+.route-panel + .route-panel {
+  border-top: 1px solid var(--hairline);
+  padding-top: var(--s5);
+}
+.route-panel .stat-label { margin-bottom: var(--s2); }
+
+/* Route rows: the code is a column, the quote is a paragraph beside it. Without
+   the min-width the quoted mark started at a different x on every row, because
+   `.field` spaces its two children apart and the codes are not all one width. */
+.route-panel .field { align-items: baseline; }
+.route-panel .field > span:first-child { flex: none; min-width: 6ch; }
+.route-panel .field > span:last-child { flex: 1; text-align: left; font-size: var(--text-sm); }
+
+/* Figures inside a route's prose are readings, and at --text-xs mono they
+   disappear into the sentence. One step up, deliberately - the accidental
+   --text-lg they inherited from the `.route` collision was three steps and
+   made every sentence a headline. */
+.route-panel .chart-note .num { font-size: var(--text-sm); }
+.route-panel .chart-note strong { color: var(--text); font-weight: 600; }
