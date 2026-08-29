@@ -160,6 +160,8 @@ export interface PresetCourse {
   credits: number;
   type: TypeKey;
   elective: boolean;
+  /** Position in the curriculum table, which is the order KTU prints. */
+  index: number;
   /** Set when this row is one of a slot's alternatives; see `BranchRow`. */
   slot?: string;
 }
@@ -206,8 +208,8 @@ export function presetCourses(branch: string, semester: string): PresetCourse[] 
   const rows = active.branches?.[resolveBranch(branch)]?.[semester]
     ?? groupTable(branch)[semester]
     ?? [];
-  return rows.map(([code, name, credits, type, slot]) => ({
-    code, name, credits,
+  return rows.map(([code, name, credits, type, slot], index) => ({
+    code, name, credits, index,
     type: type as TypeKey,
     elective: ELECTIVE_PREFIXES.some((p) => code.toUpperCase().startsWith(p)),
     ...(slot ? { slot } : {}),
@@ -219,7 +221,12 @@ export function presetCourses(branch: string, semester: string): PresetCourse[] 
     // choice with two answers.
     Number(a.elective) - Number(b.elective)
     || (a.slot ?? "").localeCompare(b.slot ?? "")
-    || a.code.localeCompare(b.code));
+    // Inside a slot, the order the CURRICULUM lists them in, not alphabetical.
+    // The default tick is the first alternative, and alphabetical made that
+    // GBEST213 Engineering Mechanics - a row KTU offers to four branches only -
+    // ahead of GXEST203, which is the one every other branch in the group
+    // takes. Sorting by code pre-ticked the wrong subject for most of them.
+    || (a.slot ? a.index - b.index : a.code.localeCompare(b.code)));
 }
 
 /**

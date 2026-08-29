@@ -10,7 +10,8 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  branches, defaultBranch, expectedCredits, presetCourses, resolveBranch, semesterKeys,
+  branches, defaultBranch, defaultSlotChoice, expectedCredits, presetCourses,
+  resolveBranch, semesterKeys,
 } from "../catalogue";
 
 const total = (branch: string, semester: string) => {
@@ -84,5 +85,32 @@ describe("branch aliases", () => {
 
   it("leave a name that is already a branch alone", () => {
     for (const branch of branches()) expect(resolveBranch(branch)).toBe(branch);
+  });
+});
+
+describe("which alternative arrives ticked", () => {
+  it("follows the order the curriculum prints, not the alphabet", () => {
+    // Group B S2 offers GXEST203 Foundations of Computing or GBEST213
+    // Engineering Mechanics, and KTU offers the second to four branches only.
+    // Sorting a slot by code put GBEST213 first, so every other branch in the
+    // group opened on a subject it does not take.
+    const b = branches().find((x) => x.startsWith("Electronics and Communication Engineering"))!;
+    const slotC = presetCourses(b, "S2").filter((c) => c.slot === "C");
+    expect(slotC.map((c) => c.code)).toEqual(["GXEST203", "GBEST213"]);
+    expect([...defaultSlotChoice(presetCourses(b, "S2"))]).toContain("GXEST203");
+  });
+
+  it("puts the OTHER alternative first in S2, which is the whole point of a slot", () => {
+    // A student takes Physics in one semester and Chemistry in the other. The
+    // tables encode that by listing them the opposite way round, and sorting
+    // by code threw it away - both semesters opened on Physics.
+    for (const branch of branches()) {
+      const s1 = [...defaultSlotChoice(presetCourses(branch, "S1"))];
+      const s2 = [...defaultSlotChoice(presetCourses(branch, "S2"))];
+      const science = (codes: string[]) => codes.find((c) => /PHT|CYT/.test(c));
+      const wellness = (codes: string[]) => codes.find((c) => /UCPWT|UCHUT/.test(c));
+      expect(science(s1), branch).not.toBe(science(s2));
+      expect(wellness(s1), branch).not.toBe(wellness(s2));
+    }
   });
 });
