@@ -30,6 +30,21 @@ variables → Actions**:
 | `TAURI_SIGNING_PRIVATE_KEY` | the full contents of `targetx-updater.key` |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | the contents of `targetx-updater.password` |
 
+**A build without that key does not fail.** Verified locally on 29 August
+2026: `npm run tauri build` with no `TAURI_SIGNING_PRIVATE_KEY` set produced
+both the NSIS installer and the MSI, printed one line —
+
+```
+A public key has been found, but no private key. Make sure to set
+`TAURI_SIGNING_PRIVATE_KEY` environment variable.
+```
+
+— and then **exited 0**. No `.sig` file, no `latest.json`, green build. A CI
+run missing that secret therefore looks like a clean release while shipping
+installers that no existing install can ever be offered. The release workflow
+now refuses to start when the secret is empty, which is the only reason that
+silence is survivable.
+
 > **If you lose that private key you cannot update anyone who has already
 > installed TargetX.** Their build trusts only the matching public key, which
 > is compiled into it. There is no recovery and no override — you would have to
@@ -117,3 +132,11 @@ Signing failures are quiet by design, so check rather than assume:
 - Install an **older** version, then launch it. It should offer the new one
   within a few seconds. If it does not, the update signature or `latest.json`
   is wrong — not the app.
+- Check the release's own file list for `latest.json` and a `.sig` beside each
+  installer. If the installers are there and those are not, the build ran
+  without the updater key — and it will have reported success.
+
+The general shape: **every failure mode here is a green build.** An unsigned
+update payload exits 0, a draft release is not "latest", and a missing
+certificate only shows up on a stranger's machine. None of them announce
+themselves, so none of them can be caught by watching for a red X.

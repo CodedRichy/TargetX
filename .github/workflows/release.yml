@@ -51,13 +51,34 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
 
-    # Hoisted so the signing step's `if` can test them through the `env`
-    # context. Absent secrets arrive as empty strings, which is exactly the
-    # signal that no certificate has been bought yet.
+    # Hoisted so the steps' `if` conditions can test them through the `env`
+    # context: a step-level `if` that dereferences the secrets context is not
+    # reliably supported, and a release pipeline is the wrong place to find
+    # that out. Absent secrets arrive as empty strings - which for the
+    # certificate means none has been bought yet and the build proceeds
+    # unsigned, and for the updater key means the release must not happen.
     env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
       WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
     steps:
+      # The updater key is not optional, and its absence is silent. A build
+      # with no TAURI_SIGNING_PRIVATE_KEY still bundles both installers, still
+      # prints only "A public key has been found, but no private key", and
+      # still EXITS 0 - verified locally on 2026-08-29. So the release goes
+      # green, the .sig files and latest.json are simply missing, and every
+      # existing install keeps polling a feed that never mentions the new
+      # version. Nobody finds out until someone asks why they were never
+      # offered an update. Fail here instead, before anything is uploaded.
+      - name: Refuse to release without the updater signing key
+        if: env.TAURI_SIGNING_PRIVATE_KEY == ''
+        run: |
+          echo "TAURI_SIGNING_PRIVATE_KEY is empty."
+          echo "Without it this build produces installers but no signed update"
+          echo "payload, and no installed copy of TargetX will ever be offered"
+          echo "this version. See SIGNING.md."
+          exit 1
+
       - uses: actions/checkout@v4
 
       - name: Install Linux build dependencies

@@ -54,8 +54,11 @@ presented as the university's that nobody checked.
 - [ ] Buy a Windows code-signing certificate. The plumbing is done and
       secret-gated; see [`SIGNING.md`](SIGNING.md). Until then Windows tells
       every student the publisher is unknown.
-- [ ] Put the updater signing key into GitHub Actions secrets. Without it
-      releases build but no installed copy will accept them.
+- [ ] Put the updater signing key into GitHub Actions secrets. A build
+      without it exits 0 and produces installers with no update payload, so
+      the release reads as clean and no installed copy is ever offered it.
+      The workflow now refuses to run without the secret rather than trusting
+      anyone to notice.
 - [ ] Tag v0.1.0 and publish the release — and remember a *draft* release is
       not "latest", so nobody is offered it until it is published.
 - [ ] **Rotate the etlab password** that was pasted into a chat transcript.
