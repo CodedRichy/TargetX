@@ -1,5 +1,5 @@
 import { GRADE_POINTS, evaluate, isGraded, sgpa as computeSgpa } from "../engine";
-import { state } from "./store";
+import { saveFault, state } from "./store";
 
 /**
  * The launch check.
@@ -15,7 +15,8 @@ import { state } from "./store";
  * a credential on disk to save a click. Staleness is reported instead.
  */
 
-export type FindingKind = "reconcile" | "stale" | "empty" | "attendance" | "corrupt";
+export type FindingKind =
+  "reconcile" | "stale" | "empty" | "attendance" | "corrupt" | "save";
 
 export interface Finding {
   kind: FindingKind;
@@ -71,6 +72,44 @@ export function reconcileFailures(): string[] {
 export function ineligibleCount(): number {
   const courses = state.semesters[state.activeSemester]?.courses ?? [];
   return courses.filter((c) => evaluate(c).eligible === false).length;
+}
+
+/**
+ * What the last save did, when it did not do all of it.
+ *
+ * Deliberately NOT part of `runLaunchCheck`: that runs once at launch over data
+ * already in memory, and a save fails later, while the student is typing. This
+ * is re-read every render instead, and it clears itself the moment a save
+ * succeeds.
+ *
+ * The action sends them to the manual export, because that is the one thing
+ * that still works when the automatic path is broken - and it has to be
+ * offered while the numbers are still on screen.
+ */
+export function saveFindings(): Finding[] {
+  const fault = saveFault();
+  if (!fault) return [];
+  if (fault.kind === "backup") {
+    return [{
+      kind: "save", severity: "info",
+      title: "TargetX is not keeping a backup copy",
+      detail: "Your marks are being saved, but the older copies TargetX keeps "
+        + `beside them could not be written: ${fault.error}`,
+      goto: "data", action: "Export a copy",
+    }];
+  }
+  return [{
+    kind: "save", severity: "warn",
+    title: "Your marks are not being saved",
+    detail: fault.kind === "file"
+      ? "TargetX could not write to the file it keeps your record in, so "
+        + "everything typed since is only in this window and goes when it "
+        + `closes. Export a copy before that happens. ${fault.error}`
+      : "This browser is refusing to store anything — private mode, or the "
+        + "storage is full — and there is no file behind it, so everything "
+        + `typed here goes when the tab closes. ${fault.error}`,
+    goto: "data", action: "Export a copy now",
+  }];
 }
 
 export function runLaunchCheck(): Finding[] {

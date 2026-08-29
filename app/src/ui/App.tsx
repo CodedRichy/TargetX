@@ -1,6 +1,6 @@
 import { For, Show, createSignal, onMount } from "solid-js";
 import {
-  activeCourses, addSemester, attendanceGaps, goalRequirement, overall,
+  activeCourses, addSemester, attendanceGaps, goalRequirement, hydrate, overall,
   selectSemester, semesterNames, setAttendanceTarget, setGoal, state, summary,
   targets,
 } from "../state/store";
@@ -13,7 +13,7 @@ import { Home } from "./Home";
 import { Ledger } from "./Ledger";
 import { Setup } from "./Setup";
 import { Mark } from "./Mark";
-import { runLaunchCheck } from "../state/launch";
+import { runLaunchCheck, saveFindings } from "../state/launch";
 import type { Finding } from "../state/launch";
 import { checkForUpdate } from "../sync/update";
 import type { Available } from "../sync/update";
@@ -282,6 +282,30 @@ export function UpdateNotice(props: { update: Available; onDismiss: () => void }
   );
 }
 
+/**
+ * A save that is not landing.
+ *
+ * Sits outside `LaunchNotice` and has no dismiss of its own, on purpose.
+ * Everything in that banner reports on something already written down, so
+ * closing it costs nothing; this reports that what is on the screen is NOT
+ * being written down, and the student needs it in front of them until they
+ * have exported a copy. It takes itself away the moment a save succeeds.
+ */
+export function SaveNotice() {
+  return (
+    <Show when={saveFindings().length > 0}>
+      <div class="launch-notice">
+        <For each={saveFindings()}>{(f) => (
+          <div class={`notice ${f.severity === "warn" ? "warn" : ""}`} title={f.detail}>
+            <strong>{f.title}</strong>
+            <button class="link" onClick={() => setView(f.goto)}>{f.action}</button>
+          </div>
+        )}</For>
+      </div>
+    </Show>
+  );
+}
+
 function LaunchNotice(props: { findings: Finding[]; onDismiss: () => void }) {
   return (
     <Show when={props.findings.length > 0}>
@@ -318,8 +342,15 @@ export function App() {
   const [update, setUpdate] = createSignal<Available | null>(null);
   const [updateDismissed, setUpdateDismissed] = createSignal(false);
 
-  onMount(() => {
+  onMount(async () => {
     const started = Date.now();
+    // Before the check, not after: `runLaunchCheck` audits what the app is
+    // holding, and until this resolves what it is holding is the localStorage
+    // seed rather than the record on disk. Auditing the seed would report on a
+    // copy the student is not about to be shown.
+    try {
+      await hydrate();
+    } catch { /* `hydrate` reports its own faults through the save banner */ }
     let found: Finding[] = [];
     try {
       found = runLaunchCheck();
@@ -437,6 +468,7 @@ export function App() {
           <Ledger />
           <Drawer />
         </Show>
+        <SaveNotice />
         <Show when={!dismissed()}>
           <LaunchNotice findings={findings()} onDismiss={() => setDismissed(true)} />
         </Show>
