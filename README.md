@@ -183,10 +183,55 @@ and the best grade still mathematically available where it isn't.
 ## Tests
 
 ```
-python test_core.py    # grading, CIE scaling, reverse engine, parser  — 20 checks
-python test_sync.py    # full login + scrape against a fake Yii portal — 16 checks
+cd app && npm test          # 275 tests across 15 files
+```
+
+Counted from a run on 2026-08-29, not estimated: **179** engine, **66** UI,
+**16** state, **14** sync.
+
+`engine/__tests__/parity.test.ts` is the load-bearing one. It replays a frozen
+corpus of 612 generated course cases and 60 semester rollups produced by the
+Python original in `legacy/`, and the corpus file has been byte-identical
+through eighteen refactors — so a change that alters a single computed figure
+anywhere in the engine fails immediately, by name.
+
+The legacy Python suite still runs and is still the oracle the corpus came
+from:
+
+```
+cd legacy && python test_core.py && python test_sync.py
 ```
 
 `test_sync.py` stands up a local server that deliberately uses a non-obvious
 login route, a Yii1 CSRF field, and data routes that aren't first in the probe
 list — so the discovery logic is actually exercised, not just the happy path.
+
+---
+
+## Licence
+
+Source-available under the **Business Source License 1.1**, with the full text
+and parameters in [`LICENSE`](LICENSE).
+
+- **Students: free, forever.** One person tracking their own coursework,
+  attendance and results pays nothing and needs no permission.
+- **Institutions: commercial licence required.** Any deployment by or on
+  behalf of a college — to its students or staff, or inside a paid product —
+  needs a separate agreement.
+- **It becomes Apache-2.0 on 2030-08-29.** That date is fixed and in the
+  licence text; it is not something that can be quietly extended.
+
+The source is public because the central claim — that your marks never leave
+your machine — is one you should be able to check rather than take on trust.
+`src-tauri/src/etlab.rs` is where every network call lives, and there are no
+others. That argument cannot be made from a closed repository, which is why
+this is source-available rather than proprietary, and why it is not permissive.
+
+Not open source under the OSI definition, and it is not described as such.
+
+Third-party components ship under their own terms; see
+[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
+
+No external pull request will be merged until a contributor licence agreement
+exists. Merging one without it would make the project jointly owned and end
+the relicensing option silently.
