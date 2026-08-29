@@ -1,217 +1,156 @@
 # TargetX — open work
 
-Compiled 2026-08-18 from four persona audits of the codebase (a first-year on
-first run, an S5 student mid-semester, a backlog student with an F and a
-re-registered course, and a student at a non-MITS college whose sync fails).
-Roughly forty defects, **none of them caught by the 36 passing tests** — the
-suite proves the TypeScript matches the Python, and the Python has the same
-bugs. That is the ceiling of differential testing against a flawed oracle.
+Compiled 2026-08-18 from four persona audits, and **re-verified against the
+code on 2026-08-29** item by item. Of the roughly forty defects the audit
+found, 21 are fixed, 5 are partly fixed and 14 are still open.
 
-Ordered by what would hurt a real student most. Anything in P0 or P1 is a
-release blocker.
+The re-verification matters more than the original audit did. The August list
+had gone stale in the worst direction — it listed fixed defects as open, which
+makes it useless as a release gate: a list you have learned to disbelieve stops
+being read. Every item below was checked by reading the current code, not by
+trusting a commit message.
+
+Ordered by what would hurt a real student most. **Anything in "Blocking" is a
+release blocker.**
 
 ---
 
-## P0 — the numbers are wrong
+## Blocking — wrong numbers presented as the university's
 
-- [ ] **Attendance is never folded into CIE.** `engine/cie.ts:34`, `engine/constants.ts:77`.
-      `TH 40/60` components are s1 15 + s2 15 + other 10 = 40, which already
-      saturates `cieMax`; `computeCie` never calls `attendanceMarks`. Two courses
-      at 45% and 90% attendance compute identically. This is R 7.5.ii — the
-      product's entire thesis — displayed in a column and absent from the
-      arithmetic. Every `requiredEse` where the aggregate binds is understated by
-      up to 5 marks. Fix: attendance becomes a fourth CIE component, with the
-      others rescaled so the spec still totals `cieMax`, and an `attMax` per
-      course type in `CourseSpec`.
+Every one of these puts a figure on screen that the student has no way to check
+and no reason to doubt. That is the specific failure this product exists to
+prevent, so shipping with it is worse than not shipping.
 
-- [ ] **Target CGPA is solved as though graduation were this semester.**
-      `engine/goals.ts:37`. 92 credits at 7.09 targeting 8.0 needs 11.99 this
-      semester → "out of reach", and `goalPlan` goes null so the cheapest-route
-      panel disappears. Over the real horizon to S8 it is 9.13. The codebase has
-      no notion of a horizon at all. Fix: solve over remaining credits to S8
-      using the curriculum's per-semester totals; report the per-semester SGPA
-      needed; declare impossible only when it exceeds 10 across all remaining
-      credits.
+### The grade-card parser
 
-- [ ] **Missing attendance is invented as 100%.** `engine/evaluate.ts:20`
-      (`toFloat(course.attendance, 100)`). A blank field renders 100%, a full
-      bar and 5/5 attendance marks. Absence-is-not-zero, inverted in the file
-      that enforces it. Also makes `Home.tsx:59`'s null guard dead code and the
-      "No attendance recorded yet" state unreachable. Fix: `toOptionalFloat`,
-      no default, render as a dash.
+Six defects in one file, `app/src/sync/gradecard.ts`. They compound: a card can
+import with the wrong grades, in the wrong semesters, with the wrong credits,
+and the SGPA cross-check that would have caught all three is itself broken.
 
-- [ ] **One ungraded lab kills the whole plan.** `engine/goals.ts:71,138,203`.
-      `courseOptions` ignores `ev.assessed`, so an unassessed `PBL 60/40` needs
-      50 of 40 → impossible at every letter → `planForSgpa` returns
-      `{reachable:false}` for every target. `evaluate.ts:61` already has this
-      guard with a comment calling the alternative "a straight falsehood".
+- [ ] **The Result column is read as the grade.** The parser keeps the LAST
+      grade-shaped token on the line, and KTU rows end with a Result column:
+      `CST302 ... 4 A+ P` imports as **P**. With a supplementary marker,
+      `... 4 P S3(S)` imports as **S** — a 10.0. Fix: take the token immediately
+      before the Result/status column, and never read P/S/F there as a grade.
+- [ ] **Credits are misread.** A zero-credit MCN course becomes 3 (`0` is
+      treated as missing), and a mark of 8 or less can be scanned as the credit
+      column. Every SGPA weight on the card is then wrong. Fix: read credits
+      from a fixed column position; treat 0 as a real value.
+- [ ] **A semester token on a course row reassigns that row and every row after
+      it.** Whole blocks of courses land in the wrong semester. Fix: apply such
+      a token to its own row only.
+- [ ] **SGPA on a course row is never read.** The scan requires the line to
+      carry no course code. So history is not written for those cards, and the
+      published-vs-recomputed mismatch check — the one thing that would have
+      caught the three defects above — can never fire. Fix this one first: it
+      is the detector.
+- [ ] **One course code per line, and `pdfToText` y-banding merges nearby
+      rows**, so a merged line silently loses a course. Fix: loop all code
+      matches per line, and tighten the band.
+- [ ] **A row with no grade fabricates one from its title.** "Engineering
+      Mathematics I" yields grade `I`. It no longer scores as a fail (I is
+      Incomplete now), but a course that does not exist is still imported. Fix:
+      require the grade token to sit after the credits column; skip otherwise.
 
-- [ ] **Debarred courses are projected and planned as passes.**
-      `engine/evaluate.ts:159`, `engine/goals.ts:71`. A subject at 45% still
-      contributes its target grade to `sgpaProjected`, and the plan instructs a
-      mark in an exam the student cannot sit.
+### Data corruption
 
-- [ ] **A blank `PRJ 100/0` course is graded F.** `engine/evaluate.ts:41`.
-      `eseMax === 0` fires with no data → total 0 → F, folded into *confirmed*
-      SGPA. Hits the S1, S7 and S8 presets. Fix: that branch must require
-      `assessed`.
+- [ ] **Pasting a marks page over synced data corrupts it.** `engine/parse.ts`
+      maps the first three numbers to s1/s2/other, so a max-mark column is
+      written as a mark, wrecking a CIE that was correct. Fix: validate the
+      column shape, and show a diff before writing.
+- [ ] **A partial sync rebuilds a semester from a subset.** `parseAcademics`
+      drops subject rows with no attendance cell, and `applySync` then replaces
+      the semester with what survived. Fix: parse rows without an attendance
+      cell, and only replace when the page parsed as complete.
+- [ ] **Duplicate course codes in one semester collapse.** `applySync` and
+      `importPaste` still key a code-to-index map, last wins, so a re-registered
+      backlog steals the marks of its twin. The grade-card path is fixed;
+      `planForSgpa` was always position-keyed. Fix: key by position with the
+      code as a tiebreak.
+- [ ] **A paste leaves a stale `cie_override`.** New series marks change
+      nothing on screen and the student trusts a superseded internal. Fix:
+      clear the override on any course a marks paste writes to.
+- [ ] **Sync reports success with zero courses.** A college whose tables have
+      different headers gets a green "Synced", a written `lastSync`, and no
+      data. The count is displayed now, but 0 still renders as success. Fix:
+      fail the sync when nothing mapped, and never write `lastSync` there.
+- [ ] **`creditsConfirmed` is still never written.** The manual credit
+      correction the sync panel explicitly asks the student to make is wiped by
+      the next sync. Fix: set it when the student edits `credits`.
 
-- [ ] **History stores earned credits where the CGPA needs registered credits.**
-      `sync/etlab.ts:550`, `state/actions.ts:161`, `sync/gradecard.ts:136`.
-      KTU computes SGPA over registered credits. A traced S3 card with one F
-      gives CGPA 7.417 instead of 7.15. Every semester containing a backlog is
-      mis-weighted. Fix: store registered credits; keep earned separately if
-      wanted for display.
+### Catalogue
 
-- [ ] **A published grade can display as UNREACHABLE.** `engine/evaluate.ts:100,104`.
-      `statusFor` tests `needPass.possible` before checking for a grade, and a
-      grade-card import carries no CIE. A finished `LAB 75/25` with grade A shows
-      UNREACHABLE; a published P on `TH 40/60` shows TIGHT. `summarise` guards
-      this correctly at :164 — same rule, two implementations, one wrong.
+- [ ] **The S1 CSE preset is 15 credits, not 20.** `GXEST104`, `GXCYT122`,
+      `UCHUT128`, `UCPWT127` and `UCHUT347` are in the credits map but in no
+      branch table, so a first-year seeding from the preset has a wrong SGPA
+      denominator on day one. Both copies of `curriculum.json`.
+- [ ] **`GAPHT121` (Physics, 4cr) appears in both S1 and S2** and double-counts.
 
-- [ ] **Duty-leave credit is frozen at today's `held`.** `engine/attendance.ts:110`.
-      The cap should grow as classes are held. Traced: app says 20 classes, truth
-      is 15 — 33% too many, for exactly the students told their extra DL is
-      wasted.
+---
 
-- [ ] **Grades I and W are scored as F.** `engine/grade.ts:21`. KTU excludes
-      Incomplete and Withdrawn from the denominator until completed. Fix: a third
-      state that drops out of both numerator and denominator.
+## Screens that contradict themselves
 
-## P1 — data loss and corruption
+- [ ] **"Target is out of reach — no credits registered this semester"**, in
+      red. That is missing data, not an unreachable target, and it reads as
+      false despair on a first run. `engine/goals.ts:186`, `ui/Home.tsx:280`.
+      Fix: a "not enough data" state, rendered as a prompt.
+- [ ] **CGPA reads 0.00 for a student with no history.** The dash guard covers
+      a completely empty document only; a student with a live semester and no
+      past ones still sees 0.00. Fix: dash whenever `overall().credits === 0`.
+- [ ] **Home tells a debarred student to attend N classes in a row.** Below 60%
+      there is no condonation path under R 6.2. `ui/Ledger.tsx:501` already
+      branches correctly; Home does not. Fix: branch on debarment first.
+- [ ] **History and the launch check disagree about drift in [0.0095, 0.01)**
+      because History rounds to 3dp before testing and `launch.ts` does not, so
+      one screen flags a semester the other calls clean. Fix: one exported
+      `driftsFrom(recomputed, published)` used by both.
+- [ ] **Residual vertical scroll** — Data at 1440x900, Home at 1280x800. Not
+      confirmed since the title bar was removed in `e7e63a8`; needs measuring
+      at both sizes rather than reasoning about.
 
-- [ ] **A supplementary grade card deletes the rest of the semester.**
-      `state/actions.ts:144`. `applyGradeCard` replaces `semesters[name]`
-      wholesale, keeping only codes on the card. The doc comment claims it
-      merges. It does not.
+---
 
-- [ ] **Pasting a marks page over synced data corrupts it.** `engine/parse.ts:64`,
-      `state/actions.ts:107`. Marks mode maps the first three numbers to
-      s1/s2/other, so max-mark columns are written as marks. Fix: validate the
-      column shape, or show a diff to confirm.
+## Before a release
 
-- [ ] **Duplicate course codes in one semester collapse.** `state/actions.ts:35,90,142`.
-      The code→index map keeps the last occurrence, so a re-registered backlog
-      steals its twin's marks. (`planForSgpa` is correctly position-keyed and is
-      not affected — that part of the port held.)
+- [ ] Buy a Windows code-signing certificate. The plumbing is done and
+      secret-gated; see [`SIGNING.md`](SIGNING.md). Until then Windows tells
+      every student the publisher is unknown.
+- [ ] Put the updater signing key into GitHub Actions secrets. Without it
+      releases build but no installed copy will accept them.
+- [ ] Show the version and the fault-log folder on the Data screen. The issue
+      template and `PRIVACY.md` both already point students there.
+- [ ] Tag v0.1.0 and publish the release — and remember a *draft* release is
+      not "latest", so nobody is offered it until it is published.
+- [ ] **Rotate the etlab password** that was pasted into a chat transcript.
 
-- [ ] **`creditsConfirmed` is never set anywhere in the codebase.**
-      `state/actions.ts:47`, `ui/Ledger.tsx:157`. So the manual credit correction
-      the sync panel explicitly tells students to make is wiped by the next sync.
+## After a release
 
-- [ ] **`importPaste` never clears `cie_override`.** After a sync, pasted series
-      marks change s1/s2 but `computeCie` keeps returning the stale override, so
-      the paste appears to do nothing.
-
-- [ ] **Blank credits in History become 0 and zero the CGPA.** `ui/History.tsx:141`.
-      `Number("")` is 0, not NaN, so the guard passes.
-
-- [ ] **`importJson` merges instead of replacing.** `state/actions.ts:246`. A
-      backup without `history` leaves the current history in place, producing a
-      hybrid document. No version check either.
-
-- [ ] **A partial sync silently rebuilds a semester from a subset.**
-      `state/actions.ts:37`, `sync/etlab.ts:219` drops subject rows with no
-      attendance cell. Fix: only replace when the page parsed as complete.
-
-- [ ] **Sync "succeeds" with zero courses.** `sync/etlab.ts:443` counts semesters,
-      not courses, so a college with different table headers gets a green result,
-      a written `lastSync`, and no data.
-
-## P2 — security
-
-Confirmed clean: the password is never persisted, logged, or exported — traced
-from the signal through the Rust session, `AppState`, `persist` and `exportJson`.
-
-- [ ] **The password is only cleared on success.** `ui/SyncPanel.tsx:50`. Every
-      failed sync leaves it live in the signal and the DOM. Clear in `finally`.
-- [ ] **An explicit `http://` URL is preserved.** `sync/etlab.ts:41`. The password
-      is then POSTed in cleartext. Force https; fall back only on confirmation.
-- [ ] **The login form's `action` is followed to any origin.** `sync/etlab.ts:345`.
-      A third-party or injected form action receives the credentials. Require
-      same-origin.
-- [ ] **Form scoring does not prevent the stub case its comment claims.**
-      `sync/etlab.ts:352`. A stub with a password box plus any text input (a
-      captcha field) scores 2 and binds the captcha as the username. Never POST a
-      score-1 form; match the username field by name (`user`, `login`, `admn`,
-      `reg`).
-- [ ] **`looksLoggedIn` matches the substring "logout" anywhere.** `sync/etlab.ts:359`.
-      A login page with a cached nav reports success.
-
-## P3 — grade card parser
-
-- [ ] "Keep the LAST grade token" reads KTU's Result column: `CST302 … 4 A+ P`
-      imports as **P**. With a supplementary marker, `… 4 P S3(S)` imports as
-      **S** with SGPA 10. `sync/gradecard.ts:93`.
-- [ ] A row with no grade fabricates one from the title: `MAT101 Engineering
-      Mathematics I 4` → grade **I** → a fail. `sync/gradecard.ts:93`.
-- [ ] Zero-credit MCN courses become 3 credits (`0` is treated as missing);
-      a mark column can be read as credits. `sync/gradecard.ts:99-104`.
-- [ ] A semester token anywhere on a course row reassigns the semester for that
-      row and every row after it. `sync/gradecard.ts:24,116`.
-- [ ] Only the first course code per line is read, and `pdfToText` y-banding
-      merges nearby rows, so a merged line loses a course. `sync/gradecard.ts:71,168`.
-- [ ] SGPA on a course row is missed entirely, so history is never written and
-      the mismatch check can never fire. `sync/gradecard.ts:81`.
-
-## P4 — catalogue data
-
-- [ ] Five S1 codes exist in the credits map but in no branch table, so the S1
-      CSE preset is 15 credits instead of 20: `GXEST104`, `GXCYT122`, `UCHUT128`,
-      `UCPWT127`, `UCHUT347`.
-- [ ] `GAPHT121` (Physics, 4cr) appears in **both** S1 and S2 and double-counts.
-- [ ] Only one branch exists. CSE is the whole catalogue.
-
-## P5 — screens that contradict themselves
-
-- [ ] Home prints "projecting **0.00** — short by 8.50" in red, three cards above
-      "excluded from both numbers rather than counted as zero". The gauge is
-      right and the sentence beside it is wrong. `ui/Home.tsx:104,164`.
-- [ ] CGPA renders 0.00 for a student with no history. `ui/Home.tsx:32,140`,
-      `ui/App.tsx:29`.
-- [ ] A debarred subject gets an amber "120 classes in a row to be eligible";
-      below 60% there is no condonation path under R 6.2. `ui/Home.tsx:89`.
-- [ ] The credit cross-check cannot detect a *missing* course, which is the
-      failure mode the catalogue actually has. `ui/History.tsx:44`,
-      `state/launch.ts:58`.
-- [ ] History and the launch check disagree about drift in [0.0095, 0.01)
-      because one rounds first. One shared helper.
-- [ ] `dlWasted` prints "14.5 days" — it is classes, and it is rounded to 2dp.
-      `ui/Ledger.tsx:113`.
-- [ ] "Target is out of reach — no credits registered this semester" is missing
-      data, not an unreachable target, and is styled as an error. `engine/goals.ts:165`.
-- [ ] Data screen still scrolls 140px at 1440x900; Home scrolls at 1280x800.
-
-## P6 — before anyone can install it
-
-- [ ] Write `PRIVACY.md` — no server, no account, no telemetry, local only.
-      Link it from the Data screen.
-- [ ] Write the README.
-- [ ] Tag v0.1.0 and publish the NSIS installer as a GitHub release.
-- [ ] Rotate the etlab password that was pasted into a chat transcript.
-
-## P7 — after the release
-
-- [ ] Test sync against a college that is not MITS. Everything portal-side is
-      n=1, and the TypeScript port has never touched a live portal.
-- [ ] Test the grade-card parser against a real KTU PDF.
-- [ ] "Since you were last here" — snapshot on close, diff on open. The reason a
-      student reopens the app.
+- [ ] **Test sync against a college that is not MITS.** Everything portal-side
+      is n=1. This is the largest commercial risk in the project and no amount
+      of local testing reduces it.
+- [ ] Test the grade-card parser against a real KTU PDF. The six defects above
+      were all found by reading; none of them were found by running it.
+- [ ] Branch tables beyond CSE. Every non-CSE student currently has no preset.
+- [ ] "Since you were last here" — snapshot on close, diff on open. The reason
+      a student reopens the app.
 - [ ] Opt-in "stay signed in" via Windows Credential Manager, enabling a real
       sync-on-open.
 - [ ] Ctrl+K command palette — natural-language queries answered
       deterministically.
 - [ ] Optional Gemini Flash Lite summary behind a Cloudflare Worker: key never
       shipped, per-install daily cap, one button rather than a chat, model
-      phrases numbers it is given and never computes them. Check the free tier's
-      data-retention terms first — this would be students' academic records.
+      phrases numbers it is given and never computes them. Check the free
+      tier's data-retention terms first — this would be students' academic
+      records.
 - [ ] Tutor/HOD class view. The paid product, per the monetisation decision.
 
 ## Testing debt
 
-- [ ] The parity corpus is pinned to a buggy oracle. Once P0 lands, the Python
-      in `legacy/` disagrees on purpose. Decide: fix the oracle too and
-      regenerate, or freeze the fixture for the rules that did not change and
-      cover the corrected rules with direct tests.
-- [ ] Add tests for every P0 and P1 item. All forty defects passed 36 green
-      tests.
+The parity corpus is pinned to the buggy Python oracle in `legacy/`, and every
+fix above makes the port disagree with it on purpose. The resolution taken: the
+corpus stays frozen for the rules that did not change, and each corrected rule
+is covered by a direct test that states the rule rather than the answer the
+oracle gave. `engine/__tests__/core.test.ts` is where those live.
+
+- [ ] The grade-card parser has no test that starts from real KTU card text.
+      Every defect in the list above would have been caught by one.
