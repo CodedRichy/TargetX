@@ -129,9 +129,17 @@ function marksFrom(rest: string): number[] | "empty" | "ambiguous" {
   PAIR_G.lastIndex = 0;
   const pairs = Array.from(rest.matchAll(PAIR_G))
     .map((m) => [Number(m[1]), Number(m[2])] as [number, number]);
-  if (pairs.length >= 2) {
-    const usable = pairs.filter(([mark, max]) => max > 0 && mark <= max).slice(0, 3);
-    return usable.length >= 2 ? usable.map(([mark]) => mark) : "ambiguous";
+  if (pairs.length > 0) {
+    // One pair is enough, and taking it matters: mid-semester a row often
+    // carries only `42/50`, and falling through to the bare-number path would
+    // read that as S1 42 and S2 50 - the maximum written in as a mark, which
+    // is the whole defect this function exists to prevent.
+    //
+    // Every pair has to make sense. A mark above its own maximum means these
+    // are not mark/max pairs at all (a date, a ratio, a page number), and a
+    // row that cannot be read is refused rather than half-read.
+    if (pairs.some(([mark, max]) => !(max > 0) || mark > max)) return "ambiguous";
+    return pairs.slice(0, 3).map(([mark]) => mark);
   }
 
   const numbers = (rest.match(NUM_G) ?? []).map(Number);

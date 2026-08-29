@@ -49,6 +49,23 @@ describe("a marks paste", () => {
     expect(skipped).toHaveLength(1);
   });
 
+  it("reads a single fraction as one mark, not as a mark and a maximum", () => {
+    // Mid-semester a row often carries only S1. Falling through to the bare
+    // number path would read `42/50` as S1 42, S2 50 - the maximum written in
+    // as a mark, which is the defect this whole function exists to prevent.
+    const { rows, skipped } = marks("PCCST501 Computer Networks 42/50");
+    expect(rows[0]!.s1).toBe(42);
+    expect(rows[0]!.s2).toBeUndefined();
+    expect(skipped).toEqual([]);
+  });
+
+  it("refuses a fraction whose numerator exceeds its denominator", () => {
+    // Then they were never mark/max pairs: a date, a ratio, a page number.
+    const { rows, skipped } = marks("PCCST501 Computer Networks 12/08 40/50");
+    expect(rows).toEqual([]);
+    expect(skipped).toHaveLength(1);
+  });
+
   it("still takes a partial row, which is the common case mid-semester", () => {
     // Only S1 has been held. Two numbers is not ambiguous, it is incomplete.
     const { rows, skipped } = marks("PCCST503 Machine Learning 44");
