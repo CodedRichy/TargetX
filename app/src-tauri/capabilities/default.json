@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Core, updater, restart, and filesystem access confined to the top level of appDataDir() - where state.json and its backups live. Nothing recursive and nothing outside it: this webview also renders a college portal's HTML.",
+  "description": "Core, updater, restart, own-window controls (the OS title bar is off, so minimise/maximise/close are the app's job), and filesystem access confined to the top level of appDataDir() - where state.json and its backups live. Nothing recursive and nothing outside it: this webview also renders a college portal's HTML.",
   "windows": [
     "main"
   ],
@@ -9,6 +9,12 @@
     "core:default",
     "updater:default",
     "process:allow-restart",
+
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
 
     "fs:allow-exists",
     "fs:allow-mkdir",

@@ -7,6 +7,7 @@ import {
 import { VIEWS, needsSetup, setView, view } from "../state/nav";
 import { appearance, setTheme, startTheme, theme } from "../state/theme";
 import { Data } from "./Data";
+import { WindowChrome } from "./WindowChrome";
 import { Drawer } from "./Drawer";
 import { History } from "./History";
 import { Home } from "./Home";
@@ -34,7 +35,7 @@ function Kpis() {
 
   return (
     <Show when={started()} fallback={
-      <div class="kpis">
+      <div class="kpis" data-tauri-drag-region>
         <div class="kpi">
           <span class="kpi-label">CGPA</span>
           <span class="kpi-value num dim">{dash}</span>
@@ -42,7 +43,7 @@ function Kpis() {
         </div>
       </div>
     }>
-      <div class="kpis">
+      <div class="kpis" data-tauri-drag-region>
         <div class="kpi">
           <span class="kpi-label">CGPA</span>
           <span class="kpi-value num">{overall().cgpa.toFixed(2)}</span>
@@ -435,8 +436,19 @@ export function App() {
 
     <Show when={!setupOpen()} fallback={<Setup onDone={() => setSetupOpen(false)} />}>
       <div class="app" classList={{ wide: view() !== "ledger" }}>
-        <header class="head">
-          <h1 class="wordmark">Target<span class="wordmark-x" ref={wordmarkX}
+        {/* The OS title bar is off (`decorations: false`), so this header IS
+            the title bar and has to do what the OS stopped doing: be draggable,
+            and carry the window buttons.
+
+            `data-tauri-drag-region` applies ONLY to the element carrying it and
+            never to its children, so it goes on the header AND on each
+            non-interactive block inside it. Every element without it is a patch
+            of title bar the window cannot be moved by, which is the standard
+            way a frameless window ends up feeling broken. The nav blocks are
+            deliberately left off: they are buttons, and a drag region over a
+            button eats the click. */}
+        <header class="head" data-tauri-drag-region>
+          <h1 class="wordmark" data-tauri-drag-region>Target<span class="wordmark-x" ref={wordmarkX}
               classList={{ waiting: phase() !== "done" }}><Mark size="0.78em" /></span></h1>
 
           <nav class="tabs" aria-label="Views">
@@ -461,6 +473,7 @@ export function App() {
           </Show>
 
           <Kpis />
+          <WindowChrome />
         </header>
 
         <Show when={view() === "ledger"}>

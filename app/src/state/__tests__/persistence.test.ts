@@ -12,7 +12,7 @@
  * up right" - it is the ORDER of the operations that got them there. A
  * truncate-then-write leaves the same bytes and loses a semester on a crash.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fake = vi.hoisted(() => {
   const files = new Map<string, string>();
@@ -84,6 +84,25 @@ async function boot() {
   vi.resetModules();
   return await import("../store");
 }
+
+/**
+ * Pay the cold import once, before any test is being timed.
+ *
+ * `boot()` calls `vi.resetModules()` and re-imports `../store`, which pulls
+ * the whole engine graph behind it. Measured on this machine: the FIRST such
+ * import costs 922 ms and every later one is under a millisecond, because what
+ * is expensive is resolving and transforming the graph, not re-executing it -
+ * and `resetModules` clears the module registry but not Vite's transform
+ * cache.
+ *
+ * Whichever test ran first therefore carried ~922 ms that had nothing to do
+ * with it. Alone that fits inside the 5 s limit; in the full 22-file run, with
+ * the 144-test engine suite saturating the CPU in parallel workers, it does
+ * not - the first test in this file timed out roughly one run in seven. That
+ * is a flake in a suite CI now gates on, so the cost is moved here rather than
+ * hidden under a raised timeout: a real 5-second hang should still fail.
+ */
+beforeAll(async () => { await import("../store"); });
 
 beforeEach(() => {
   fake.files.clear();

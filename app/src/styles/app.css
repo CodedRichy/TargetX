@@ -47,6 +47,39 @@
   .head { background: var(--surface-1); }
 }
 
+/* Window controls, standing in for the title bar the OS is no longer drawing.
+   Pushed to the far right and last in the header, which is where Windows puts
+   them and where a hand already goes to look. */
+.winctl {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  /* Cancels the header's own side padding so the buttons reach the window
+     edge. A gap between the close button and the corner is the tell that a
+     title bar is a web page pretending to be one, and it also breaks the
+     Fitts's-law corner: at the true edge the pointer cannot overshoot. */
+  margin-right: calc(var(--s5) * -1);
+  align-self: stretch;
+}
+.winbtn {
+  display: grid;
+  place-items: center;
+  inline-size: 2.9rem;
+  align-self: stretch;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text-dim);
+  cursor: default;
+}
+.winbtn:hover { background: var(--surface-2); color: var(--text); }
+/* Red only on the one button that discards what you were doing, and only on
+   hover - a permanently red close button reads as an error state in a header
+   that uses colour to mean something. */
+.winbtn-close:hover { background: var(--danger); color: oklch(0.98 0 0); }
+.winbtn:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+
 .wordmark {
   font-size: var(--text-lg);
   font-weight: 700;
