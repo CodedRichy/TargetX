@@ -242,6 +242,24 @@ function PresetPicker(props: { onDone: () => void }) {
         <span class="fineprint num">{chosen().length} subjects · {credits()} credits</span>
       </div>
 
+      {/* The dropdown holds whatever branch tables the catalogue carries, which
+          today is CSE alone. A student from any other branch opens a list their
+          branch is missing from, with nothing said about it - and the obvious
+          move from there is to pick the branch that IS there and register
+          somebody else's subjects, at somebody else's credits. That is a wrong
+          SGPA denominator arrived at by following the UI. Name what is on file
+          instead, and point at the two routes that are right for everyone. */}
+      <p class="fineprint">
+        <Show when={available.length === 1} fallback={
+          <>Branches on file so far: {available.join(", ")}.</>
+        }>
+          Only {available[0]} is on file so far.
+        </Show>{" "}
+        If yours is not here, go back to <strong>Other ways to start</strong> and
+        sync from your portal or add subjects by hand. A preset from a different
+        branch gives you the wrong subjects at the wrong credits.
+      </p>
+
       {/* Said out loud rather than left as arithmetic the student has to do.
           The preset being short is not necessarily wrong - a college can run a
           different combination - but it is always something they should know
