@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: A security vulnerability
+    url: https://github.com/CodedRichy/TargetX/security/advisories/new
+    about: Report privately. Do not open a public issue for this.
+  - name: An institutional licence
+    url: https://github.com/CodedRichy/TargetX/blob/main/LICENSE
+    about: Students are free forever. Any college deployment needs an agreement.

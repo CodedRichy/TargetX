@@ -1,0 +1,56 @@
+name: Something is wrong
+description: A number is wrong, sync failed, or the app broke
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste your portal password, and do not paste a screenshot that
+        has it on screen. Nothing here needs it.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Bottom of the Data screen.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: >
+        If a number is wrong, give the number TargetX showed and the number it
+        should have been. That pair is worth more than any description, because
+        it can be turned straight into a test.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What you did before it happened
+      placeholder: |
+        1. Synced
+        2. Typed a mark into series 2 for CST301
+        3. The predicted grade did not change
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: The fault log
+      description: >
+        The Data screen shows the folder holding `targetx.log`. Open it, and
+        paste the last few lines if anything is there. It contains error
+        messages, not your marks — read it first if you would rather check.
+      render: text
+  - type: dropdown
+    id: college
+    attributes:
+      label: Is this about portal sync?
+      options:
+        - "No"
+        - "Yes — and my college is not MITS"
+        - "Yes — MITS"
+    validations:
+      required: true
