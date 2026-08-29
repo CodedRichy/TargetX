@@ -233,7 +233,10 @@ the entire bug report available. The log holds error messages, not your marks.
 [`CHANGELOG.md`](CHANGELOG.md) is written for the student deciding whether an
 update is worth taking; its first section is the numbers that used to be wrong.
 [`SIGNING.md`](SIGNING.md) covers releasing and the two signatures a build
-carries.
+carries. [`ACCESSIBILITY.md`](ACCESSIBILITY.md) is a dated self-assessment
+against WCAG 2.1 AA, including what is still short — contrast is enforced by a
+test rather than claimed, and the keyboard pass found a real trap that reading
+the code had not.
 
 ---
 
