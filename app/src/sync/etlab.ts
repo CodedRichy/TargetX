@@ -17,7 +17,20 @@ import {
 } from "../engine";
 import type { Course, SemesterHistory, TypeKey } from "../engine";
 
-export class EtlabError extends Error {}
+export class EtlabError extends Error {
+  /**
+   * A redacted description of the page that could not be read.
+   *
+   * Carried on the error rather than concatenated into its message: the
+   * message is the sentence a student reads, and this is the several hundred
+   * characters they forward to someone who can act on it.
+   */
+  diagnostic?: string;
+  constructor(message: string, diagnostic?: string) {
+    super(message);
+    this.diagnostic = diagnostic;
+  }
+}
 
 interface Fetched { url: string; status: number; body: string }
 
@@ -288,6 +301,60 @@ export function parseAcademics(html: string): Academics {
 }
 
 /**
+ * What this page looks like to the parser, with nothing personal in it.
+ *
+ * Portal sync has been validated against exactly one college. The realistic
+ * failure at the second is not a crash - it is `parseAcademics` returning
+ * nothing because that deployment words its table headings differently, and
+ * the student has no way to say what went wrong and nobody has a copy of the
+ * page. Without something like this the bug report is "sync doesn't work",
+ * which is unactionable, and the honest answer becomes "send us your portal
+ * password", which is not an answer at all.
+ *
+ * So: every table, its shape, its first row, and which of the three
+ * recognitions it passed. That is enough to write the next selector from.
+ *
+ * REDACTION. Only the first row of each table is quoted, because that is the
+ * heading or the summary strip; no subject row, no mark, no grade is included.
+ * Every digit becomes `#`, which takes the numbers out of a summary strip and
+ * mangles a registration number without having to recognise one. Cells are
+ * truncated. The student is shown the text before they send it - a diagnostic
+ * you have to trust unread is one that should not exist.
+ */
+export function describeAcademics(html: string): string {
+  const redact = (text: string) =>
+    text.replace(/\d/g, "#").slice(0, 28);
+
+  const doc = parseHtml(html);
+  const tables = Array.from(doc.querySelectorAll("table"));
+  const lines = [`${tables.length} table(s)`];
+
+  tables.forEach((table, index) => {
+    const rows = Array.from(table.querySelectorAll("tr"));
+    const first = rows[0] ? rowCells(rows[0]) : [];
+    const flat = first.join(" ");
+    const marks = [
+      SEM_HEADER_RE.test(flat) ? "sem-heading" : null,
+      /SGPA/i.test(flat) ? "sgpa" : null,
+      flat.toUpperCase().includes("SUBJECT") ? "subject" : null,
+      flat.toUpperCase().includes("GRADE") ? "grade" : null,
+      ATT_RE.test(flat) ? "attendance" : null,
+    ].filter(Boolean);
+    lines.push(
+      `#${index + 1} rows=${rows.length} cols=${first.length}` +
+      ` [${marks.length ? marks.join(",") : "no match"}]` +
+      ` | ${first.map(redact).join(" | ") || "(empty first row)"}`);
+  });
+
+  // A portal that answers with a login page rather than the record is a
+  // different fault entirely, and it is worth not misdiagnosing.
+  if (LOGIN_TITLE_RE.test(doc.querySelector("title")?.textContent ?? "")) {
+    lines.push("NOTE: the page still calls itself a login page.");
+  }
+  return lines.join("\n");
+}
+
+/**
  * Map course code -> Theory / Practical from /student/subject.
  *
  * Worth a second request: it decides whether a course is scored 40/60 or
@@ -500,6 +567,7 @@ export async function fetchAcademics(): Promise<Academics> {
   const links = await discoverLinks();
   const paths = [...(links["academics"] ? [links["academics"]] : []), ...ACADEMICS_PATHS];
   const tried: string[] = [];
+  let diagnostic: string | undefined;
   for (const path of paths) {
     let response: Fetched;
     try {
@@ -524,8 +592,15 @@ export async function fetchAcademics(): Promise<Academics> {
     tried.push(Object.keys(parsed.semesters).length
       ? `${path}: semester headings, but no subject rows this parser could read`
       : `${path}: no semester tables`);
+    // Keep the description of the page that got FURTHEST - the one with
+    // semester headings is more informative than a 404 body, and the loop
+    // would otherwise leave whichever came last.
+    if (!diagnostic || Object.keys(parsed.semesters).length) {
+      diagnostic = `${path}\n${describeAcademics(response.body)}`;
+    }
   }
-  throw new EtlabError(`Could not read the academic record. Tried: ${tried.join("; ")}`);
+  throw new EtlabError(
+    `Could not read the academic record. Tried: ${tried.join("; ")}`, diagnostic);
 }
 
 export async function fetchSubjectTypes(): Promise<Record<string, TypeKey>> {

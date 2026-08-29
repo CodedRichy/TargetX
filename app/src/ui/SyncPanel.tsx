@@ -25,11 +25,22 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
   const [password, setPassword] = createSignal("");
   const [busy, setBusy] = createSignal("");
   const [error, setError] = createSignal("");
+  /**
+   * A redacted description of the page the parser could not read.
+   *
+   * Only set when sync got as far as fetching the record and failed to make
+   * sense of it - which is the failure a second college will actually hit, and
+   * the only one where what went wrong is invisible to everyone involved.
+   */
+  const [diagnostic, setDiagnostic] = createSignal("");
+  const [copied, setCopied] = createSignal(false);
   const [result, setResult] = createSignal<SyncResult | null>(null);
 
   const run = async (event: Event) => {
     event.preventDefault();
     setError("");
+    setDiagnostic("");
+    setCopied(false);
     setResult(null);
 
     if (!canSync()) {
@@ -46,6 +57,7 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
       setResult(synced);
     } catch (exc) {
       setError(exc instanceof EtlabError ? exc.message : String(exc));
+      if (exc instanceof EtlabError && exc.diagnostic) setDiagnostic(exc.diagnostic);
     } finally {
       setBusy("");
       // Drop the password whatever happened. Clearing it only on success left
@@ -144,6 +156,35 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
             <strong>Sync failed.</strong> {error()}
             <Show when={!canSync()}>
               {" "}Paste import is on the Data screen and works everywhere.
+            </Show>
+            {/* Shown rather than attached invisibly: a student is being asked
+                to forward something off their own academic record, and a
+                diagnostic you have to trust unread is one that should not
+                exist. It is the table headings with every digit replaced, and
+                no subject row at all - which they can see for themselves. */}
+            <Show when={diagnostic()}>
+              <details class="diagnostic">
+                <summary>
+                  What TargetX saw on that page — safe to send, no marks or
+                  names in it
+                </summary>
+                <p class="lede">
+                  Your college's portal lays its pages out differently from the
+                  one this was built against. This is the shape of the page,
+                  with every number blanked out; sending it with a bug report is
+                  what makes the next version read your portal.
+                </p>
+                <pre class="num">{diagnostic()}</pre>
+                <button type="button" class="link" onClick={() => {
+                  void navigator.clipboard?.writeText(diagnostic());
+                  setCopied(true);
+                }}>
+                  {copied() ? "Copied" : "Copy"}
+                </button>
+                {" · "}
+                <a href="https://github.com/CodedRichy/TargetX/issues/new?template=bug.yml"
+                   target="_blank" rel="noreferrer">Open an issue</a>
+              </details>
             </Show>
           </div>
         </Show>

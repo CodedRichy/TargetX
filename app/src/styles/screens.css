@@ -434,6 +434,32 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   .home .tile { padding: var(--s4); }
 }
 
+/* The sync diagnostic: shown, folded, inside the failure notice. Monospace and
+   scrollable because it is a table of column headings and its lines are long;
+   capped in height because a portal with thirty tables must not push the retry
+   button off the screen. */
+.diagnostic { margin-top: var(--s3); }
+.diagnostic summary {
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: var(--text-sm);
+}
+.diagnostic summary:hover { color: var(--text); }
+.diagnostic .lede { font-size: var(--text-sm); margin: var(--s3) 0; }
+.diagnostic pre {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  margin: 0 0 var(--s3);
+  max-height: 16rem;
+  overflow: auto;
+  padding: var(--s3);
+  white-space: pre;
+}
+
 /* --- top tabs -------------------------------------------------------------- */
 
 .tabs { display: flex; gap: var(--s1); }
