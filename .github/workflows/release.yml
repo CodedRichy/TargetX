@@ -50,6 +50,13 @@ jobs:
             args: "--target universal-apple-darwin"
 
     runs-on: ${{ matrix.platform }}
+
+    # Hoisted so the signing step's `if` can test them through the `env`
+    # context. Absent secrets arrive as empty strings, which is exactly the
+    # signal that no certificate has been bought yet.
+    env:
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -84,11 +91,45 @@ jobs:
       - run: npm test
         working-directory: app
 
+      # Authenticode. Skipped entirely when the secret is absent, so the
+      # pipeline keeps producing (unsigned) builds before a certificate is
+      # bought rather than failing every release until then.
+      #
+      # This is NOT the same signature as TAURI_SIGNING_PRIVATE_KEY below.
+      # That one signs the update payload so an installed TargetX will accept
+      # it. This one is what makes WINDOWS itself trust the installer: without
+      # it a student double-clicking the .exe gets SmartScreen telling them the
+      # publisher is unknown and not to run it, and no college IT department
+      # will deploy that. Both are required; neither substitutes for the other.
+      #
+      # The condition reads `env`, not `secrets`: a step-level `if` that
+      # dereferences the secrets context is not reliably supported, and a
+      # release pipeline is the wrong place to find that out. The job-level env
+      # block below hoists it, and `env` in a step `if` is unambiguous.
+      - name: Import the Windows signing certificate
+        if: matrix.platform == 'windows-latest' && env.WINDOWS_CERTIFICATE != ''
+        run: |
+          New-Item -ItemType directory -Path certificate
+          Set-Content -Path certificate/tempCert.txt -Value $env:WINDOWS_CERTIFICATE
+          certutil -decode certificate/tempCert.txt certificate/certificate.pfx
+          Remove-Item -path certificate -include tempCert.txt
+          Import-PfxCertificate -FilePath certificate/certificate.pfx `
+            -CertStoreLocation Cert:\CurrentUser\My `
+            -Password (ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText)
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # macOS notarisation. Absent these, the .dmg is unsigned and Gatekeeper
+          # refuses it outright rather than merely warning, as Windows does.
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         with:
           projectPath: app
           tagName: ${{ github.ref_name }}

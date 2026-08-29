@@ -1,0 +1,16 @@
+# Pin the channel, NOT the host triple.
+#
+# This machine's default toolchain was stable-x86_64-pc-windows-gnu while its
+# default host was msvc, and the GNU linker cannot produce this crate's cdylib:
+#
+#   ld.exe: error: export ordinal too large: 120677
+#
+# `npm run tauri dev` therefore did not build at all on an unmodified checkout,
+# which is a poor first five minutes for anyone cloning this repo.
+#
+# "stable" with no host resolves to stable-<the machine's default host>, so
+# Windows gets msvc, Linux gets gnu, and macOS gets its own - the release
+# workflow builds all three. Writing the triple in here instead would fix this
+# machine and break the other two platforms in CI.
+[toolchain]
+channel = "stable"

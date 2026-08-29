@@ -47,7 +47,14 @@
     "active": true,
     "createUpdaterArtifacts": true,
     "targets": ["nsis", "msi", "deb", "appimage", "dmg"],
-    "publisher": "CodedRichy",
+    "publisher": "Rishi Praseeth Krishnan",
+    "copyright": "Copyright (c) 2026 Rishi Praseeth Krishnan. Licensed under BUSL-1.1; see LICENSE.",
+    "licenseFile": "../../LICENSE",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
     "shortDescription": "KTU 2024 academic tracker",
     "longDescription": "Attendance, internal marks and target grades for the KTU 2024 scheme. Works out what you still need in each exam, how many classes you can miss, and which subject is cheapest to push toward your CGPA goal.",
     "category": "Education",
