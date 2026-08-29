@@ -14,3 +14,8 @@
 # machine and break the other two platforms in CI.
 [toolchain]
 channel = "stable"
+# Named here so `cargo clippy` exists on a fresh clone and in CI. Pinning the
+# channel without this silently removes clippy on a machine whose *default*
+# toolchain had it - the CI lint gate then fails on a missing binary rather
+# than on a lint, which reads as a broken workflow.
+components = ["clippy", "rustfmt"]
