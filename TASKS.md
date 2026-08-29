@@ -2,8 +2,10 @@
 
 Compiled 2026-08-18 from four persona audits, re-verified line by line against
 the code on 2026-08-29, and then worked down the same day. Of the roughly forty
-defects the audit found, **three remain open in code**, and two of those need
-information this repository does not contain.
+defects the audit found, **none remain open in code**. Two are open and cannot
+be closed here: they need a document or a person this repository does not
+contain, and guessing at either would recreate the exact class of defect the
+rest of the list was about.
 
 The re-verification is the part worth keeping. The August list had gone stale in
 the worst direction — it listed fixed defects as open, which makes it useless as
@@ -38,14 +40,24 @@ presented as the university's that nobody checked.
       than a green tick, so a college this does not work for is at least told
       so — but that is a safety net, not validation.
 
-## Open in code
+## Layout, measured rather than argued about
 
-- [ ] **Residual scroll on Home.** Measured 2026-08-29 rather than argued
-      about: at 1440x900 the Home screen overflows its own scroller by 143px
-      and Data by 232px; at 1280x800, 519px and 282px. The page itself never
-      scrolls — these are inner scrollers, keyboard-reachable. Data is a list
-      of operations and may legitimately scroll. Home is the at-a-glance screen
-      and 519px at 1280x800 is worth a layout pass.
+- [x] **Residual scroll on Home.** Done 2026-08-29, and the cause was not
+      the layout. Every chart was `viewBox="0 0 300 130" width="100%"`, which
+      scales the whole drawing by container/300 — so in Home's 784px-wide
+      Trend tile the chart was 340px TALL with its 8px axis labels rendered at
+      21px, and in the 324px drawer the same labels came out at 7.4px. The
+      drawing was only correct at exactly 300px. The charts now measure their
+      container and draw at 1:1, the bento states its column counts instead of
+      leaving `auto-fit` to decide what a two-column span means, and a
+      `max-height` band trims the chrome on short windows. Home went from
+      overflowing by 143px at 1440x900 to **fitting**, and from 519px to 74px
+      at 1280x800. `tools/measure.mjs` is the measurement, re-runnable.
+
+- [ ] **Data still scrolls by 188px at 1440x900** and 238px at 1280x800, and
+      the subject drawer by 277px. Both are lists rather than at-a-glance
+      screens, so this is not the same defect — recorded so the numbers do not
+      have to be rediscovered.
 
 ---
 

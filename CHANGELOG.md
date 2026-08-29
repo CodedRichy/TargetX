@@ -90,6 +90,12 @@ figure that was shown to a student as fact.
   reachable and named, focus is visible everywhere, and every colour now meets
   WCAG AA contrast — checked by a test that reads the real stylesheet, not by
   eye.
+- **The charts are drawn at the size they claim.** Every chart used to scale
+  its whole drawing to fit its container, so the trend on Home was rendered at
+  two and a half times its intended size — axis labels included — while the
+  same chart in the subject drawer came out slightly too small to read. They
+  now measure their space and draw into it, which also gave Home back enough
+  height to fit a 1440x900 window without scrolling.
 
 ### Security
 

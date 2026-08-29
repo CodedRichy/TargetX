@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, Show, createMemo, createSignal, onCleanup } from "solid-js";
 import { ATTENDANCE_CONDONE, ATTENDANCE_MIN } from "../engine";
 
 /**
@@ -13,6 +13,40 @@ import { ATTENDANCE_CONDONE, ATTENDANCE_MIN } from "../engine";
  */
 
 const fmt = (n: number, places = 2) => n.toFixed(places);
+
+/**
+ * The chart's own width in CSS pixels, measured rather than assumed.
+ *
+ * Every chart here was `viewBox="0 0 300 130" width="100%"`, which does not
+ * mean "fill the width" - it means "scale everything by container/300". In the
+ * 784px-wide Trend tile on Home that made the chart 340px TALL, with its 8px
+ * axis labels drawn at 21px and its hairlines at 2.6px: the single largest
+ * block on the screen, and the reason Home overflowed its scroller by 519px at
+ * 1280x800. The same chart in the 324px drawer rendered its labels at 7.4px.
+ * The drawing was only ever correct at exactly 300px wide.
+ *
+ * Measuring instead pins one CSS pixel to one user unit, so the height is a
+ * constant, the type is the size it says it is, and a wider tile buys more
+ * horizontal room for the data rather than a bigger picture of it.
+ *
+ * The fallback matters: `ResizeObserver` does not exist in jsdom, and a chart
+ * that renders nothing under test is a chart whose tests prove nothing.
+ */
+function useWidth(fallback = 300) {
+  const [width, setWidth] = createSignal(fallback);
+  const attach = (el: HTMLElement) => {
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const measured = Math.round(entries[0]?.contentRect.width ?? 0);
+      // A zero arrives whenever the element is display:none - a collapsed
+      // drawer, a hidden tab. Taking it would divide the scales by nothing.
+      if (measured > 0) setWidth(measured);
+    });
+    observer.observe(el);
+    onCleanup(() => observer.disconnect());
+  };
+  return [width, attach] as const;
+}
 
 // --- SGPA trend ------------------------------------------------------------
 
@@ -40,14 +74,20 @@ interface TrendPoint { name: string; sgpa: number; credits: number }
  */
 export function TrendChart(props: { data: TrendPoint[]; cgpa: number }) {
   const [hover, setHover] = createSignal<number | null>(null);
-  const W = 300, H = 130, PAD_L = 26, PAD_B = 18, PAD_T = 8;
+  const [W, attach] = useWidth();
+  // These are CSS pixels now, not 1/300ths of the tile's width, so they are
+  // sized as type rather than as geometry: an 8 that used to arrive on screen
+  // at 21px in the wide Home tile arrives at 8px, which is unreadable. 11 is
+  // the app's smallest real type size.
+  const H = 150, PAD_L = 32, PAD_B = 26, PAD_T = 14, LABEL = "11";
 
   const scale = createMemo(() => {
     const data = props.data;
+    const width = W();
     const lo = Math.min(5, ...data.map((d) => d.sgpa)) - 0.3;
     const hi = Math.max(10, ...data.map((d) => d.sgpa));
-    const x = (i: number) => PAD_L + (data.length < 2 ? (W - PAD_L) / 2
-      : (i / (data.length - 1)) * (W - PAD_L - 6));
+    const x = (i: number) => PAD_L + (data.length < 2 ? (width - PAD_L) / 2
+      : (i / (data.length - 1)) * (width - PAD_L - 6));
     const y = (v: number) => PAD_T + (1 - (v - lo) / (hi - lo)) * (H - PAD_T - PAD_B);
     return { x, y, lo, hi };
   });
@@ -69,14 +109,18 @@ export function TrendChart(props: { data: TrendPoint[]; cgpa: number }) {
 
   return (
     <Show when={props.data.length > 0} fallback={<p class="chart-note">No published semesters yet.</p>}>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img"
+      {/* The measured element is the wrapper, not the svg: an svg sized from
+          its own measurement is a feedback loop, and it settles wherever the
+          first frame happened to land. */}
+      <div class="chart-fit" ref={attach}>
+      <svg viewBox={`0 0 ${W()} ${H}`} width={W()} height={H} role="img"
            aria-label={`SGPA by semester, current CGPA ${fmt(props.cgpa)}`}>
         <For each={[6, 7, 8, 9, 10]}>{(tick) => (
           <>
-            <line x1={PAD_L} x2={W} y1={scale().y(tick)} y2={scale().y(tick)}
+            <line x1={PAD_L} x2={W()} y1={scale().y(tick)} y2={scale().y(tick)}
                   stroke="var(--hairline)" stroke-width="1" />
-            <text x={PAD_L - 6} y={scale().y(tick) + 3} text-anchor="end"
-                  fill="var(--text-faint)" font-size="8" class="num">{tick}</text>
+            <text x={PAD_L - 8} y={scale().y(tick) + 4} text-anchor="end"
+                  fill="var(--text-faint)" font-size={LABEL} class="num">{tick}</text>
           </>
         )}</For>
 
@@ -89,14 +133,14 @@ export function TrendChart(props: { data: TrendPoint[]; cgpa: number }) {
         <For each={props.data}>{(d, i) => (
           <>
             <circle cx={scale().x(i())} cy={scale().y(d.sgpa)}
-                    r={hover() === i() ? 4.5 : 3}
+                    r={hover() === i() ? 5.5 : 4}
                     fill="var(--bg)" stroke="var(--brand-bright)" stroke-width="2" />
             {/* Generous invisible hit area - 3px circles are not pointable. */}
             <rect x={scale().x(i()) - 12} y={0} width="24" height={H} fill="transparent"
                   onMouseEnter={() => setHover(i())} onMouseLeave={() => setHover(null)} />
-            <text x={scale().x(i())} y={H - 5} text-anchor="middle"
+            <text x={scale().x(i())} y={H - 7} text-anchor="middle"
                   fill={hover() === i() ? "var(--text)" : "var(--text-faint)"}
-                  font-size="8" class="num">{d.name}</text>
+                  font-size={LABEL} class="num">{d.name}</text>
           </>
         )}</For>
 
@@ -105,14 +149,15 @@ export function TrendChart(props: { data: TrendPoint[]; cgpa: number }) {
             const i = hover()!;
             const d = props.data[i]!;
             return (
-              <text x={scale().x(i)} y={scale().y(d.sgpa) - 9} text-anchor="middle"
-                    fill="var(--brand-bright)" font-size="9" font-weight="600" class="num">
+              <text x={scale().x(i)} y={scale().y(d.sgpa) - 11} text-anchor="middle"
+                    fill="var(--brand-bright)" font-size="12" font-weight="600" class="num">
                 {fmt(d.sgpa)}
               </text>
             );
           })()}
         </Show>
       </svg>
+      </div>
       <p class="chart-note">
         Solid: semester SGPA. Dashed: CGPA after that semester.
       </p>
@@ -214,37 +259,48 @@ interface ScatterPoint { code: string; attendance: number; cie: number; cieMax: 
  */
 export function AttendanceScatter(props: { points: ScatterPoint[] }) {
   const [hover, setHover] = createSignal<string | null>(null);
-  const W = 300, H = 160, PAD_L = 28, PAD_B = 22, PAD_T = 10, PAD_R = 8;
+  const [W, attach] = useWidth();
+  const H = 190, PAD_L = 34, PAD_B = 30, PAD_T = 14, PAD_R = 10, LABEL = "11";
 
-  const x = (pct: number) => PAD_L + ((Math.min(Math.max(pct, 40), 100) - 40) / 60) * (W - PAD_L - PAD_R);
+  const x = (pct: number) => PAD_L + ((Math.min(Math.max(pct, 40), 100) - 40) / 60) * (W() - PAD_L - PAD_R);
   const y = (frac: number) => PAD_T + (1 - Math.min(Math.max(frac, 0), 1)) * (H - PAD_T - PAD_B);
 
-  const line = (pct: number, colour: string, label: string) => (
+  /**
+   * A threshold line and its label. `row` staggers the two labels vertically.
+   *
+   * They sit 15 percentage points apart on a 60-point axis, so in the drawer
+   * the caption for the 60% floor ran to within a few pixels of the 75% line
+   * and would have crossed it in any narrower panel. Sharing a baseline made
+   * that a function of the container width; two baselines makes it never
+   * happen at any width.
+   */
+  const line = (pct: number, colour: string, label: string, row: number) => (
     <>
       <line x1={x(pct)} x2={x(pct)} y1={PAD_T} y2={H - PAD_B}
             stroke={colour} stroke-width="1" stroke-dasharray="4 3" />
-      <text x={x(pct) + 3} y={PAD_T + 8} fill={colour} font-size="7"
-            letter-spacing="0.8">{label}</text>
+      <text x={x(pct) + 4} y={PAD_T + 9 + row * 14} fill={colour} font-size="10"
+            letter-spacing="0.6">{label}</text>
     </>
   );
 
   return (
     <Show when={props.points.length > 0}
           fallback={<p class="chart-note">No attendance recorded yet.</p>}>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img"
+      <div class="chart-fit" ref={attach}>
+      <svg viewBox={`0 0 ${W()} ${H}`} width={W()} height={H} role="img"
            aria-label="Attendance against internal marks, by subject">
-        {line(ATTENDANCE_MIN, "var(--warn)", "75% ELIGIBLE")}
-        {line(ATTENDANCE_CONDONE, "var(--danger)", "60% FLOOR")}
+        {line(ATTENDANCE_MIN, "var(--warn)", "75% ELIGIBLE", 0)}
+        {line(ATTENDANCE_CONDONE, "var(--danger)", "60% FLOOR", 1)}
 
-        <line x1={PAD_L} x2={W - PAD_R} y1={H - PAD_B} y2={H - PAD_B}
+        <line x1={PAD_L} x2={W() - PAD_R} y1={H - PAD_B} y2={H - PAD_B}
               stroke="var(--hairline-strong)" stroke-width="1" />
         <For each={[40, 60, 80, 100]}>{(tick) => (
-          <text x={x(tick)} y={H - PAD_B + 11} text-anchor="middle"
-                fill="var(--text-faint)" font-size="8" class="num">{tick}</text>
+          <text x={x(tick)} y={H - PAD_B + 15} text-anchor="middle"
+                fill="var(--text-faint)" font-size={LABEL} class="num">{tick}</text>
         )}</For>
         <For each={[0, 0.5, 1]}>{(frac) => (
-          <text x={PAD_L - 5} y={y(frac) + 3} text-anchor="end"
-                fill="var(--text-faint)" font-size="8" class="num">
+          <text x={PAD_L - 7} y={y(frac) + 4} text-anchor="end"
+                fill="var(--text-faint)" font-size={LABEL} class="num">
             {Math.round(frac * 100)}
           </text>
         )}</For>
@@ -255,19 +311,20 @@ export function AttendanceScatter(props: { points: ScatterPoint[] }) {
           return (
             <g onMouseEnter={() => setHover(p.code)} onMouseLeave={() => setHover(null)}>
               <circle cx={x(p.attendance)} cy={y(p.cie / (p.cieMax || 1))}
-                      r={hover() === p.code ? 6 : 4}
+                      r={hover() === p.code ? 7 : 5}
                       fill={lost ? "var(--danger-wash)" : short ? "var(--warn-wash)" : "var(--brand-wash)"}
                       stroke={lost ? "var(--danger)" : short ? "var(--warn)" : "var(--brand)"}
                       stroke-width="1.5" />
               <Show when={hover() === p.code}>
-                <text x={x(p.attendance)} y={y(p.cie / (p.cieMax || 1)) - 9}
-                      text-anchor="middle" fill="var(--text)" font-size="8"
+                <text x={x(p.attendance)} y={y(p.cie / (p.cieMax || 1)) - 11}
+                      text-anchor="middle" fill="var(--text)" font-size="12"
                       font-weight="600">{p.code}</text>
               </Show>
             </g>
           );
         }}</For>
       </svg>
+      </div>
       <p class="chart-note">
         X: attendance %. Y: internal marks as a share of the CIE maximum.
       </p>

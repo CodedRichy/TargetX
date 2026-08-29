@@ -32,5 +32,23 @@ export default defineConfig({
     // jsdom per file with a `@vitest-environment` comment.
     environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    /**
+     * Six times the default, because what the default is measuring here is not
+     * the code.
+     *
+     * Vitest starts the clock before the test body, and the first test in a
+     * file pays for the transform and evaluation of everything it imports -
+     * the store, the engine, jsdom, Solid's runtime. On an idle machine that
+     * is a second; with a Rust release build running alongside the suite it
+     * has taken over five, and two different files have failed on it on two
+     * different days, in tests that had passed thousands of times and whose
+     * assertions never ran.
+     *
+     * A timeout that moves with the machine's load is not a signal about the
+     * code, and a suite that cries wolf is a suite that stops being read.
+     * Nothing here is testing latency; the one thing this budget still
+     * catches is a genuine hang, and 30s catches that just as well.
+     */
+    testTimeout: 30_000,
   },
 });

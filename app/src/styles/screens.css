@@ -410,6 +410,30 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   .screen { padding: var(--s5) var(--s5); }
 }
 
+/* The measured wrapper the line and scatter charts draw into. It is the thing
+   whose width they read, so it must be a plain block that takes the column and
+   nothing else: give it padding or a border and the chart reads its own inset
+   and shrinks by that much on every resize. */
+.chart-fit { display: block; width: 100%; }
+.chart-fit > svg { display: block; }
+
+/* A short window spends its height on the tiles rather than on the space
+   around the title. Keyed to height, not width, because height is what is
+   scarce: a 1280x800 laptop and a 1280x1400 portrait monitor want opposite
+   things and a width query cannot tell them apart. Measured on the seeded
+   fifth semester by `tools/measure.mjs`: with the column bands above and the
+   charts no longer scaling their height from their width, Home went from
+   overflowing by 519px at 1280x800 to 66, and now fits outright at 1440x900.
+   The 66 is the second tile row's last line, not a hidden card. */
+@media (max-height: 940px) {
+  /* Less at the foot than at the head: the head's space separates the title
+     from the tiles and is doing work, the foot's is only a margin. */
+  .screen { padding: var(--s5) var(--s7) var(--s3); }
+  .screen-head { margin-bottom: var(--s5); padding-bottom: var(--s4); }
+  .home .bento { gap: var(--s3); }
+  .home .tile { padding: var(--s4); }
+}
+
 /* --- top tabs -------------------------------------------------------------- */
 
 .tabs { display: flex; gap: var(--s1); }
@@ -437,10 +461,16 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
  * the dense screens use.
  */
 
+/* Column counts are stated rather than left to `auto-fit`, because two tiles
+   span two columns and a span means nothing until you know how many columns
+   there are. Under auto-fit the three-column band put the Trend tile on a row
+   of its own - 267px of height spent on a chart that fits happily beside the
+   other two - and that row was most of why Home overflowed at 1280x800.
+   Stating the bands lets the spans change with them. */
 .home .bento {
   display: grid;
   gap: var(--s4);
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   /* Cards size to their content. Stretching every tile to the tallest one in
      its row leaves a two-line card standing in a column of empty surface,
      which reads as missing data rather than as a short answer. */
@@ -464,12 +494,28 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   padding: var(--s5);
 }
 
-/* The one card allowed to occupy two columns: standing is the question the
-   screen exists to answer, and the rest are follow-ups. */
+/* The two cards allowed to occupy two columns: standing is the question the
+   screen exists to answer, and the trend is the only tile with a horizontal
+   axis, so width is data to it rather than decoration. */
 .home .hero { grid-column: span 2; }
 .home .trend { grid-column: span 2; }
 
-@media (max-width: 900px) {
+/* Three columns. The hero keeps its width - it is the headline - and the trend
+   gives its up, which is what collapses Home from three rows to two. */
+@media (max-width: 1367px) {
+  .home .bento { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .home .trend { grid-column: span 1; }
+}
+
+/* Two columns: the hero takes the full row, and the trend takes it back,
+   because a 300px-wide line chart of six semesters is a smudge. */
+@media (max-width: 1043px) {
+  .home .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .home .trend { grid-column: span 2; }
+}
+
+@media (max-width: 719px) {
+  .home .bento { grid-template-columns: minmax(0, 1fr); }
   .home .hero, .home .trend { grid-column: span 1; }
 }
 
