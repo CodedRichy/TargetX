@@ -14,7 +14,8 @@
     "keyboard": "node tools/keyboard.mjs",
     "measure": "node tools/measure.mjs",
     "shots": "node tools/screenshot.mjs",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "picker-width": "node tools/picker-width.mjs"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.3.0",

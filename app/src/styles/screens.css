@@ -269,6 +269,19 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
 }
 .picker-controls .field-input { width: auto; }
 
+/* A `select` sizes itself to its WIDEST option, and the branch list now holds
+   KTU's printed names - the longest is 90 characters. Left at `auto` the
+   control took 652px of an 816px row, which did not overflow but squeezed the
+   subject counter into three crushed lines beside it. Measured, not guessed:
+   tools/picker-width.mjs. Capped at roughly the width of the longest name
+   anyone actually reads at a glance; the open dropdown still shows every name
+   in full, because that is drawn by the OS and not by this box. */
+.picker-controls > label:first-child { flex: 0 1 34ch; min-width: 0; }
+.picker-controls > label:first-child select { max-width: 100%; width: 100%; }
+/* Pushed to the far end and kept on one line - it is a running total, and a
+   total that reflows as it counts is harder to read than one that moves. */
+.picker-controls > .fineprint { margin-left: auto; white-space: nowrap; }
+
 .picks {
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
