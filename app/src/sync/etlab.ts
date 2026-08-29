@@ -641,6 +641,24 @@ export interface SyncResult {
   semesters: Record<string, { courses: Course[]; creditCheck: ReturnType<typeof verifyCredits> }>;
   history: Record<string, SemesterHistory>;
   current: string | null;
+  /**
+   * Courses whose mark split nothing could tell us, in order.
+   *
+   * The CIA/ESE split decides the CIE maximum, which decides every projected
+   * grade on that course. Three things can supply it: the published
+   * curriculum, the portal's own Theory/Practical page, and - when neither
+   * does - the letters in the course code. That last one is a guess, and it
+   * is the one that will fire at a second college, where most codes are not in
+   * a catalogue built from one branch's PDF and `/student/subject` may not
+   * exist at all.
+   *
+   * `fitType` catches the guess only when the published internal mark exceeds
+   * the ceiling it guessed; a 50/50 course whose internal is 30 fits inside a
+   * 40/60 ceiling and stays wrong quietly. So the guesses are counted and
+   * named. Being told "these three were inferred" is the difference between a
+   * student checking three subjects and a student trusting seven.
+   */
+  inferredTypes: string[];
 }
 
 /**
@@ -662,6 +680,7 @@ export function academicsToState(
 ): SyncResult {
   const semesters: SyncResult["semesters"] = {};
   const history: SyncResult["history"] = {};
+  const inferredTypes: string[] = [];
 
   for (const [key, entry] of Object.entries(academics.semesters)) {
     const name = `S${key}`;
@@ -681,7 +700,9 @@ export function academicsToState(
       const listed = lookupCourse(item.code);
       const incomplete = isIncomplete(normaliseGrade(item.grade));
       if (!listed?.credits && !incomplete) allCreditsListed = false;
-      let typeKey = (listed?.type ?? types[item.code] ?? inferType(item.code)) as TypeKey;
+      const knownType = listed?.type ?? types[item.code];
+      if (!knownType) inferredTypes.push(item.code);
+      let typeKey = (knownType ?? inferType(item.code)) as TypeKey;
       typeKey = fitType(typeKey, item.internal);
 
       const course = blankCourse(item.code, item.name || listed?.name || "",
@@ -743,7 +764,7 @@ export function academicsToState(
   }
 
   return {
-    semesters, history,
+    semesters, history, inferredTypes,
     current: academics.current ? `S${academics.current}` : null,
   };
 }

@@ -108,6 +108,12 @@ figure that was shown to a student as fact.
 ### Security
 
 - Portal credentials are no longer sent anywhere they do not belong.
+- A synced subject that is in neither the curriculum file nor your portal's own
+  subject list now says so by name. Whether a course is marked out of 40/60 or
+  50/50 sets its internal maximum, and with nothing to read it from it is
+  guessed from the course code — so the subjects that were guessed are listed,
+  rather than sitting in the grid looking like the ones that were not.
+
 - When the portal cannot be read, TargetX shows you a description of the page
   it could not parse — the table headings with every number blanked out and no
   subject row at all — so a college it does not yet work for can be fixed from

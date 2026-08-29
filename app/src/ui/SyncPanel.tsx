@@ -72,6 +72,8 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
     .reduce((sum, s) => sum + s.courses.length, 0);
   const mismatches = () => Object.entries(result()?.semesters ?? {})
     .filter(([, s]) => s.creditCheck.matched === false);
+  /** Deduplicated: the same elective appears in two semesters at a re-sit. */
+  const inferred = () => Array.from(new Set(result()?.inferredTypes ?? []));
 
   return (
     <div class="sync">
@@ -99,6 +101,26 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
               </ul>
               Nothing is wrong with your marks — but SGPA will be off until the
               credits match. Fix them in the semester grid.
+            </div>
+          </Show>
+
+          {/* Named, not counted. "3 subjects were inferred" sends a student
+              looking through seven; three course codes send them to three. */}
+          <Show when={inferred().length > 0}>
+            <div class="notice">
+              <strong>
+                {inferred().length === 1
+                  ? "One subject is not in the curriculum file."
+                  : `${inferred().length} subjects are not in the curriculum file.`}
+              </strong>{" "}
+              <span class="num">{inferred().join(", ")}</span> — neither the
+              published curriculum nor your portal said whether{" "}
+              {inferred().length === 1 ? "it is" : "they are"} marked out of 40/60
+              or 50/50, so it was read off the course code. That split sets the
+              internal maximum, so check it in the semester grid before trusting
+              a projected grade on{" "}
+              {inferred().length === 1 ? "that subject" : "those subjects"}.
+              Everything else came from the university's own table.
             </div>
           </Show>
 

@@ -26,6 +26,7 @@ const incoming = (credits: number): Parameters<typeof applySync>[0] => ({
   },
   history: {},
   current: "S5",
+  inferredTypes: [],
 });
 
 beforeEach(() => {
