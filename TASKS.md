@@ -56,6 +56,28 @@ checked.
       a minute and which moves no credential at all. Whoever finds the second
       college should send them that, not a copy of the app.
 
+      Researched 2026-08-29 across six public etlab scrapers at four other
+      colleges. Three things came out of it. Our login handling is a superset
+      of all four of theirs — they all post `LoginForm[username]` with no CSRF
+      token, and RIT detects a bounced login from `<title>` exactly as we do,
+      which is the first corroboration of that tell at a second college. Two
+      bugs they share, we were checked for and do not have: a hardcoded
+      semester path segment (it is an opaque global `sem_id`, not 1–8) and a
+      hardcoded session cookie name (it is per-college). And no public repo
+      anywhere contains a saved HTML fixture of a real etlab page, so there is
+      still nothing to test against but a real one.
+
+- [ ] **Decide whether TargetX may use etlab's mobile JSON API.** It exists,
+      it would replace almost all of our parsing, and it hands over duty leave
+      as a field rather than an inference. It also refuses a client that is not
+      the vendor's Android app — a plain request to its college registry
+      returns HTTP 403 — so using it means presenting as that app, which is the
+      same call this project already refused once over a bot filter. Not built,
+      deliberately. Written up with the evidence and a recommendation in the
+      vault: `_brain/decisions/2026-08-29-targetx-etlab-mobile-api-declined.md`.
+      **This one is a posture decision, not an engineering one, and it is
+      yours.**
+
 ## Layout, measured rather than argued about
 
 - [x] **Residual scroll on Home.** Done 2026-08-29, and the cause was not
