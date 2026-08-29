@@ -1,0 +1,724 @@
+/*
+ * TargetX — the page you download it from.
+ *
+ * Built from the application's own tokens (app/src/styles/tokens.css) rather
+ * than a palette picked for a website. Direction: "Mineral, inverted" —
+ * verdigris on warm stone. The ground is warm (neutrals tinted H:70) against a
+ * cold primary at H:178, deliberately, and the semantic trio owns the eye
+ * because what this product is FOR is status.
+ *
+ * Dark-first, like the app. The bare :root carries the complete dark palette;
+ * light is an override so that a viewer who has asked for light gets it in
+ * both the system state and the explicitly-stamped one.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --bg:        oklch(0.145 0.012 68);
+  --surface-1: oklch(0.195 0.013 68);
+  --surface-2: oklch(0.245 0.014 68);
+  --surface-3: oklch(0.30 0.015 68);
+
+  --hairline:        oklch(0.285 0.012 68);
+  --hairline-strong: oklch(0.40 0.014 68);
+
+  --text:       oklch(0.92 0.010 78);
+  --text-dim:   oklch(0.68 0.012 70);
+  --text-faint: oklch(0.63 0.010 70);
+
+  --brand:        oklch(0.74 0.10 178);
+  --brand-bright: oklch(0.84 0.12 178);
+  --brand-wash:   oklch(0.74 0.10 178 / 0.12);
+  --on-brand:     oklch(0.16 0.02 178);
+
+  --good:        oklch(0.76 0.16 145);
+  --good-wash:   oklch(0.76 0.16 145 / 0.10);
+  --warn:        oklch(0.80 0.15 80);
+  --warn-wash:   oklch(0.80 0.15 80 / 0.10);
+  --danger:      oklch(0.73 0.16 25);
+  --danger-wash: oklch(0.73 0.16 25 / 0.10);
+
+  --edge-hi:  oklch(1 0 0 / 0.13);
+  --edge-lo:  oklch(1 0 0 / 0.01);
+  --glass:    oklch(0.145 0.012 68 / 0.82);
+
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  --tracking-widest: 0.14em;
+  --tracking-tight: -0.025em;
+
+  --s1: 0.25rem; --s2: 0.5rem;  --s3: 0.75rem; --s4: 1rem;
+  --s5: 1.5rem;  --s6: 2rem;    --s7: 3rem;    --s8: 4.5rem;
+  --s9: 7rem;
+
+  --radius: 3px;
+  --radius-lg: 6px;
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 120ms;
+  --med: 200ms;
+
+  /* The rail carries the clause markers; the shell is what the page fills. */
+  --rail: 9.5rem;
+  /* Running text stops here no matter how wide the window gets — around 68
+     characters. Widening the SHELL and widening the COLUMN OF PROSE are
+     different things, and only the first of them is what a big monitor wants. */
+  --measure: 36rem;
+}
+
+/*
+ * Light is the same mineral quarried instead of oxidised, not an inversion.
+ * Verdigris at L:0.74 is invisible on paper, so the instrument hue drops to
+ * L:0.50 and the semantic trio drops with it — yellow especially fails on
+ * white at the lightness that works on black.
+ */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg:        oklch(0.955 0.008 68);
+    --surface-1: oklch(0.99 0.004 68);
+    --surface-2: oklch(0.925 0.010 68);
+    --surface-3: oklch(0.875 0.012 68);
+    --hairline:        oklch(0.875 0.010 68);
+    --hairline-strong: oklch(0.755 0.014 68);
+    --text:       oklch(0.26 0.014 68);
+    --text-dim:   oklch(0.46 0.014 70);
+    --text-faint: oklch(0.505 0.012 70);
+    --brand:        oklch(0.50 0.09 178);
+    --brand-bright: oklch(0.43 0.11 178);
+    --brand-wash:   oklch(0.50 0.09 178 / 0.10);
+    --on-brand:     oklch(0.985 0.008 178);
+    --good:        oklch(0.49 0.15 145);
+    --good-wash:   oklch(0.49 0.15 145 / 0.10);
+    --warn:        oklch(0.505 0.10 80);
+    --warn-wash:   oklch(0.70 0.14 80 / 0.14);
+    --danger:      oklch(0.50 0.20 25);
+    --danger-wash: oklch(0.50 0.20 25 / 0.09);
+    --edge-hi: oklch(0.30 0.01 68 / 0.14);
+    --edge-lo: oklch(0.30 0.01 68 / 0.03);
+    --glass:   oklch(0.955 0.008 68 / 0.84);
+  }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg:        oklch(0.955 0.008 68);
+  --surface-1: oklch(0.99 0.004 68);
+  --surface-2: oklch(0.925 0.010 68);
+  --surface-3: oklch(0.875 0.012 68);
+  --hairline:        oklch(0.875 0.010 68);
+  --hairline-strong: oklch(0.755 0.014 68);
+  --text:       oklch(0.26 0.014 68);
+  --text-dim:   oklch(0.46 0.014 70);
+  --text-faint: oklch(0.505 0.012 70);
+  --brand:        oklch(0.50 0.09 178);
+  --brand-bright: oklch(0.43 0.11 178);
+  --brand-wash:   oklch(0.50 0.09 178 / 0.10);
+  --on-brand:     oklch(0.985 0.008 178);
+  --good:        oklch(0.49 0.15 145);
+  --good-wash:   oklch(0.49 0.15 145 / 0.10);
+  --warn:        oklch(0.505 0.10 80);
+  --warn-wash:   oklch(0.70 0.14 80 / 0.14);
+  --danger:      oklch(0.50 0.20 25);
+  --danger-wash: oklch(0.50 0.20 25 / 0.09);
+  --edge-hi: oklch(0.30 0.01 68 / 0.14);
+  --edge-lo: oklch(0.30 0.01 68 / 0.03);
+  --glass:   oklch(0.955 0.008 68 / 0.84);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+a { color: var(--brand); text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
+a:hover { color: var(--brand-bright); }
+
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; border-radius: 2px; }
+
+h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: var(--tracking-tight); text-wrap: balance; }
+p { margin: 0; }
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px;
+  padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+/* --- the rail ------------------------------------------------------------
+   Sections are marked with the KTU regulation clause they are about. These
+   are not decorative numbers: R 7.5.ii is the clause that makes attendance
+   worth marks, R 6.2 is the condonation floor, R 6.3.ii is the duty-leave
+   cap. The rail is the table of contents of the rulebook this app implements.
+*/
+/*
+ * The page fills the window; the reading column does not.
+ *
+ * This was a flat `max-width: 76rem` — 1216px, whatever the monitor. On a
+ * 1920 display that used 56% of the width and on a 2560 one 42%, so the page
+ * sat in the middle of the screen looking like it had been designed for a
+ * laptop and then abandoned. Measured, not eyeballed: `npm run site`.
+ *
+ * The cap is now fluid and much higher, and every block of running text is
+ * held to `--measure` instead, so the things that SHOULD go wide — the stair,
+ * the build table, the screenshot, the two-column feature rows — do, while a
+ * paragraph never grows past the length an eye can track back from.
+ */
+.wrap {
+  max-width: min(104rem, 94vw);
+  margin-inline: auto;
+  padding-inline: clamp(var(--s5), 4vw, var(--s8));
+}
+
+.band { border-top: 1px solid var(--hairline); }
+
+.band-inner {
+  display: grid;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  gap: 0 var(--s7);
+  padding-block: clamp(var(--s7), 9vh, var(--s9));
+}
+
+.mark {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding-top: 0.55rem;
+  position: sticky;
+  top: 5.5rem;
+  align-self: start;
+  line-height: 1.7;
+}
+.mark b {
+  display: block; font-weight: 500; color: var(--brand);
+  /* R 7.5.ii is a clause number: the roman numeral is lowercase in the
+     regulations, and inheriting the label's uppercase printed R 7.5.II. */
+  text-transform: none; letter-spacing: 0.04em;
+}
+
+@media (max-width: 62rem) {
+  .band-inner { grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
+  .mark { position: static; padding-top: 0; }
+  .mark b { display: inline; }
+}
+
+/* --- masthead ----------------------------------------------------------- */
+.masthead {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--hairline);
+}
+.masthead-inner {
+  display: flex; align-items: center; gap: var(--s5);
+  height: 3.5rem;
+}
+.wordmark {
+  font-size: 1.05rem; font-weight: 700; letter-spacing: var(--tracking-tight);
+  color: var(--text); text-decoration: none; margin-right: auto;
+}
+.wordmark span { color: var(--brand); }
+.masthead nav { display: flex; gap: var(--s5); }
+.masthead nav a {
+  font-family: var(--font-mono); font-size: 0.75rem;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-dim); text-decoration: none;
+}
+.masthead nav a:hover { color: var(--text); }
+@media (max-width: 44rem) { .masthead nav a.opt { display: none; } }
+/* At phone width the wordmark, one link and the three-state theme control are
+   more than the bar can hold: measured at 390px, the control was pushed past
+   the right edge. The section links go first — the page is a scroll away —
+   and the control stays, because it is the only thing here that is not
+   reachable another way. */
+@media (max-width: 34rem) {
+  .masthead-inner { gap: var(--s3); }
+  .masthead nav { gap: var(--s3); }
+  .masthead nav a.away { display: none; }
+}
+
+/* --- buttons ------------------------------------------------------------ */
+.btn {
+  display: inline-flex; align-items: center; gap: var(--s3);
+  font: inherit; font-weight: 500;
+  padding: 0.7rem 1.15rem;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+.btn-primary { background: var(--brand); color: var(--on-brand); }
+.btn-primary:hover { background: var(--brand-bright); color: var(--on-brand); }
+.btn-quiet {
+  background: transparent; color: var(--text);
+  border-color: var(--hairline-strong);
+}
+.btn-quiet:hover { background: var(--surface-2); color: var(--text); }
+.btn small {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  opacity: 0.75; font-weight: 400;
+}
+
+/* --- hero --------------------------------------------------------------- */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(22rem, 34rem);
+  gap: clamp(var(--s6), 5vw, var(--s8));
+  align-items: center;
+  padding-block: clamp(var(--s6), 7vh, 5rem) clamp(var(--s7), 9vh, var(--s9));
+}
+@media (max-width: 62rem) {
+  .hero { grid-template-columns: minmax(0, 1fr); gap: var(--s7); }
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: var(--s5);
+}
+.eyebrow em { font-style: normal; color: var(--brand); }
+
+.hero h1 {
+  font-size: clamp(1.95rem, 3.6vw, 3.4rem);
+  line-height: 1.08;
+  margin-bottom: var(--s5);
+}
+/* The turn of the sentence, so it steps down rather than shouting twice. */
+.hero h1 .quiet {
+  color: var(--text-faint); font-weight: 400;
+  font-size: 0.88em; letter-spacing: -0.01em;
+}
+
+.hero-lede {
+  font-size: clamp(1.05rem, 1.6vw, 1.2rem);
+  color: var(--text-dim);
+  max-width: var(--measure);
+  margin-bottom: var(--s6);
+}
+.hero-lede strong { color: var(--text); font-weight: 500; }
+
+.hero-actions { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center; }
+
+.hero-note {
+  margin-top: var(--s4);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--text-faint);
+  line-height: 1.7;
+}
+
+/* --- the readout: the app's own surface, rendered live ------------------ */
+.readout {
+  background: linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
+              linear-gradient(var(--edge-hi), var(--edge-lo) 40%) border-box;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  padding: var(--s5);
+  font-size: 0.9rem;
+}
+.readout-head {
+  display: flex; align-items: baseline; gap: var(--s3);
+  padding-bottom: var(--s4); border-bottom: 1px solid var(--hairline);
+}
+.readout-head .code {
+  font-family: var(--font-mono); font-size: 0.8rem;
+  color: var(--brand); letter-spacing: 0.02em;
+}
+.readout-head .name { color: var(--text); font-weight: 500; }
+.readout-head .cr {
+  margin-left: auto; font-family: var(--font-mono);
+  font-size: 0.75rem; color: var(--text-faint);
+}
+
+.rows { display: grid; gap: 0; }
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--s4);
+  align-items: baseline;
+  padding: 0.68rem 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.row .label { color: var(--text-dim); font-size: 0.85rem; }
+.row .val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.row .val .of { color: var(--text-faint); }
+
+.pill {
+  font-family: var(--font-mono);
+  font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 0.16rem 0.5rem; border-radius: 999px; white-space: nowrap;
+}
+.pill-warn { background: var(--warn-wash); color: var(--warn); }
+.pill-good { background: var(--good-wash); color: var(--good); }
+.pill-danger { background: var(--danger-wash); color: var(--danger); }
+
+.verdict { padding-top: var(--s5); display: flex; align-items: flex-end; gap: var(--s4); }
+.verdict-figure {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: clamp(3rem, 7vw, 4.2rem); line-height: 0.85;
+  letter-spacing: -0.04em; color: var(--text);
+}
+.verdict-say { color: var(--text-dim); font-size: 0.85rem; line-height: 1.5; padding-bottom: 0.3rem; }
+.verdict-say b { color: var(--text); font-weight: 500; }
+.readout-foot {
+  margin-top: var(--s4); padding-top: var(--s4);
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono); font-size: 0.7rem;
+  color: var(--text-faint); line-height: 1.65;
+}
+
+/* --- the attendance argument -------------------------------------------- */
+.claim {
+  font-size: clamp(1.6rem, 3.2vw, 2.7rem);
+  line-height: 1.12;
+  max-width: 20ch;
+  margin-bottom: var(--s5);
+}
+.claim em { font-style: normal; color: var(--warn); }
+
+.prose { max-width: var(--measure); color: var(--text-dim); font-size: 1.02rem; }
+.prose p + p { margin-top: var(--s4); }
+.prose strong { color: var(--text); font-weight: 500; }
+.prose .num { color: var(--text); }
+
+/* The stair. Five bands, because the regulation has five. */
+.stair-top {
+  margin-top: clamp(var(--s6), 6vh, var(--s8));
+  max-width: 78rem;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--s2);
+}
+.forfeit {
+  grid-column: 4 / 6;
+  border: 1px solid var(--warn);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 0.3rem 0 0.45rem;
+  text-align: center;
+  font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--warn);
+}
+.stair {
+  margin-top: 0;
+  max-width: 78rem;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--s2);
+  align-items: end;
+  min-height: 15rem;
+}
+.step {
+  position: relative;
+  border-radius: var(--radius) var(--radius) 0 0;
+  border: 1px solid var(--hairline-strong);
+  border-bottom: none;
+  background: var(--surface-1);
+  padding: var(--s3) var(--s3) var(--s4);
+  display: flex; flex-direction: column; justify-content: flex-end; gap: var(--s2);
+}
+.step .marks { color: var(--text-dim); }
+.step .marks {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: clamp(1.5rem, 3.4vw, 2.3rem); line-height: 1;
+  letter-spacing: -0.03em; color: var(--text-faint);
+}
+.step .at {
+  font-family: var(--font-mono); font-size: 0.72rem;
+  letter-spacing: 0.06em; color: var(--text-faint);
+}
+.step.here { background: var(--warn-wash); border-color: var(--warn); }
+.step.here .marks, .step.here .at { color: var(--warn); }
+.step.full { background: var(--good-wash); border-color: var(--good); }
+.step.full .marks, .step.full .at { color: var(--good); }
+/* The bands this student has not reached: the two marks the headline is
+   about. Dashed, because they are the marks that are not there. */
+.step.unreached { border-style: dashed; border-color: var(--warn); }
+
+.step-flag {
+  position: absolute; left: 0; right: 0; bottom: calc(100% + 0.4rem);
+  text-align: center;
+  font-family: var(--font-mono); font-size: 0.68rem;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--warn);
+}
+.stair-axis {
+  max-width: 78rem;
+  border-top: 1px solid var(--hairline-strong);
+  margin-top: 0;
+  padding-top: var(--s3);
+  display: flex; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint);
+}
+
+@media (max-width: 44rem) {
+  .stair { grid-template-columns: repeat(5, 1fr); min-height: 10rem; gap: 3px; }
+  .step { padding: var(--s2); }
+  .step .at { font-size: 0.6rem; letter-spacing: 0; }
+  .step-flag { font-size: 0.58rem; letter-spacing: 0.04em; }
+}
+
+/* --- capability list ---------------------------------------------------- */
+.does { display: grid; gap: 0; }
+.does-item {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  max-width: 74rem;
+  gap: var(--s4) var(--s6);
+  padding-block: var(--s5);
+  border-bottom: 1px solid var(--hairline);
+  align-items: start;
+}
+.does-item:first-child { padding-top: 0; }
+.does-item h3 { font-size: 1.12rem; }
+.does-item p { color: var(--text-dim); font-size: 0.96rem; }
+.does-item .num { color: var(--text); }
+@media (max-width: 52rem) {
+  .does-item { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
+}
+
+/* --- shot --------------------------------------------------------------- */
+.shot {
+  margin-top: var(--s6);
+  max-width: 1600px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-1);
+  line-height: 0;
+}
+.shot img { width: 100%; height: auto; display: block; }
+.shot-cap {
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-faint);
+  padding: var(--s3) var(--s4); border-top: 1px solid var(--hairline);
+  line-height: 1.6;
+}
+
+/* --- downloads ---------------------------------------------------------- */
+.dl-primary {
+  max-width: 74rem;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-lg);
+  padding: var(--s5);
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s5);
+  margin-bottom: var(--s5);
+}
+.dl-primary > div:first-child { flex: 1 1 22rem; min-width: 0; }
+.dl-primary .meta { max-width: 40ch; }
+.dl-primary .for {
+  font-family: var(--font-mono); font-size: 0.72rem;
+  letter-spacing: var(--tracking-widest); text-transform: uppercase;
+  color: var(--text-faint); margin-bottom: var(--s2);
+}
+.dl-primary .what { font-size: 1.15rem; font-weight: 500; }
+.dl-primary .meta {
+  font-family: var(--font-mono); font-size: 0.74rem; color: var(--text-faint);
+  margin-top: var(--s2);
+}
+.dl-primary .cta { margin-left: auto; }
+
+.dl-table { width: 100%; max-width: 74rem; border-collapse: collapse; font-size: 0.9rem; }
+.dl-table caption {
+  text-align: left; font-family: var(--font-mono); font-size: 0.72rem;
+  letter-spacing: var(--tracking-widest); text-transform: uppercase;
+  color: var(--text-faint); padding-bottom: var(--s3);
+}
+.dl-table th, .dl-table td {
+  text-align: left; padding: var(--s3) var(--s4) var(--s3) 0;
+  border-bottom: 1px solid var(--hairline); vertical-align: baseline;
+}
+.dl-table th {
+  font-family: var(--font-mono); font-size: 0.7rem; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint);
+}
+.dl-table td.file { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); }
+.dl-table td.size { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-faint); white-space: nowrap; }
+.dl-table td:last-child, .dl-table th:last-child { padding-right: 0; text-align: right; }
+.dl-wrap { overflow-x: auto; }
+
+.notice {
+  max-width: 60rem;
+  border-left: 2px solid var(--warn);
+  background: var(--warn-wash);
+  padding: var(--s4) var(--s5);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  margin-top: var(--s5);
+  font-size: 0.94rem;
+  color: var(--text-dim);
+}
+.notice strong { color: var(--text); font-weight: 500; }
+.notice code {
+  font-family: var(--font-mono); font-size: 0.82rem;
+  background: var(--surface-2); padding: 0.1rem 0.35rem; border-radius: 2px;
+  color: var(--text);
+}
+.notice.plain { border-left-color: var(--hairline-strong); background: var(--surface-1); }
+.cmd {
+  display: block; margin-top: var(--s3);
+  font-family: var(--font-mono); font-size: 0.78rem;
+  background: var(--surface-2); color: var(--text);
+  padding: var(--s3) var(--s4); border-radius: var(--radius);
+  overflow-x: auto; white-space: pre;
+}
+
+/* --- facts grid: two columns, deliberately unequal ---------------------- */
+.facts { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; margin-top: var(--s5); }
+.fact {
+  display: grid; grid-template-columns: 13rem minmax(0, 1fr);
+  max-width: 66rem;
+  gap: var(--s4) var(--s5);
+  padding-block: var(--s4);
+  border-bottom: 1px solid var(--hairline);
+}
+.fact dt {
+  font-family: var(--font-mono); font-size: 0.72rem;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint);
+  padding-top: 0.2rem;
+}
+.fact dd { margin: 0; color: var(--text-dim); font-size: 0.96rem; }
+.fact dd strong { color: var(--text); font-weight: 500; }
+@media (max-width: 44rem) {
+  .fact { grid-template-columns: minmax(0, 1fr); gap: var(--s1); }
+}
+
+/* --- footer ------------------------------------------------------------- */
+footer { border-top: 1px solid var(--hairline); }
+.foot-inner {
+  padding-block: var(--s6) var(--s7);
+  display: flex; flex-wrap: wrap; gap: var(--s5) var(--s7);
+  align-items: flex-start;
+  font-size: 0.88rem; color: var(--text-faint);
+}
+.foot-links { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); }
+.foot-links a { color: var(--text-dim); text-decoration: none; }
+.foot-links a:hover { color: var(--brand); }
+.foot-note { max-width: 30rem; line-height: 1.7; margin-left: auto; }
+
+/* --- motion ------------------------------------------------------------- */
+.rise { opacity: 0; transform: translateY(10px); }
+.rise.seen {
+  opacity: 1; transform: none;
+  transition: opacity var(--med) var(--ease), transform var(--med) var(--ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise, .rise.seen { opacity: 1; transform: none; transition: none; }
+  * { scroll-behavior: auto !important; }
+}
+html { scroll-behavior: smooth; scroll-padding-top: 5rem; }
+
+/* --- theme control -------------------------------------------------------
+   Three states, not two. The page follows the operating system by default,
+   and a two-way switch would quietly throw that away: once pressed there is
+   no way back to "whatever this machine is set to", which is what most people
+   actually want and what every other page they have open is doing.
+*/
+.theme {
+  display: flex;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.theme button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--hairline);
+  color: var(--text-faint);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.34rem 0.5rem;
+  transition: color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+.theme button:first-child { border-left: 0; }
+.theme button:hover { color: var(--text); background: var(--surface-2); }
+.theme button[aria-pressed="true"] {
+  background: var(--brand-wash);
+  color: var(--brand);
+}
+@media (max-width: 34rem) {
+  /* The labels are the control; at this width the nav has to give way first. */
+  .theme button { padding: 0.34rem 0.4rem; font-size: 0.6rem; }
+}
+
+/* --- long-form page ------------------------------------------------------
+   The privacy statement is a document, not a landing page: one column at the
+   reading measure, and a table that scrolls rather than squeezing.
+*/
+.doc { max-width: var(--measure); }
+.doc h2 {
+  font-size: clamp(1.15rem, 2vw, 1.4rem);
+  margin-top: var(--s7);
+  margin-bottom: var(--s4);
+}
+.doc h2:first-child { margin-top: 0; }
+.doc p { color: var(--text-dim); }
+.doc p + p { margin-top: var(--s4); }
+.doc strong { color: var(--text); font-weight: 500; }
+.doc ol, .doc ul { color: var(--text-dim); padding-left: 1.2rem; margin: var(--s4) 0 0; }
+.doc li + li { margin-top: var(--s3); }
+.doc code {
+  font-family: var(--font-mono); font-size: 0.82rem;
+  background: var(--surface-2); color: var(--text);
+  padding: 0.1rem 0.35rem; border-radius: 2px;
+  overflow-wrap: anywhere;
+}
+
+.doc-lede {
+  font-size: clamp(1.05rem, 1.6vw, 1.18rem);
+  color: var(--text-dim);
+  max-width: var(--measure);
+}
+.doc-lede strong { color: var(--text); }
+
+/* The store table is the answer to the whole question, so it gets the width
+   the reading column does not. */
+.store { max-width: 68rem; overflow-x: auto; margin-top: var(--s5); }
+.store table { width: 100%; border-collapse: collapse; font-size: 0.92rem; min-width: 44rem; }
+.store th, .store td {
+  text-align: left; vertical-align: top;
+  padding: var(--s3) var(--s4) var(--s3) 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.store th {
+  font-family: var(--font-mono); font-size: 0.68rem; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint);
+}
+.store td { color: var(--text-dim); }
+.store td:first-child { color: var(--text); }
+.store td.leaves { font-family: var(--font-mono); font-size: 0.8rem; white-space: nowrap; }
+.store td.no { color: var(--good); }
+.store td.some { color: var(--warn); }
+
+.doc-head { padding-block: clamp(var(--s6), 7vh, 4.5rem) var(--s5); }
+.doc-head h1 { font-size: clamp(2rem, 4vw, 3rem); margin-bottom: var(--s4); }
+.back {
+  display: inline-block; margin-bottom: var(--s5);
+  font-family: var(--font-mono); font-size: 0.72rem;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-dim); text-decoration: none;
+}
+.back:hover { color: var(--brand); }

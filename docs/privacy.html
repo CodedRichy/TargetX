@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TargetX — Privacy</title>
+<meta name="description" content="What TargetX stores, where it stores it, and the three network requests it makes. No account, no server, no telemetry — and every claim names the file it can be checked against.">
+<meta name="theme-color" content="#1a1512">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="site.css">
+<script>
+  // Inline and synchronous on purpose: a stored theme applied from the
+  // deferred script would paint the other palette for one frame first.
+  try {
+    var t = localStorage.getItem("targetx.theme");
+    if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+  } catch (e) {}
+</script>
+<script src="site.js" defer></script>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap masthead-inner">
+    <a class="wordmark" href="index.html">Target<span>X</span></a>
+    <nav>
+      <a href="index.html#download">Download</a>
+      <a href="https://github.com/CodedRichy/TargetX" class="away">Source</a>
+    </nav>
+    <div class="theme" role="group" aria-label="Colour theme">
+      <button type="button" data-theme="auto" aria-pressed="true">Auto</button>
+      <button type="button" data-theme="light" aria-pressed="false">Light</button>
+      <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap doc-head">
+    <a class="back" href="index.html">← TargetX</a>
+    <h1>Privacy</h1>
+    <p class="doc-lede">
+      TargetX runs entirely on the machine it is installed on. There is
+      <strong>no TargetX account, no TargetX server and no telemetry</strong>.
+      Every claim below can be checked against the source, and where a claim is
+      about code, the file is named — so it can be read rather than believed.
+    </p>
+  </div>
+
+  <section class="band">
+    <div class="wrap band-inner">
+      <p class="mark">What is<b>stored</b></p>
+      <div>
+        <div class="store">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">What</th>
+                <th scope="col">Where</th>
+                <th scope="col">Leaves the machine?</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Your marks, attendance, credits, targets and semester history</td>
+                <td><code>state.json</code> and up to three backups, in your user application-data folder</td>
+                <td class="leaves no">No</td>
+              </tr>
+              <tr>
+                <td>A duplicate of the same record</td>
+                <td>Browser storage inside the application</td>
+                <td class="leaves no">No</td>
+              </tr>
+              <tr>
+                <td>Your college portal password</td>
+                <td>Nowhere. Held in memory for the length of one sign-in and discarded</td>
+                <td class="leaves no">No</td>
+              </tr>
+              <tr>
+                <td>Your college portal session cookie</td>
+                <td>The application’s memory only, discarded when you quit</td>
+                <td class="leaves some">Only to your own college</td>
+              </tr>
+              <tr>
+                <td>A fault log</td>
+                <td><code>targetx.log</code> in your user log folder, up to three files of 2&nbsp;MB</td>
+                <td class="leaves no">No, unless you send it</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="doc" style="margin-top: var(--s6)">
+          <p>
+            On Windows the record is at
+            <code>%APPDATA%\cv.codedrichy.targetx\state.json</code> — the roaming
+            profile, chosen so a student on a shared lab machine keeps their
+            record when they move to a different one.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap band-inner">
+      <p class="mark">What is<b>sent</b></p>
+      <div class="doc">
+        <p>
+          TargetX makes network requests in exactly three situations, and no
+          others.
+        </p>
+        <ol>
+          <li>
+            <strong>When you press Sync.</strong> It signs in to the college
+            portal address <em>you typed</em> and reads your attendance and
+            internal marks — a request to your own college, with your own
+            credentials, at your instruction.
+            <code>app/src/sync/etlab.ts</code>,
+            <code>app/src-tauri/src/etlab.rs</code>.
+          </li>
+          <li>
+            <strong>When it refreshes the course catalogue.</strong> A plain
+            download of <code>curriculum.json</code> from this project’s own
+            repository, so a KTU curriculum revision does not need a new build.
+            It carries no information about you.
+            <code>app/src/engine/catalogue.ts</code>.
+          </li>
+          <li>
+            <strong>A few seconds after launch, to ask whether a newer version
+            exists.</strong> A request to GitHub’s release feed, carrying no
+            information about you beyond what any file download carries.
+            <code>app/src/sync/update.ts</code>.
+          </li>
+        </ol>
+        <p style="margin-top: var(--s5)">
+          <strong>Your marks are never sent anywhere, by anyone, for any
+          reason.</strong> There is no endpoint that would receive them.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap band-inner">
+      <p class="mark">Your<b>password</b></p>
+      <div class="doc">
+        <p>
+          Your college portal password is used once, to sign in. It is never
+          written to disk, never logged, and never included in an export. The
+          sign-in happens in the native process rather than the web layer, and
+          the cookie jar it produces lives in that process’s memory and is gone
+          when the application exits — so nothing in the page can read it.
+          <code>app/src-tauri/src/etlab.rs</code>.
+        </p>
+        <p>
+          If you leave the password field blank, TargetX re-uses the session
+          from earlier in the same run. After a restart there is nothing to
+          re-use, by design.
+        </p>
+        <p>
+          This is enforced by a test rather than by intention:
+          <code>credential-containment.test.ts</code> puts a sentinel password
+          through a whole sync and then searches for it by value in every
+          outbound request, the saved record, the export, and the text of a
+          failed sync’s error message.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap band-inner">
+      <p class="mark">The fault<b>log</b></p>
+      <div class="doc">
+        <p>
+          When something inside TargetX fails it writes the failure to a file,
+          so that it still exists afterwards. Without one, a crash leaves
+          nothing behind and “it stopped working” cannot be acted on.
+        </p>
+        <p>
+          The file holds error messages and the point in the program they came
+          from. It does <strong>not</strong> hold your marks, your attendance,
+          your password, or the contents of any portal page. It can contain the
+          portal address you typed, because a message about a bad address has to
+          quote it.
+        </p>
+        <p>
+          Nothing reads the file and nothing uploads it. If you want to report a
+          fault you can open it, read it, and decide for yourself whether to
+          send it — and send it yourself, by hand. On Windows it is at
+          <code>%LOCALAPPDATA%\cv.codedrichy.targetx\logs\targetx.log</code>;
+          the Data screen shows the exact folder for your machine. Deleting it
+          is safe.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap band-inner">
+      <p class="mark">Analytics</p>
+      <div class="doc">
+        <p>
+          <strong>There are none.</strong> No usage data, no crash telemetry, no
+          identifiers, no counters. The fault log above is written to your own
+          disk and read by nobody; it is not telemetry, because nothing sends
+          it.
+        </p>
+        <p>
+          Nobody can tell how many people use TargetX. That is a deliberate
+          trade: it costs the project useful information, and it is the only
+          arrangement in which the paragraph above is true without
+          qualification.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap band-inner">
+      <p class="mark">Taking it<b>with you</b></p>
+      <div class="doc">
+        <p>
+          <strong>Export</strong> on the Data screen writes a <code>.json</code>
+          file containing your whole record. It is yours; nothing is withheld
+          from it.
+        </p>
+        <p>
+          To delete everything TargetX holds, delete the application-data folder
+          named above. Uninstalling removes the program; deleting that folder
+          removes the data.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap band-inner">
+      <p class="mark">Student<b>records</b></p>
+      <div class="doc">
+        <p>
+          TargetX is used by students and holds academic performance data, which
+          in most jurisdictions is a protected education record. It is designed
+          so the question of who else can see it does not arise: the data does
+          not leave the device, so there is
+          <strong>no processor, no sub-processor and no cross-border
+          transfer</strong> to disclose.
+        </p>
+        <p>
+          An institution deploying TargetX is not sharing student data with this
+          project, or with anyone else, by doing so.
+        </p>
+        <p>
+          Anything here that is unclear, or that you believe the code
+          contradicts, belongs in
+          <a href="https://github.com/CodedRichy/TargetX/issues">an issue</a>.
+        </p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot-inner">
+    <div>
+      <p class="wordmark" style="font-size:1rem">Target<span>X</span></p>
+      <div class="foot-links" style="margin-top:var(--s3)">
+        <a href="index.html">Home</a>
+        <a href="index.html#download">Download</a>
+        <a href="https://github.com/CodedRichy/TargetX">Source</a>
+        <a href="https://github.com/CodedRichy/TargetX/blob/main/DEPLOYMENT.md">For IT</a>
+        <a href="https://github.com/CodedRichy/TargetX/issues">Report a problem</a>
+      </div>
+    </div>
+    <p class="foot-note">
+      This page describes the software’s behaviour, and the repository is the
+      authority on it. Where this page and the code disagree, the code is what
+      runs on your machine — and it can be read.
+    </p>
+  </div>
+</footer>
+</body>
+</html>
