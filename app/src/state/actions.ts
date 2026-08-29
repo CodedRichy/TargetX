@@ -72,7 +72,13 @@ export function applyPreset(semester: string, picks: PresetCourse[]) {
 
 // --- paste import ----------------------------------------------------------
 
-export interface ImportOutcome { matched: number; added: number; skipped: number }
+export interface ImportOutcome {
+  matched: number;
+  added: number;
+  skipped: number;
+  /** One line per refused row, said to the student rather than counted away. */
+  refused: string[];
+}
 
 /**
  * Fold pasted portal text into the active semester.
@@ -82,20 +88,39 @@ export interface ImportOutcome { matched: number; added: number; skipped: number
  * the student did not ask for.
  */
 export function importPaste(text: string, mode: "attendance" | "marks"): ImportOutcome {
-  const rows = parseEtlab(text, mode);
+  const { rows, skipped } = parseEtlab(text, mode);
   let matched = 0, added = 0;
 
   edit((s) => {
     const sem = s.semesters[s.activeSemester] ?? (s.semesters[s.activeSemester] = { courses: [] });
-    const byCode = new Map(sem.courses.map((c, i) => [(c.code || "").toUpperCase(), i]));
+
+    /**
+     * Rows are consumed in order, not looked up in a code map.
+     *
+     * A re-registered backlog sits in the same semester as its twin under the
+     * same code, and a code-to-index map keeps only the last of them - so the
+     * paste wrote both rows onto one course and the other silently kept a
+     * stale mark. First unused occurrence wins, which pairs the first pasted
+     * row with the first course, exactly as the two tables are read.
+     */
+    const used = new Set<number>();
+    const claim = (code: string): number | undefined => {
+      const key = code.toUpperCase();
+      for (const [i, course] of sem.courses.entries()) {
+        if (used.has(i)) continue;
+        if ((course.code || "").toUpperCase() !== key) continue;
+        used.add(i);
+        return i;
+      }
+      return undefined;
+    };
 
     for (const row of rows) {
-      const key = row.code.toUpperCase();
-      let index = byCode.get(key);
+      let index = claim(row.code);
       if (index === undefined) {
         sem.courses.push(courseFromCode(row.code));
         index = sem.courses.length - 1;
-        byCode.set(key, index);
+        used.add(index);
         added += 1;
       } else {
         matched += 1;
@@ -108,11 +133,23 @@ export function importPaste(text: string, mode: "attendance" | "marks"): ImportO
         if (row.s1 !== undefined) course.s1 = row.s1;
         if (row.s2 !== undefined) course.s2 = row.s2;
         if (row.other !== undefined) course.other = row.other;
+        // A published CIE total outranks the components everywhere it is set,
+        // so leaving a stale one in place made the new series marks change
+        // nothing on screen - and the student trusted a superseded internal.
+        // The paste is the newer evidence; the override goes.
+        if (row.s1 !== undefined || row.s2 !== undefined || row.other !== undefined) {
+          course.cie_override = "";
+        }
       }
     }
   });
 
-  return { matched, added, skipped: 0 };
+  return {
+    matched,
+    added,
+    skipped: skipped.length,
+    refused: skipped.map((r) => `${r.code} — ${r.reason}`),
+  };
 }
 
 // --- grade card ------------------------------------------------------------

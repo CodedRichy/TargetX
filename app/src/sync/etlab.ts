@@ -231,15 +231,27 @@ export function parseAcademics(html: string): Academics {
         entry.courses[entry.courses.length - 1]!.series = parseSeries(line);
         continue;
       }
-      if (!codeMatch || !attMatch) continue;
+      // A subject row with no attendance cell is still a subject.
+      //
+      // It used to be dropped, and `applySync` then REPLACED the semester with
+      // whatever had survived - so a course the portal had not yet posted
+      // attendance for vanished from the record, taking its credits out of the
+      // SGPA denominator with it. Nothing on screen said a row had gone
+      // missing. Parsing it with an unknown attendance keeps the semester
+      // whole, and unknown is a state the engine already handles: it shows a
+      // dash and withholds the grade rather than inventing a number.
+      if (!codeMatch) continue;
 
       const code = codeMatch[1]!;
+      const nameEnd = attMatch ? attMatch.index : line.length;
       const name = line
-        .slice(codeMatch.index + codeMatch[0].length, attMatch.index)
+        .slice(codeMatch.index + codeMatch[0].length, nameEnd)
         .replace(/^[\s\-⬆⬇⯆⯅]+|[\s\-⬆⬇⯆⯅]+$/g, "")
         .trim();
 
-      const tail = line.slice(attMatch.index + attMatch[0].length).trim().split(/\s+/);
+      const tail = attMatch
+        ? line.slice(attMatch.index + attMatch[0].length).trim().split(/\s+/)
+        : [];
       const internal = tail.length > 0 ? num(tail[0]) : null;
       const grade = tail.length > 1 && tail[1] !== "-" ? tail[1]! : null;
       const result = tail.length > 2 ? tail[2]! : null;
@@ -259,7 +271,9 @@ export function parseAcademics(html: string): Academics {
 
       entry.courses.push({
         code, name,
-        attended: num(attMatch[1]), held: num(attMatch[2]), attendance: num(attMatch[3]),
+        attended: attMatch ? num(attMatch[1]) : null,
+        held: attMatch ? num(attMatch[2]) : null,
+        attendance: attMatch ? num(attMatch[3]) : null,
         internal, grade, result, gpa,
         series: series.sort((a, b) => a.exam - b.exam),
       });
@@ -499,8 +513,17 @@ export async function fetchAcademics(): Promise<Academics> {
       continue;
     }
     const parsed = parseAcademics(response.body);
-    if (Object.keys(parsed.semesters).length) return parsed;
-    tried.push(`${path}: no semester tables`);
+    // Semesters without a single course is what a college whose subject tables
+    // use different headers looks like: the summary strip parses, the subject
+    // rows do not. That used to be reported as a successful sync, with a
+    // written timestamp and no data - the worst possible answer, because it
+    // tells the student to stop looking. It is a failure, and it says so.
+    const courses = Object.values(parsed.semesters)
+      .reduce((total, semester) => total + semester.courses.length, 0);
+    if (courses > 0) return parsed;
+    tried.push(Object.keys(parsed.semesters).length
+      ? `${path}: semester headings, but no subject rows this parser could read`
+      : `${path}: no semester tables`);
   }
   throw new EtlabError(`Could not read the academic record. Tried: ${tried.join("; ")}`);
 }

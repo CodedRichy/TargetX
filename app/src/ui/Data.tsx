@@ -1,4 +1,4 @@
-import { Show, createResource, createSignal } from "solid-js";
+import { For, Show, createResource, createSignal } from "solid-js";
 import { catalogueVersion } from "../engine";
 import {
   applyGradeCard, download, exportJson, importJson, importPaste, reportText,
@@ -69,12 +69,17 @@ function PasteImport() {
   const [text, setText] = createSignal("");
   const [mode, setMode] = createSignal<"attendance" | "marks">("attendance");
   const [note, setNote] = createSignal("");
+  const [refused, setRefused] = createSignal<string[]>([]);
 
   const run = () => {
     if (!text().trim()) return;
     const outcome = importPaste(text(), mode());
     setNote(`Updated ${outcome.matched} subject${outcome.matched === 1 ? "" : "s"}`
       + (outcome.added ? `, added ${outcome.added} new` : "") + ".");
+    // Refused rows are listed, not counted. "3 rows skipped" tells a student
+    // nothing they can act on; the course code tells them exactly which
+    // subject still needs typing in by hand.
+    setRefused(outcome.refused);
     setText("");
   };
 
@@ -111,6 +116,22 @@ function PasteImport() {
         <button class="primary" disabled={!text().trim()} onClick={run}>Import</button>
         <Show when={note()}><span class="fineprint">{note()}</span></Show>
       </div>
+
+      <Show when={refused().length > 0}>
+        <div class="notice warn" role="status">
+          <strong>
+            {refused().length} row{refused().length === 1 ? " was" : "s were"} left
+            alone.
+          </strong>{" "}
+          A marks page prints the mark and its maximum side by side, and on
+          these rows the two could not be told apart. Writing a maximum into a
+          mark column produces a confident CIE that is wrong, so nothing was
+          written — enter these by hand in the Semester table.
+          <ul class="fineprint">
+            <For each={refused()}>{(line) => <li>{line}</li>}</For>
+          </ul>
+        </div>
+      </Show>
     </section>
   );
 }

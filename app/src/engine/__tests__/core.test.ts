@@ -573,7 +573,7 @@ describe("registered credits are the CGPA denominator", () => {
 
 describe("pasted etlab text", () => {
   it("reads attendance rows and skips lines with no course code", () => {
-    const rows = parseEtlab(
+    const { rows } = parseEtlab(
       "PCCST302  Data Structures   38  42  90.48%\nPCCST303  OOP   30 40\njunk line no code here 55\n",
       "attendance");
     expect(rows.length).toBe(2);
@@ -582,7 +582,7 @@ describe("pasted etlab text", () => {
   });
 
   it("maps the first three numbers onto S1, S2 and the assignment", () => {
-    const rows = parseEtlab("PCCST304 Digital Logic 45 38 9\n", "marks");
+    const { rows } = parseEtlab("PCCST304 Digital Logic 45 38 9\n", "marks");
     expect([rows[0]!.s1, rows[0]!.s2, rows[0]!.other]).toEqual([45, 38, 9]);
   });
 });
