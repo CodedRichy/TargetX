@@ -49,12 +49,13 @@ checked.
       selector can be written from without anyone asking for a portal password.
       It is still not validation.
 
-      What has changed is the price of getting it. `npm run portal-check --
-      <saved-page.html>` runs the real parser over a page saved out of a
-      browser, so testing a college no longer needs an account at it: the ask
-      is now "save one page and paste three lines", which a stranger can do in
-      a minute and which moves no credential at all. Whoever finds the second
-      college should send them that, not a copy of the app.
+      What has changed is the price of getting it. **Data → "Will sync work at
+      my college?"** takes a page saved out of an already-signed-in browser and
+      runs the real parser over it, so testing a college needs no account
+      there — and no toolchain either, which the command-line
+      `npm run portal-check -- <saved-page.html>` did. The ask is now "save one
+      page, drop it in, send the block it shows you", which moves no credential
+      and no mark at all.
 
       Researched 2026-08-29 across six public etlab scrapers at four other
       colleges. Three things came out of it. Our login handling is a superset

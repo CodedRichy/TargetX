@@ -114,6 +114,12 @@ figure that was shown to a student as fact.
   guessed from the course code — so the subjects that were guessed are listed,
   rather than sitting in the grid looking like the ones that were not.
 
+- **"Will sync work at my college?"** on the Data screen. Save your portal's
+  academics page out of a browser and drop the file in; TargetX reads it
+  exactly as a sync would and tells you what it found, without you signing in
+  to anything. The saved page never leaves your machine, and what you are
+  offered to send is a separate block with every number blanked out.
+
 - When the portal cannot be read, TargetX shows you a description of the page
   it could not parse — the table headings with every number blanked out and no
   subject row at all — so a college it does not yet work for can be fixed from

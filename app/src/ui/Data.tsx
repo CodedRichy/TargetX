@@ -6,7 +6,7 @@ import {
 } from "../state/actions";
 import { rows, state, summary } from "../state/store";
 import { logDir } from "../state/diagnostics";
-import { canSync } from "../sync/etlab";
+import { canSync, describeAcademics, parseAcademics } from "../sync/etlab";
 import { parseGradeCard, pdfToText } from "../sync/gradecard";
 import { SyncPanel } from "./SyncPanel";
 
@@ -50,6 +50,7 @@ export function Data() {
 
         <PasteImport />
         <GradeCardImport />
+        <PortalCheck />
         <Catalogue />
         <Backup />
         <About />
@@ -223,6 +224,114 @@ function GradeCardImport() {
           — your published SGPA is what counts - but check those semesters on the
           History screen before trusting a projection built on them.
         </div>
+      </Show>
+    </section>
+  );
+}
+
+/**
+ * Does sync work at this college? Answered without signing in.
+ *
+ * Portal sync is validated against exactly one college, and the thing blocking
+ * a second has never been code - it has been that finding out meant handing
+ * someone an account. The parser needs nothing but the HTML the student's
+ * browser already has: File > Save Page As on the academics page, then drop it
+ * here. There is a command-line version of this in `tools/portal-check.ts`;
+ * this one exists because nobody at another college is going to clone a repo
+ * and run npm install to answer a stranger's question.
+ *
+ * The saved page is the student's whole academic record and never leaves the
+ * machine - it is read in the page, held in a local variable, and not written
+ * to state, to disk or to the record. What they are asked to send is the
+ * redacted block, which they can read first.
+ */
+function PortalCheck() {
+  const [report, setReport] = createSignal("");
+  const [found, setFound] = createSignal<string[]>([]);
+  const [note, setNote] = createSignal("");
+  const [busy, setBusy] = createSignal(false);
+  const [copied, setCopied] = createSignal(false);
+  let fileInput: HTMLInputElement | undefined;
+
+  const openFile = async (event: Event) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) return;
+    setBusy(true);
+    setReport("");
+    setFound([]);
+    setCopied(false);
+    try {
+      const html = await file.text();
+      const parsed = parseAcademics(html);
+      const lines: string[] = [];
+      for (const [number, semester] of Object.entries(parsed.semesters)) {
+        // Codes only. A subject name is public; a mark is not, and this sits
+        // on a screen someone may well photograph to send on.
+        const count = semester.courses.length;
+        lines.push(`S${number}: ${count} subject${count === 1 ? "" : "s"}`
+          + (semester.courses.length
+            ? ` — ${semester.courses.map((c) => c.code).join(", ")}`
+            : ""));
+      }
+      setFound(lines);
+      const courses = Object.values(parsed.semesters)
+        .reduce((sum, semester) => sum + semester.courses.length, 0);
+      setNote(courses > 0
+        ? "Sync should work at this college."
+        : "Nothing this parser can read — which is the finding, not a fault "
+          + "in your file. Send the block below and it can be fixed.");
+      setReport(describeAcademics(html));
+    } catch (exc) {
+      setNote(`Could not read that file: ${String(exc)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section class="card">
+      <h3>Will sync work at my college?</h3>
+      <p class="lede">
+        Find out without signing in to anything. Open your portal's academics
+        page in a browser, save it (Ctrl+S), and drop the file in here. TargetX
+        reads it exactly as a sync would and tells you what it found.
+      </p>
+
+      <div class="setup-actions wrap">
+        <button class="ghost" disabled={busy()} onClick={() => fileInput?.click()}>
+          {busy() ? "Reading…" : "Open a saved portal page"}
+        </button>
+        <input type="file" accept=".html,.htm" hidden
+               ref={fileInput} onChange={openFile} />
+      </div>
+
+      <Show when={note()}><p class="fineprint">{note()}</p></Show>
+      <Show when={found().length > 0}>
+        <ul class="fineprint num">
+          {found().map((line) => <li>{line}</li>)}
+        </ul>
+      </Show>
+
+      <Show when={report()}>
+        <details class="diagnostic" open>
+          <summary>What TargetX saw — safe to send, no marks or names in it</summary>
+          <p class="lede">
+            Headings and shapes only: every number is blanked out and no subject
+            row is quoted. <strong>Send this, not the saved page</strong> — the
+            page itself is your whole academic record. Nothing here was uploaded
+            anywhere; the file was read on this machine and not kept.
+          </p>
+          <pre class="num">{report()}</pre>
+          <button type="button" class="link" onClick={() => {
+            void navigator.clipboard?.writeText(report());
+            setCopied(true);
+          }}>{copied() ? "Copied" : "Copy"}</button>
+          {" · "}
+          <a href="https://github.com/CodedRichy/TargetX/issues/new?template=bug.yml"
+             target="_blank" rel="noreferrer">Open an issue</a>
+        </details>
       </Show>
     </section>
   );

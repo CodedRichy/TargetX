@@ -344,6 +344,12 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   display: grid;
   gap: var(--s4);
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  /* Same reasoning as the bento on Home: a card stretched to the height of the
+     tallest one in its row stands in a column of empty surface, which reads as
+     missing content rather than as a short card. Measured before claiming
+     otherwise - this buys no height at all, since the row is as tall as its
+     tallest card either way. It is a rendering fix, not a layout one. */
+  align-items: start;
 }
 
 .card {

@@ -71,20 +71,24 @@ could not read — table shapes and headings with every digit blanked out, no
 subject row at all — which you or the student can send with a bug report. It
 will not silently record a half-read semester.
 
-**You can check whether it will work before anyone installs anything, and
-without giving us an account.** Save the academics page out of a browser that
-is already signed in (File → Save Page As), then, from a checkout of this
-repository:
+**You can check whether it will work without giving anyone an account.** Open
+your portal's academics page in a browser that is already signed in, save it
+(Ctrl+S), and drop the file onto **Data → "Will sync work at my college?"** in
+the app. It reads the file exactly as a sync would and says what it found.
+
+The saved page never leaves the machine — it is read in place and not written
+to the record, to disk, or anywhere else. What the app offers you to send is a
+separate redacted block: headings and table shapes with every number blanked
+and no subject row quoted. **Send that, not the saved page**, which is a
+student's whole academic record. You can read it before you send it.
+
+There is a command-line equivalent for anyone who would rather not install
+first, from a checkout of this repository:
 
 ```
 cd app && npm install
 npm run portal-check -- ./saved-page.html
 ```
-
-It prints what parsed and a block that is safe to send. The saved page is not
-safe to send — it is a student's whole academic record — and the tool never
-transmits it or writes it anywhere; it prints to your terminal and stops. Send
-the block, not the page.
 
 ## Where the data lives
 

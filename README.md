@@ -237,10 +237,11 @@ carries. [`DEPLOYMENT.md`](DEPLOYMENT.md) is the answer to "what does this
 touch?" for a college IT department putting it on a few hundred machines:
 silent-install flags, the three hosts it contacts, where the record lives, and
 how to take version control away from the updater. It also carries the one thing
-worth knowing before any of that: `npm run portal-check -- <saved-page.html>`
-runs the real parser over a page saved out of an already-signed-in browser, so
-you can find out whether sync works at your college without handing anyone an
-account. [`ACCESSIBILITY.md`](ACCESSIBILITY.md) is a dated self-assessment
+worth knowing before any of that: **Data → "Will sync work at my college?"**
+takes a page saved out of an already-signed-in browser and runs the real parser
+over it, so a college can find out whether sync works there without handing
+anyone an account. (`npm run portal-check -- <saved-page.html>` does the same
+from a terminal.) [`ACCESSIBILITY.md`](ACCESSIBILITY.md) is a dated self-assessment
 against WCAG 2.1 AA, including what is still short — contrast is enforced by a
 test rather than claimed, and the keyboard pass found a real trap that reading
 the code had not.
