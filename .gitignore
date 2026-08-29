@@ -12,6 +12,15 @@ targetx-compat-*.json
 _curr.txt
 node_modules/
 app/src-tauri/target/
+
+# Updater signing keys. These live in ~/.tauri and belong in GitHub Actions
+# secrets, never in the repository. A private key committed here would let
+# anyone sign an update that installs itself on every student's machine, and
+# git history would keep it after the delete. Belt and braces: the real keys
+# are already outside the tree.
+*.key
+*.key.pub
+*updater*.password
 .vite/
 app/shots/
 app/src-tauri/gen/schemas/

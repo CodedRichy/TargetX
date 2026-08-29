@@ -592,6 +592,44 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   padding: var(--s2) var(--s4);
 }
 .launch-notice .notice .setup-actions { margin: 0; }
+
+/* Two actions on one banner need a hierarchy, and `.link` renders every one of
+   them at --text-faint. Measured before writing this: "Install and restart"
+   and "Not now" came back as the identical computed colour in both themes, so
+   dimming the refusal further was never going to separate them - the offer had
+   to be lifted instead. --brand rather than --text because it is the colour of
+   the bar that fills when the offer is taken. */
+.launch-notice .link.primary { color: var(--brand); }
+.launch-notice .link.primary:hover { color: var(--brand); text-decoration-thickness: 2px; }
+
+/* Download progress on the update prompt.
+   A bar rather than a spinner because the one thing a student wants to know
+   is whether this is worth waiting for, and only a proportion answers that.
+   Sized to sit on the notice's baseline row without changing its height. */
+.update-progress {
+  align-items: center;
+  display: flex;
+  flex: 1 1 10rem;
+  gap: var(--s3);
+  min-inline-size: 8rem;
+}
+.update-track {
+  background: var(--hairline-strong);
+  block-size: 3px;
+  border-radius: 999px;
+  flex: 1;
+  overflow: hidden;
+}
+.update-bar {
+  background: var(--brand);
+  display: block;
+  block-size: 100%;
+  /* Scaled rather than sized: a transform is composited, so a download that
+     reports a hundred chunks does not lay the page out a hundred times. */
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--med) var(--ease);
+}
 .launch-notice > button.link { margin-left: auto; }
 
 @media (max-width: 900px) {

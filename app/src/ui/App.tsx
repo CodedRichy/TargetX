@@ -15,6 +15,8 @@ import { Setup } from "./Setup";
 import { Mark } from "./Mark";
 import { runLaunchCheck } from "../state/launch";
 import type { Finding } from "../state/launch";
+import { checkForUpdate } from "../sync/update";
+import type { Available } from "../sync/update";
 
 /**
  * Header KPIs.
@@ -202,6 +204,84 @@ function ThemeButton() {
  * findings are re-derived on every open, so dismissing is for this session
  * only - a credit that still does not reconcile tomorrow says so again.
  */
+/**
+ * A newer build exists.
+ *
+ * Separate from `LaunchNotice` on purpose: that one reports on the student's
+ * own data and is re-derived every launch, while this reports on the software
+ * and is answered once. Same visual weight, because neither outranks the
+ * other - and deliberately not a modal, since an update is never the reason
+ * someone opened the app.
+ *
+ * Dismissing is for this session only. The next launch asks again, which is
+ * correct: a build carrying a marks fix should keep asking.
+ */
+export function UpdateNotice(props: { update: Available; onDismiss: () => void }) {
+  const [installing, setInstalling] = createSignal(false);
+  const [failed, setFailed] = createSignal<string | null>(null);
+  /** [0, 1] once the size is known, null while it is not. */
+  const [progress, setProgress] = createSignal<number | null>(null);
+
+  const install = async () => {
+    setInstalling(true);
+    setFailed(null);
+    setProgress(null);
+    try {
+      await props.update.install(setProgress);
+      // Reached only if the relaunch did not happen; on success the process
+      // is already gone.
+      setInstalling(false);
+    } catch (exc) {
+      // A failure the student ASKED for is worth showing - unlike the silent
+      // check that found the update in the first place.
+      setInstalling(false);
+      setFailed(String(exc));
+    }
+  };
+
+  return (
+    <div class="launch-notice">
+      <div class="notice" title={props.update.notes ?? undefined}>
+        <strong>TargetX {props.update.version} is available</strong>
+        <Show when={!installing()} fallback={
+          <span class="update-progress" title="Downloading the new build">
+            <span class="update-track">
+              <span
+                class="update-bar"
+                classList={{ indeterminate: progress() === null }}
+                style={progress() === null
+                  ? undefined
+                  : { transform: `scaleX(${progress()})` }}
+              />
+            </span>
+            <span class="dim num">
+              {progress() === null
+                ? "Downloading…"
+                : `${Math.round((progress() ?? 0) * 100)}%`}
+            </span>
+          </span>
+        }>
+          <button class="link primary" onClick={install}>Install and restart</button>
+        </Show>
+        {/* Inside the notice, not beside it. `.launch-notice` stretches its
+            children so several findings share a row, which pushed a lone
+            dismiss button to the far edge of a 1280px window - a long trip
+            from the action it belongs with, and reading as unrelated to it. */}
+        <Show when={!installing()}>
+          <button class="link" onClick={props.onDismiss}>Not now</button>
+        </Show>
+      </div>
+      <Show when={failed()}>
+        {(why) => (
+          <div class="notice warn" title={why()}>
+            <strong>That update could not be installed</strong>
+          </div>
+        )}
+      </Show>
+    </div>
+  );
+}
+
 function LaunchNotice(props: { findings: Finding[]; onDismiss: () => void }) {
   return (
     <Show when={props.findings.length > 0}>
@@ -235,6 +315,8 @@ export function App() {
   let flyer: HTMLDivElement | undefined;
   const [findings, setFindings] = createSignal<Finding[]>([]);
   const [dismissed, setDismissed] = createSignal(false);
+  const [update, setUpdate] = createSignal<Available | null>(null);
+  const [updateDismissed, setUpdateDismissed] = createSignal(false);
 
   onMount(() => {
     const started = Date.now();
@@ -259,6 +341,13 @@ export function App() {
       // overlay has to have painted before it can be animated away from.
       requestAnimationFrame(() => requestAnimationFrame(flyMark));
     }, wait);
+
+    // Deliberately AFTER the opening animation rather than inside it. The
+    // check crosses the network, and a student opening the app to read one
+    // number should never wait on GitHub to find out anything. It resolves
+    // to null on every failure, so there is nothing to catch and nothing to
+    // report when it finds nothing.
+    setTimeout(() => { void checkForUpdate().then(setUpdate); }, 2000);
   });
 
   /**
@@ -350,6 +439,11 @@ export function App() {
         </Show>
         <Show when={!dismissed()}>
           <LaunchNotice findings={findings()} onDismiss={() => setDismissed(true)} />
+        </Show>
+        <Show when={!updateDismissed() && update()}>
+          {(u) => (
+            <UpdateNotice update={u()} onDismiss={() => setUpdateDismissed(true)} />
+          )}
         </Show>
 
         <Show when={view() === "home"}><Home /></Show>

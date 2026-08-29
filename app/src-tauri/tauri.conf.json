@@ -31,8 +31,20 @@
       }
     }
   },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/CodedRichy/TargetX/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFBMjFDNDQzNjM3OTJCMzYKUldRMkszbGpROFFocW9kOHdVSjNmUzZqaWRFZmxpcHFYZEkrZEUxcUUyNGJockxwL0FpcE9RcU0K",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": ["nsis", "msi", "deb", "appimage", "dmg"],
     "publisher": "CodedRichy",
     "shortDescription": "KTU 2024 academic tracker",

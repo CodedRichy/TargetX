@@ -27,3 +27,5 @@ tauri-plugin-log = "2"
 # between a developer machine and a student's laptop.
 reqwest = { version = "0.12", default-features = false, features = ["cookies", "rustls-tls", "charset"] }
 tokio = { version = "1", features = ["rt", "macros"] }
+tauri-plugin-updater = "2.10.1"
+tauri-plugin-process = "2.3.1"

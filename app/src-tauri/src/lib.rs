@@ -24,6 +24,14 @@ pub fn run() {
       log_error,
     ])
     .setup(|app| {
+      // Desktop only: there is no updater on mobile, and registering it there
+      // fails the build rather than degrading quietly.
+      #[cfg(desktop)]
+      {
+        app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+        app.handle().plugin(tauri_plugin_process::init())?;
+      }
+
       if cfg!(debug_assertions) {
         app.handle().plugin(
           tauri_plugin_log::Builder::default()

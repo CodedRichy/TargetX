@@ -303,9 +303,14 @@ export function importJson(text: string) {
   const here = defaultState().version;
   const there = Number(parsed.version ?? 1);
   if (Number.isFinite(there) && there > here) {
+    // Points at a mechanism that exists: TargetX checks for a new build a
+    // couple of seconds after launch and offers it in a banner (see
+    // `sync/update.ts`). Before that existed this message sent a student to a
+    // door with nothing behind it.
     throw new Error(
       `That backup was written by a newer version of TargetX (file v${there}, ` +
-      `this build reads v${here}). Update TargetX and try again.`);
+      `this build reads v${here}). Restart TargetX and take the update it ` +
+      `offers, then try again.`);
   }
 
   // A restore REPLACES the document; it does not merge into it. Building on

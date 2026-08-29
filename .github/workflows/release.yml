@@ -1,0 +1,102 @@
+# Build and publish a release, and the update feed the installed app reads.
+#
+# The app checks `releases/latest/download/latest.json` a couple of seconds
+# after launch (see `app/src/sync/update.ts`). That file is produced HERE, by
+# `createUpdaterArtifacts` in tauri.conf.json plus tauri-action's release step -
+# it is not committed and must never be hand-written, because it carries the
+# signature that the installed binary verifies against the public key baked
+# into it. An unsigned or wrongly signed feed does not warn: the updater simply
+# refuses it and every student silently stays on an old build.
+#
+# REQUIRED REPOSITORY SECRETS (Settings -> Secrets and variables -> Actions):
+#   TAURI_SIGNING_PRIVATE_KEY           contents of ~/.tauri/targetx-updater.key
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  contents of ~/.tauri/targetx-updater.password
+#
+# Lose that private key and you cannot ship an update to anyone who already
+# installed: their build only trusts the matching public key. Keep the file.
+#
+# To cut a release: bump `version` in app/src-tauri/tauri.conf.json (this is the
+# version the updater compares against, not package.json), commit, then
+#   git tag v0.2.0 && git push origin v0.2.0
+#
+# THEN PUBLISH THE DRAFT. This workflow leaves the release as a draft on
+# purpose - a bad build should not reach students automatically - but GitHub
+# does not treat a draft as "latest", so `releases/latest/download/latest.json`
+# keeps serving the PREVIOUS release until you press publish. Nothing fails
+# and nothing warns; the update simply never appears. If a release seems to
+# have shipped and no one is being offered it, check this first.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ""
+          - platform: ubuntu-22.04
+            args: ""
+          - platform: macos-latest
+            args: "--target universal-apple-darwin"
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf build-essential curl wget file libssl-dev \
+            libgtk-3-dev libayatana-appindicator3-dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri -> target
+
+      - run: npm ci
+        working-directory: app
+
+      # The engine is the product: a release that computes a mark wrongly is
+      # worse than no release, and this is the last point at which that is
+      # cheap to catch. Includes the parity corpus against the Python oracle.
+      - run: npm test
+        working-directory: app
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: app
+          tagName: ${{ github.ref_name }}
+          releaseName: TargetX ${{ github.ref_name }}
+          releaseBody: |
+            Installed TargetX offers this update on its own the next time you
+            open it. You do not need to download anything here.
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          args: ${{ matrix.args }}
