@@ -112,7 +112,13 @@ checked.
       without it exits 0 and produces installers with no update payload, so
       the release reads as clean and no installed copy is ever offered it.
       The workflow now refuses to run without the secret rather than trusting
-      anyone to notice.
+      anyone to notice. The chain itself is no longer hoped-for: a real signed
+      build was run locally on 2026-08-29 with the key exported, produced a
+      `.sig` beside each installer, and the key id inside those signatures
+      decodes to the same eight bytes as the `pubkey` compiled into the app
+      (`362B796343C421AA`). Pasting the secret is the only step left untested,
+      along with `latest.json`, which `tauri build` does not write. Written up
+      in [`SIGNING.md`](SIGNING.md).
 - [ ] Tag v0.1.0 and publish the release — and remember a *draft* release is
       not "latest", so nobody is offered it until it is published.
 - [ ] **Rotate the etlab password** that was pasted into a chat transcript.
