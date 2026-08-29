@@ -38,6 +38,29 @@ figure that was shown to a student as fact.
 - **Duty leave is capped against the classes actually held** (R 6.3.ii), not a
   fixed number.
 - **A grade is withheld while attendance is unknown** rather than guessed.
+- **Grade cards are read as columns.** KTU prints a Result column after the
+  grade, and it was being read AS the grade: an A+ imported as a P, and a
+  re-sat course marked `S3(S)` imported as an S — a 10.0. A whole academic
+  history could arrive flattened and be shown as the university's own figure.
+  Credits on a card are read properly too: a zero-credit MCN course is no
+  longer given 3, and a mark is no longer mistaken for a credit.
+- **A pasted marks page can no longer overwrite good marks with maximums.**
+  Portals print each mark beside its maximum. The first three numbers on the
+  row were taken as the three components, so a maximum landed in a mark column
+  and produced a confident, wrong CIE over a semester that had synced
+  correctly. Rows whose columns cannot be identified are now refused by name
+  rather than guessed at.
+- **A subject the portal has not posted attendance for no longer disappears.**
+  It was dropped during sync, and the semester was then rebuilt from what
+  survived — taking that course's credits out of the SGPA with it.
+- **A sync that finds no subjects is a failure, not a success.** It used to
+  report a green result and write a timestamp, which is the answer that stops
+  you looking for the problem.
+- **Two courses under the same code stay two courses.** A re-registered backlog
+  no longer has its marks written onto its twin.
+- **A credit you correct by hand survives the next sync.**
+- **A pasted mark clears a superseded published CIE**, so the import no longer
+  appears to do nothing.
 
 ### Added
 
@@ -60,6 +83,13 @@ figure that was shown to a student as fact.
   a profile reset would have taken a semester of work with it.
 - **You are told when a save fails.** It used to fail silently.
 - **The window carries its own controls** and no longer uses the OS title bar.
+- **The Data screen shows the version and where faults are logged**, which is
+  what a bug report needs and what nothing in the app used to be able to give
+  you.
+- **The app is operable and readable without a mouse.** Every control is
+  reachable and named, focus is visible everywhere, and every colour now meets
+  WCAG AA contrast — checked by a test that reads the real stylesheet, not by
+  eye.
 
 ### Security
 
