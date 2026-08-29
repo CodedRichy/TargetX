@@ -32,7 +32,12 @@
   /* --- Text ------------------------------------------------------------- */
   --text:      oklch(0.92 0.010 78);
   --text-dim:  oklch(0.68 0.012 70);
-  --text-faint: oklch(0.52 0.010 70);
+  /* 4.64:1 against `--surface-2`, the darkest ground it is ever set on. It
+     was 2.95:1 - and this is the colour of every table header, every `/40`
+     denominator and the PENDING pill, so it was the largest single
+     accessibility failure in the app. Measured, not eyeballed: see
+     `src/styles/__tests__/contrast.test.ts`, which fails if this drifts. */
+  --text-faint: oklch(0.63 0.010 70);
 
   /* --- Verdigris: the instrument colour --------------------------------- */
   --brand:       oklch(0.74 0.10 178);
@@ -56,12 +61,20 @@
   --glass: oklch(0.145 0.012 68 / 0.72);
 
   /* --- Semantics: status owns these, nothing else may use them ---------- */
+  /* Each wash is its own colour at low alpha, so a status pill's text sits on
+     a tint of itself. At 0.14 that tint lifted the ground far enough to put
+     SAFE at 4.25:1 and DEBARRED at 3.32:1 - the pills carry the meaning that
+     colour alone must not, so they of all things have to be readable. 0.08
+     keeps the tint legible as a fill and gives every pill its 4.5:1 back.
+     Danger also moves up in lightness and down in chroma: at 0.66/0.21 it was
+     outside sRGB at this hue, so the browser was clipping it and the rendered
+     colour was not the specified one. */
   --good:      oklch(0.76 0.16 145);
-  --good-wash: oklch(0.76 0.16 145 / 0.14);
+  --good-wash: oklch(0.76 0.16 145 / 0.08);
   --warn:      oklch(0.80 0.15 80);
-  --warn-wash: oklch(0.80 0.15 80 / 0.14);
-  --danger:    oklch(0.66 0.21 25);
-  --danger-wash: oklch(0.66 0.21 25 / 0.14);
+  --warn-wash: oklch(0.80 0.15 80 / 0.08);
+  --danger:    oklch(0.73 0.16 25);
+  --danger-wash: oklch(0.73 0.16 25 / 0.08);
 
   /* --- Type ------------------------------------------------------------- */
   --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
@@ -119,7 +132,7 @@
   color-scheme: light;
 
   --bg:        oklch(0.955 0.008 68);
-  --surface-1: oklch(0.995 0.004 68);
+  --surface-1: oklch(0.99 0.004 68);
   --surface-2: oklch(0.925 0.010 68);
   --surface-3: oklch(0.875 0.012 68);
 
@@ -128,20 +141,28 @@
 
   --text:      oklch(0.26 0.014 68);
   --text-dim:  oklch(0.46 0.014 70);
-  --text-faint: oklch(0.58 0.012 70);
+  --text-faint: oklch(0.505 0.012 70);
 
-  --brand:        oklch(0.52 0.10 178);
+  /* 0.52/0.10 at this hue is outside sRGB - the browser clipped it, so the
+     teal that shipped was not this teal, and it measured 4.55:1 against the
+     page with 0.05 of margin. Brand is link text as well as the focus ring,
+     so it needs 4.5:1 on cards too, not just on the page. */
+  --brand:        oklch(0.50 0.09 178);
   --brand-bright: oklch(0.43 0.11 178);
   --brand-deep:   oklch(0.82 0.06 178);
-  --brand-wash:   oklch(0.52 0.10 178 / 0.10);
+  --brand-wash:   oklch(0.50 0.09 178 / 0.10);
   --on-brand:     oklch(0.985 0.008 178);
 
-  --good:      oklch(0.52 0.15 145);
-  --good-wash: oklch(0.52 0.15 145 / 0.12);
-  --warn:      oklch(0.55 0.13 80);
-  --warn-wash: oklch(0.70 0.14 80 / 0.18);
-  --danger:    oklch(0.52 0.20 25);
-  --danger-wash: oklch(0.52 0.20 25 / 0.10);
+  /* Same rule as the dark set. Warn also loses chroma: 0.13 at this lightness
+     and hue is outside sRGB, so the browser clipped it and the yellow that
+     shipped was not the yellow written here - which is how it measured 4.31:1
+     against the page. */
+  --good:      oklch(0.49 0.15 145);
+  --good-wash: oklch(0.49 0.15 145 / 0.10);
+  --warn:      oklch(0.505 0.10 80);
+  --warn-wash: oklch(0.70 0.14 80 / 0.12);
+  --danger:    oklch(0.50 0.20 25);
+  --danger-wash: oklch(0.50 0.20 25 / 0.09);
 
   /* On paper the lit edge is a shadow, not a highlight: light comes from the
      same direction, but a white rim on a white card is invisible. */

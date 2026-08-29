@@ -25,6 +25,7 @@
   "devDependencies": {
     "@solidjs/testing-library": "^0.8.10",
     "@tauri-apps/cli": "^2.11.4",
+    "@types/node": "^26.4.0",
     "jsdom": "^29.1.1",
     "playwright": "^1.62.1",
     "typescript": "^5.7.2",
