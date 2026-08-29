@@ -1,10 +1,11 @@
-import { Show, createSignal } from "solid-js";
+import { Show, createResource, createSignal } from "solid-js";
 import { catalogueVersion } from "../engine";
 import {
   applyGradeCard, download, exportJson, importJson, importPaste, reportText,
   resetEverything, updateCatalogue,
 } from "../state/actions";
 import { rows, state, summary } from "../state/store";
+import { logDir } from "../state/diagnostics";
 import { canSync } from "../sync/etlab";
 import { parseGradeCard, pdfToText } from "../sync/gradecard";
 import { SyncPanel } from "./SyncPanel";
@@ -51,6 +52,7 @@ export function Data() {
         <GradeCardImport />
         <Catalogue />
         <Backup />
+        <About />
       </div>
     </div>
   );
@@ -235,6 +237,61 @@ function Catalogue() {
         <span class="fineprint num">Version {catalogueVersion()}</span>
       </div>
       <Show when={note()}><p class="fineprint">{note()}</p></Show>
+    </section>
+  );
+}
+
+/**
+ * What this build is, and where it writes its faults.
+ *
+ * Two facts that are worthless on any day the app works and are the whole of
+ * a support conversation on the day it does not. A student reporting "it
+ * stopped working" can be asked for exactly these, and the issue template and
+ * PRIVACY.md both send them here to find them.
+ *
+ * The folder is shown rather than opened. Opening it would mean shipping the
+ * opener plugin, and this webview also renders a college portal's HTML - the
+ * ability to ask the OS to launch things is a poor trade for saving one
+ * window.
+ */
+function About() {
+  const [dir] = createResource(logDir);
+
+  return (
+    <section class="card">
+      <h3>This build</h3>
+      <p class="lede">
+        Worth nothing until something goes wrong, and then it is the whole
+        report.
+      </p>
+
+      <dl class="factlist">
+        <dt>Version</dt>
+        <dd class="num">{__APP_VERSION__}</dd>
+
+        <Show when={dir()}>
+          {(path) => (
+            <>
+              <dt>Fault log</dt>
+              <dd>
+                <code class="path">{path()}</code>
+                <span class="fineprint">
+                  Holds error messages, not your marks. Nothing sends it —
+                  read it, then attach it to an issue if you want to.
+                </span>
+              </dd>
+            </>
+          )}
+        </Show>
+
+        <dt>Your data</dt>
+        <dd>
+          Stays on this computer. No account, no server, no telemetry —{" "}
+          <a class="link" href="https://github.com/CodedRichy/TargetX/blob/main/PRIVACY.md"
+             target="_blank" rel="noreferrer">the privacy statement</a>{" "}
+          names the only three things that touch the network.
+        </dd>
+      </dl>
     </section>
   );
 }

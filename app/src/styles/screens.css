@@ -635,3 +635,53 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
 @media (max-width: 900px) {
   .launch-notice { padding: var(--s4) var(--s5) 0; }
 }
+
+/* --- "This build" ----------------------------------------------------------
+ *
+ * A definition list because that is what it is: three labelled facts, not a
+ * form and not a table. Two columns on a wide card so the labels align and
+ * the eye finds "Fault log" without reading; one column below that, because a
+ * Windows log path is long and squeezing it into half a card would wrap it
+ * mid-directory, which is exactly when a student mistypes it.
+ */
+.factlist { margin: 0; }
+
+/* Label above value, not beside it. These cards are a third of the screen
+   wide, and a Windows log path put in a second column wraps mid-directory -
+   which is exactly the string a student may have to retype. */
+.factlist dt {
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.factlist dd {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 var(--s4);
+}
+.factlist dd:last-child { margin-bottom: 0; }
+
+/* Anchors styled as links: `button.link` covered the buttons only, so the one
+   real anchor in the app rendered in the browser's default blue-violet -
+   a colour that appears nowhere else in the palette. */
+a.link {
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+a.link:hover { text-decoration-thickness: 2px; }
+
+/* The path is the one string on this screen a student may have to retype, so
+   it is selectable, monospaced, and allowed to break at its separators rather
+   than overflowing the card. */
+.factlist .path {
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+  padding: 2px var(--s2);
+  user-select: all;
+}
