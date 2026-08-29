@@ -133,7 +133,15 @@ checked.
 
 - [ ] Test the grade-card parser against a real KTU PDF. Its six defects were
       all found by reading it; none were found by running it.
-- [ ] Branch tables beyond CSE. Every non-CSE student currently has no preset.
+- [ ] Branch tables beyond CSE — **the first year is done, S3 onward is not.**
+      Closed the larger half on 2026-08-29: KTU sets the first year by GROUP,
+      not by branch (page 1 of the 2024 curriculum sorts every branch into four
+      groups and prints one first-year table each), so S1 and S2 now seed for
+      **31 branches** across Group A and Group B rather than for CSE alone. What
+      remains is genuinely per-branch: S3 to S8 for anything but CSE, one PDF at
+      a time. Groups C (physical science) and D (life science) are not
+      transcribed at all, so their branches are not in the picker — deliberately,
+      rather than listed with nothing behind them.
 - [ ] "Since you were last here" — snapshot on close, diff on open. The reason
       a student reopens the app.
 - [ ] Opt-in "stay signed in" via Windows Credential Manager, enabling a real
