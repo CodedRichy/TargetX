@@ -10,7 +10,7 @@
  */
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { branches, presetCourses } from "../../engine";
+import { defaultBranch, presetCourses } from "../../engine";
 import { edit } from "../../state/store";
 import { Setup } from "../Setup";
 
@@ -20,7 +20,7 @@ beforeEach(() => {
   edit((d) => {
     d.semesters = { S3: { courses: [] } };
     d.activeSemester = "S3";
-    d.student = { ...d.student, branch: branches()[0]! };
+    d.student = { ...d.student, branch: defaultBranch() };
   });
 });
 
@@ -36,7 +36,7 @@ describe("the subject picker", () => {
   it("names every tick box after the subject it selects", () => {
     const c = toPicker();
     const boxes = [...c.querySelectorAll<HTMLInputElement>('.picks input[type="checkbox"]')];
-    const expected = presetCourses(branches()[0]!, "S3")
+    const expected = presetCourses(defaultBranch(), "S3")
       .map((course) => `${course.code} ${course.name}`);
     expect(expected.length).toBeGreaterThan(0);
     expect(boxes.map((b) => b.getAttribute("aria-label"))).toEqual(expected);

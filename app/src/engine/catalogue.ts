@@ -34,6 +34,34 @@ interface Curriculum {
    * SGPA denominator in silence.
    */
   expected?: Record<string, Record<string, number>>;
+  /**
+   * First-year tables, keyed by KTU's own GROUP rather than by branch.
+   *
+   * Page 1 of the 2024 curriculum sorts every B.Tech branch into four groups -
+   * A computer and information science, B electrical science, C physical
+   * science, D life science - and prints ONE first-year table per group. So S1
+   * and S2 are not per-branch data at all, and holding them as if they were is
+   * what left every non-CSE student with no preset: thirty-odd branches whose
+   * first year we already had, keyed under a name none of them would pick.
+   *
+   * A branch's own table still wins where it has one, because the programme
+   * core in S2 is printed generically (PCXXT205, XX being the branch) and a
+   * branch that has been transcribed properly names its instantiation.
+   */
+  groups?: Record<string, Record<string, BranchRow[]>>;
+  /** Branch name -> group id. The only place branch names are enumerated. */
+  branch_group?: Record<string, string>;
+  /** `expected`, per group, for the first-year semesters the groups carry. */
+  expected_group?: Record<string, Record<string, number>>;
+  /**
+   * Other names for a branch, mapped to the one the tables are keyed by.
+   *
+   * The tables were keyed by "CSE" before they were keyed by the name KTU
+   * prints, and a student's saved record still holds whatever it was keyed by
+   * when they set up. Without this, an upgrade quietly turns their branch into
+   * one the catalogue has never heard of and their presets vanish.
+   */
+  aliases?: Record<string, string>;
 }
 
 /**
@@ -139,15 +167,45 @@ export interface PresetCourse {
 /** PEC/OEC are chosen; everything else is compulsory for the branch. */
 const ELECTIVE_PREFIXES = ["PEC", "OEC", "MEC", "HEC"];
 
-export const branches = (): string[] => Object.keys(active.branches ?? {}).sort();
+/** The name the tables are keyed by, for a name the student may have saved. */
+export const resolveBranch = (branch: string): string =>
+  active.aliases?.[branch] ?? branch;
+
+/** The group table standing behind a branch, if the catalogue names one. */
+const groupTable = (branch: string): Record<string, BranchRow[]> => {
+  const id = active.branch_group?.[resolveBranch(branch)];
+  return (id && active.groups?.[id]) || {};
+};
+
+export const branches = (): string[] =>
+  [...new Set([
+    ...Object.keys(active.branches ?? {}),
+    ...Object.keys(active.branch_group ?? {}),
+  ])].sort();
+
+/**
+ * What to select when the student has not chosen yet.
+ *
+ * Alphabetically first is arbitrary and, now that thirty-one branches are
+ * listed, lands on one that carries only a first year. The branch with its own
+ * transcribed table is the one where every semester works.
+ */
+export const defaultBranch = (): string =>
+  Object.keys(active.branches ?? {}).sort()[0] ?? branches()[0] ?? "";
 
 export function semesterKeys(branch: string): string[] {
-  const table = active.branches?.[branch] ?? {};
-  return Object.keys(table).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)));
+  const own = active.branches?.[resolveBranch(branch)] ?? {};
+  return [...new Set([...Object.keys(own), ...Object.keys(groupTable(branch))])]
+    .sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)));
 }
 
 export function presetCourses(branch: string, semester: string): PresetCourse[] {
-  const rows = active.branches?.[branch]?.[semester] ?? [];
+  // The branch's own table first. A group table is the first year as KTU
+  // prints it for every branch in the group; a branch table is that branch
+  // actually transcribed, down to which subject its generic PCXXT205 is.
+  const rows = active.branches?.[resolveBranch(branch)]?.[semester]
+    ?? groupTable(branch)[semester]
+    ?? [];
   return rows.map(([code, name, credits, type, slot]) => ({
     code, name, credits,
     type: type as TypeKey,
@@ -175,8 +233,12 @@ export function presetCourses(branch: string, semester: string): PresetCourse[] 
  * five rows that were added: it is that the app now holds the university's own
  * total and can tell the student what a preset does not cover.
  */
-export const expectedCredits = (branch: string, semester: string): number | null =>
-  active.expected?.[branch]?.[semester] ?? null;
+export const expectedCredits = (branch: string, semester: string): number | null => {
+  const own = active.expected?.[resolveBranch(branch)]?.[semester];
+  if (own != null) return own;
+  const id = active.branch_group?.[resolveBranch(branch)];
+  return (id ? active.expected_group?.[id]?.[semester] : undefined) ?? null;
+};
 
 /**
  * One code per slot, defaulting to the first alternative listed.

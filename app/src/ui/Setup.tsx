@@ -1,5 +1,6 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
-import { branches, defaultSlotChoice, expectedCredits, presetCourses, semesterKeys } from "../engine";
+import { branches, defaultBranch, defaultSlotChoice, expectedCredits, presetCourses,
+         resolveBranch, semesterKeys } from "../engine";
 import type { PresetCourse } from "../engine";
 import { applyPreset } from "../state/actions";
 import { edit, setGoal, state } from "../state/store";
@@ -178,8 +179,24 @@ function DataStep(props: { onBack: () => void; onNext: () => void }) {
  */
 function PresetPicker(props: { onDone: () => void }) {
   const available = branches();
-  const [branch, setBranch] = createSignal(state.student.branch || available[0] || "CSE");
+  // Through resolveBranch because a record set up before the tables were keyed
+  // by KTU's printed branch names still holds the old key, and defaultBranch
+  // rather than available[0] because alphabetically first is now a branch that
+  // carries only a first year.
+  const [branch, setBranch] = createSignal(
+    state.student.branch ? resolveBranch(state.student.branch) : defaultBranch());
   const [semester, setSemester] = createSignal(state.activeSemester || "S1");
+
+  const semesters = createMemo(() => semesterKeys(branch()));
+
+  // Most branches carry the first year only - it is KTU's, printed once per
+  // group - while a fully transcribed branch carries all eight. Switching from
+  // one to the other left the select holding an S5 that its new branch has no
+  // table for, so the control showed a semester the list below did not.
+  createMemo(() => {
+    const keys = semesters();
+    if (keys.length > 0 && !keys.includes(semester())) setSemester(keys[0]!);
+  });
 
   const options = createMemo(() => presetCourses(branch(), semester()));
   const [picked, setPicked] = createSignal<Set<string>>(new Set());
@@ -236,28 +253,30 @@ function PresetPicker(props: { onDone: () => void }) {
           Semester
           <select class="field-input" value={semester()}
                   onChange={(e) => setSemester(e.currentTarget.value)}>
-            <For each={semesterKeys(branch())}>{(s) => <option value={s}>{s}</option>}</For>
+            <For each={semesters()}>{(s) => <option value={s}>{s}</option>}</For>
           </select>
         </label>
         <span class="fineprint num">{chosen().length} subjects · {credits()} credits</span>
       </div>
 
-      {/* The dropdown holds whatever branch tables the catalogue carries, which
-          today is CSE alone. A student from any other branch opens a list their
-          branch is missing from, with nothing said about it - and the obvious
-          move from there is to pick the branch that IS there and register
-          somebody else's subjects, at somebody else's credits. That is a wrong
-          SGPA denominator arrived at by following the UI. Name what is on file
-          instead, and point at the two routes that are right for everyone. */}
+      {/* KTU sets the FIRST YEAR by group, not by branch - one table for all
+          the computer science branches, another for the electrical ones - so
+          S1 and S2 are on file for every branch in both. Everything after that
+          is per-branch and has to be transcribed one PDF at a time. Saying
+          which is which matters: a student who reaches S3 and finds nothing
+          should know the app has not lost their curriculum, and one who is
+          offered only two semesters should not read that as all KTU has. */}
       <p class="fineprint">
-        <Show when={available.length === 1} fallback={
-          <>Branches on file so far: {available.join(", ")}.</>
+        <Show when={semesters().length <= 2} fallback={
+          <>All {semesters().length} semesters of {branch()} are on file.</>
         }>
-          Only {available[0]} is on file so far.
-        </Show>{" "}
-        If yours is not here, go back to <strong>Other ways to start</strong> and
-        sync from your portal or add subjects by hand. A preset from a different
-        branch gives you the wrong subjects at the wrong credits.
+          KTU prints one first-year table for every branch in a group, so S1 and
+          S2 are here for {branch()}. Later semesters are per-branch and are not
+          transcribed yet — for those, go back to{" "}
+          <strong>Other ways to start</strong> and sync from your portal or add
+          subjects by hand. A preset from a different branch gives you the wrong
+          subjects at the wrong credits.
+        </Show>
       </p>
 
       {/* Said out loud rather than left as arithmetic the student has to do.

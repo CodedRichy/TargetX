@@ -1,17 +1,22 @@
 // @vitest-environment jsdom
 /**
- * What the picker says about branches it does not have.
+ * What the picker says about how far its curriculum reaches.
  *
- * The catalogue carries one branch table. The dropdown therefore listed one
- * option and said nothing about it, so a student from any other branch met a
- * list their branch was missing from with no explanation - and the obvious
- * move from there is to select the branch that IS on offer. That registers
- * somebody else's subjects at somebody else's credits, which is a wrong SGPA
- * denominator arrived at by following the UI rather than by misusing it.
+ * The catalogue used to hold one branch table, so the branch dropdown listed
+ * one option and said nothing about it: a student from any other branch met a
+ * list their branch was missing from, and the move that screen invites is to
+ * select the branch that IS on offer - somebody else's subjects at somebody
+ * else's credits, a wrong SGPA denominator reached by following the UI.
+ *
+ * KTU sets the first year by GROUP rather than by branch, so S1 and S2 are now
+ * on file for every branch in Groups A and B. What is per-branch is everything
+ * after it, and the screen has to say which is which - both so a student who
+ * reaches S3 knows nothing has been lost, and so one offered two semesters does
+ * not read that as the whole curriculum.
  */
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { branches } from "../../engine";
+import { branches, defaultBranch, semesterKeys } from "../../engine";
 import { edit } from "../../state/store";
 import { Setup } from "../Setup";
 
@@ -19,9 +24,9 @@ afterEach(cleanup);
 
 beforeEach(() => {
   edit((d) => {
-    d.semesters = { S3: { courses: [] } };
-    d.activeSemester = "S3";
-    d.student = { ...d.student, branch: branches()[0]! };
+    d.semesters = { S1: { courses: [] } };
+    d.activeSemester = "S1";
+    d.student = { ...d.student, branch: defaultBranch() };
   });
 });
 
@@ -32,28 +37,58 @@ function toPicker() {
   return view.container;
 }
 
+const flat = (c: HTMLElement) => (c.textContent ?? "").replace(/\s+/g, " ");
+
 describe("branch coverage", () => {
-  it("names every branch the catalogue actually carries", () => {
-    const text = toPicker().textContent ?? "";
-    for (const branch of branches()) expect(text).toContain(branch);
+  it("offers every branch the catalogue can seed, not just the transcribed one", () => {
+    const options = [...toPicker().querySelectorAll("select")]
+      .flatMap((s) => [...s.options].map((o) => o.value));
+    for (const branch of branches()) expect(options).toContain(branch);
+    // The whole point of keying the first year by group: this is not a list of
+    // one. If it ever collapses back to one, the notice below is wrong too.
+    expect(branches().length).toBeGreaterThan(10);
   });
 
-  it("tells a student whose branch is missing what to do instead", () => {
-    const text = toPicker().textContent ?? "";
-    expect(text).toContain("on file so far");
+  it("starts on the branch whose whole curriculum is on file", () => {
+    // Alphabetically first is arbitrary and now lands on a branch carrying only
+    // a first year, which reads as an app that has lost six semesters.
+    const select = toPicker().querySelector<HTMLSelectElement>("select");
+    expect(select?.value).toBe(defaultBranch());
+    expect(semesterKeys(defaultBranch()).length).toBeGreaterThan(2);
+  });
+
+  it("says a fully transcribed branch is complete", () => {
+    const text = flat(toPicker());
+    expect(text).toContain(`All ${semesterKeys(defaultBranch()).length} semesters`);
+  });
+});
+
+describe("a branch with only the first year", () => {
+  /** Any branch that leans on its group table rather than its own. */
+  const firstYearOnly = branches().find((b) => semesterKeys(b).length === 2);
+
+  it("exists — otherwise the rest of this block proves nothing", () => {
+    expect(firstYearOnly).toBeDefined();
+  });
+
+  it("explains that the first year is KTU's, and later semesters are not here", () => {
+    const container = toPicker();
+    const select = container.querySelector<HTMLSelectElement>("select")!;
+    fireEvent.change(select, { target: { value: firstYearOnly! } });
+    const text = flat(container);
+    expect(text).toContain("one first-year table for every branch in a group");
     expect(text).toContain("Other ways to start");
-    // The reason has to be in the sentence. "Your branch is missing" invites
-    // picking the nearest one; "wrong credits" does not.
-    expect(text).toMatch(/wrong subjects at the wrong credits/);
+    // The reason has to be in the sentence. "Not transcribed yet" invites
+    // picking the nearest branch instead; naming the cost does not.
+    expect(text).toContain("wrong subjects at the wrong credits");
   });
 
-  it("says how many branches there are without hardcoding one", () => {
-    // Pinned to the catalogue rather than to CSE: when a second branch table
-    // lands, this test should keep passing and the wording should follow it.
-    const text = toPicker().textContent ?? "";
-    const expected = branches().length === 1
-      ? `Only ${branches()[0]} is on file so far.`
-      : `Branches on file so far: ${branches().join(", ")}.`;
-    expect(text.replace(/\s+/g, " ")).toContain(expected);
+  it("does not leave the semester select holding a semester it has no table for", () => {
+    const container = toPicker();
+    const [branchSelect, semesterSelect] =
+      [...container.querySelectorAll<HTMLSelectElement>("select")];
+    fireEvent.change(semesterSelect!, { target: { value: "S5" } });
+    fireEvent.change(branchSelect!, { target: { value: firstYearOnly! } });
+    expect(semesterKeys(firstYearOnly!)).toContain(semesterSelect!.value);
   });
 });

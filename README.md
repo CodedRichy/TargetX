@@ -141,13 +141,20 @@ once for your batch and it stays corrected. Format:
 ["PCCST302", "Data Structures and Algorithms", 4, "TH 40/60"]
 ```
 
-Ships with **one branch table, CSE, covering S1 to S8**, transcribed
-from the KTU B.Tech Curriculum 2024. Every other branch has no preset, and the
-picker says so rather than letting a student register CSE's subjects at CSE's
-credits by default. S1 and S2 carry KTU's two first-year **slots** — Physics or
-Chemistry, Health and Wellness or Life Skills — as a choice rather than as fixed
-subjects, because a student takes one of each in S1 and the other in S2 in an
-order the institution sets.
+KTU sets the **first year by group, not by branch** — page 1 of the 2024
+curriculum sorts every B.Tech branch into four groups and prints one first-year
+table per group — so the catalogue is keyed the same way. **31 branches across
+Group A (computer and information science) and Group B (electrical science)
+carry S1 and S2**; Computer Science and Engineering is transcribed in full and
+carries S1 to S8. Everything after the first year is per-branch and arrives one
+PDF at a time, which the picker says on screen rather than leaving a student to
+seed another branch's subjects at another branch's credits.
+
+S1 and S2 carry KTU's first-year **slots** — Physics or Chemistry, Health and
+Wellness or Life Skills, plus a third in Group B S2 — as a choice rather than as
+fixed subjects, because a student takes one of each in S1 and the other in S2 in
+an order the institution sets. Groups C (physical science) and D (life science)
+are not transcribed.
 
 Unknown codes coming in from an import get their type inferred from the code
 (`…L###` → lab, `PWS`/`…D###` → project) and you can override it per row.
