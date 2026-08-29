@@ -140,6 +140,15 @@ export interface RequiredSgpa {
   ceiling?: number;
   slack?: boolean;
   reason?: string;
+  /**
+   * True when the answer is "not enough information", not "not achievable".
+   *
+   * `possible: false` was carrying both, and a screen cannot tell them apart
+   * from a boolean. A student on their first run, with no subjects entered
+   * yet, was told in red that their target was OUT OF REACH - which is false
+   * despair produced by an empty form.
+   */
+  insufficient?: boolean;
   /** The horizon `required` is an average over. */
   horizon: GoalHorizon;
   /**
@@ -182,7 +191,7 @@ export function requiredSgpaForCgpa(
 
   if (credits <= 0) {
     return {
-      required: null, possible: false, horizon, unconfirmed,
+      required: null, possible: false, insufficient: true, horizon, unconfirmed,
       reason: "no credits registered this semester",
     };
   }

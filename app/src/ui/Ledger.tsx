@@ -313,8 +313,18 @@ function Detail(props: {
             </div>
             <div class="field">
               <span>Credits</span>
+              {/* Editing credits marks them confirmed, which is what stops the
+                  next sync overwriting the correction. etlab never publishes a
+                  per-course credit, so TargetX infers it from the catalogue -
+                  and the sync panel tells the student to fix it when the
+                  inference is wrong. That flag existed and was never set by
+                  anything, so the correction survived until the next sync and
+                  then quietly went back. Only a real number confirms: clearing
+                  the box is not a correction to protect. */}
               <Cell value={props.course.credits} label="Credits"
-                    onInput={(v) => set({ credits: v })} />
+                    onInput={(v) => set(Number.isFinite(Number(v)) && String(v).trim() !== ""
+                      ? { credits: v, creditsConfirmed: true }
+                      : { credits: v, creditsConfirmed: false })} />
             </div>
             <div class="field">
               <span>Published grade</span>

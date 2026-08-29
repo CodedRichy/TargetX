@@ -44,10 +44,21 @@ function Kpis() {
       </div>
     }>
       <div class="kpis" data-tauri-drag-region>
+        {/* A live semester makes the header "started", but a CGPA needs a
+            COMPLETED one. Without that guard a first year saw 0.00 beside
+            their real projection, which reads as a failed year rather than as
+            a year that has not finished. */}
         <div class="kpi">
           <span class="kpi-label">CGPA</span>
-          <span class="kpi-value num">{overall().cgpa.toFixed(2)}</span>
-          <span class="kpi-note num">{overall().percent.toFixed(1)}% · {overall().credits} cr</span>
+          <Show when={overall().credits > 0} fallback={
+            <>
+              <span class="kpi-value num dim">{dash}</span>
+              <span class="kpi-note">no completed semester yet</span>
+            </>
+          }>
+            <span class="kpi-value num">{overall().cgpa.toFixed(2)}</span>
+            <span class="kpi-note num">{overall().percent.toFixed(1)}% · {overall().credits} cr</span>
+          </Show>
         </div>
         <Show when={view() === "ledger"}>
         <div class="kpi">
@@ -113,9 +124,13 @@ export function GoalBar() {
     .filter((g) => g.toTarget !== null && g.toTarget.state === "deficit").length;
 
   const need = () => goalRequirement();
+  // Red is for a target that cannot be met, not for a form that has not been
+  // filled in. `insufficient` is the second thing `possible: false` used to
+  // carry, and it is now the one case that stays neutral.
   const risky = () => {
     const n = need();
-    return !!n && (!n.possible || (n.required ?? 0) > summary().sgpaProjected + 0.005);
+    if (!n || n.insufficient) return false;
+    return !n.possible || (n.required ?? 0) > summary().sgpaProjected + 0.005;
   };
 
   return (
@@ -136,7 +151,12 @@ export function GoalBar() {
       }>
         {(n) => (
           <p class={`verdict${risky() ? " bad" : ""}`} style={{ margin: 0 }}>
-            <Show when={n().possible} fallback={<>Out of reach — {n().reason}.</>}>
+            <Show when={n().possible} fallback={
+              <Show when={n().insufficient}
+                    fallback={<>Out of reach — {n().reason}.</>}>
+                Add this semester's subjects and this becomes a route.
+              </Show>
+            }>
               <Show when={n().slack} fallback={
                 <>
                   {state.activeSemester} must deliver <strong>{n().required!.toFixed(2)}</strong>

@@ -1,6 +1,7 @@
 import { Index, Show, createMemo, createSignal } from "solid-js";
 import {
-  evaluate, isGraded, sgpa as computeSgpa, unconfirmedNames, GRADE_POINTS,
+  driftsFrom, evaluate, isGraded, sgpa as computeSgpa, unconfirmedNames,
+  GRADE_POINTS,
 } from "../engine";
 import type { SemesterHistory } from "../engine";
 import { overall, setHistory, state, edit, trend } from "../state/store";
@@ -60,8 +61,14 @@ export function History() {
         const registered = published?.creditsRegistered ?? null;
         const complete = registered !== null && registered > 0
           && Math.abs(credits - registered) < 0.01;
+        // The raw difference, not a rounded one. Rounding here and comparing
+        // afterwards is how this screen and the launch check came to disagree
+        // about a difference in [0.0095, 0.01): one rounded it up over the
+        // line and the other did not, so a student who followed the warning to
+        // History found a semester marked as reconciling. `driftsFrom` is the
+        // one rule now, and rounding is left to the rendering.
         const drift = complete && recomputed !== null
-          ? Math.round((recomputed - published!.sgpa) * 1000) / 1000
+          ? recomputed - published!.sgpa
           : null;
 
         return { name, published, registered, recomputed, credits, complete,
@@ -69,7 +76,8 @@ export function History() {
       });
   });
 
-  const drifting = () => rows().filter((r) => r.drift !== null && Math.abs(r.drift) >= 0.01);
+  const drifting = () => rows().filter((r) => r.drift !== null
+    && driftsFrom(r.recomputed!, r.published!.sgpa));
 
   /**
    * Semesters with no registered credit total: a save that only ever knew the
@@ -271,7 +279,7 @@ function HistoryRow(props: { row: Row }) {
             </Show>
           </span>
         }>
-          <Show when={Math.abs(props.row.drift!) < 0.01} fallback={
+          <Show when={!driftsFrom(props.row.recomputed!, props.row.published!.sgpa)} fallback={
             <span class="pill shortage num">
               off by {props.row.drift! > 0 ? "+" : ""}{props.row.drift!.toFixed(2)}
             </span>

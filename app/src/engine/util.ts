@@ -46,3 +46,27 @@ export function round(value: number, places = 2): number {
 /** Ceiling with the same float-error guard, so 24.000000001 does not become 25. */
 export const ceil = (value: number): number => Math.ceil(value - 1e-9);
 export const floor = (value: number): number => Math.floor(value + 1e-9);
+
+/**
+ * How far a recomputed SGPA may sit from the published one before it is a
+ * disagreement worth telling the student about.
+ *
+ * A hundredth: KTU publishes two decimal places, so anything smaller is not
+ * something the two figures could actually differ by.
+ */
+export const DRIFT_TOLERANCE = 0.01;
+
+/**
+ * Does a recomputed figure disagree with the published one?
+ *
+ * One function because there were two, and they disagreed with each other.
+ * History rounded to three places before comparing and the launch check did
+ * not, so a real difference anywhere in [0.0095, 0.01) was flagged on one
+ * screen and called clean on the other - and a student who followed the
+ * warning to History found nothing wrong there.
+ *
+ * The comparison is on the raw values. Rounding is a display concern and has
+ * no business deciding whether the numbers match.
+ */
+export const driftsFrom = (recomputed: number, published: number): boolean =>
+  Math.abs(recomputed - published) >= DRIFT_TOLERANCE;

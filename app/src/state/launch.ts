@@ -1,4 +1,4 @@
-import { GRADE_POINTS, evaluate, isGraded, sgpa as computeSgpa } from "../engine";
+import { GRADE_POINTS, driftsFrom, evaluate, isGraded, sgpa as computeSgpa } from "../engine";
 import { saveFault, state } from "./store";
 
 /**
@@ -63,7 +63,7 @@ export function reconcileFailures(): string[] {
 
     const credits = graded.reduce((sum, [c]) => sum + c, 0);
     if (Math.abs(credits - registered) >= 0.01) continue;
-    if (Math.abs(computeSgpa(graded) - published.sgpa) >= 0.01) out.push(name);
+    if (driftsFrom(computeSgpa(graded), published.sgpa)) out.push(name);
   }
   return out;
 }

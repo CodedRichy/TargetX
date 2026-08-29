@@ -1,7 +1,7 @@
 import { For, Show, createMemo } from "solid-js";
 import {
-  ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN,
-  attendanceMarks, isIncomplete, unconfirmedNames,
+  ATTENDANCE_CONDONE, ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_MAX,
+  ATTENDANCE_MIN, attendanceMarks, isDebarred, isIncomplete, unconfirmedNames,
 } from "../engine";
 import {
   goalRequirement, overall, rows, state, summary, trend,
@@ -147,12 +147,22 @@ export function Home() {
                        + "— its internal is incomplete, so no grade is being read off it"
                      : "attendance not recorded — its internal is incomplete, "
                        + "so no grade is being read off it" });
+      } else if (isDebarred(ev)) {
+        // Below the condonation floor there is no route back. R 6.2 allows
+        // condonation from 60% up; under it the exam is gone for the semester
+        // however many classes are left. Telling this student "N classes in a
+        // row to be eligible" is not encouragement, it is a wrong instruction
+        // they will follow. `Ledger.tsx` already draws this line; Home did not.
+        out.push({ code, severity: "bad", rank: 1,
+                   detail: `below the ${ATTENDANCE_CONDONE}% condonation floor `
+                     + "— the exam cannot be sat this semester, and attending "
+                     + "from here does not change that" });
       } else if (ev.eligible === false) {
         const plan = ev.plan;
         out.push({ code, severity: "warn", rank: 2,
                    detail: plan?.attend
-                     ? `below 75% — ${plan.attend} classes in a row to be eligible`
-                     : "below 75% — not eligible to sit the exam" });
+                     ? `below ${ATTENDANCE_MIN}% — ${plan.attend} classes in a row to be eligible`
+                     : `below ${ATTENDANCE_MIN}% — not eligible to sit the exam` });
       } else if (ev.grade === null && ev.assessed && !ev.needTargetBest.possible) {
         out.push({ code, severity: "warn", rank: 3,
                    detail: `target out of reach — best still open is ${ev.maxPossibleGrade}` });
@@ -258,9 +268,22 @@ export function Home() {
             </div>
 
             <div class="hero-figure">
+              {/* No past semester means no CGPA, not a CGPA of zero. A first
+                  year reading 0.00 on the largest number on the screen is
+                  being told they have failed everything, on the day they
+                  installed it. A dash says the same thing as the empty state
+                  three lines up, which is the discipline this app applies to
+                  every other unknown. */}
               <div class="hero-number">
-                <span class="huge num">{overall().cgpa.toFixed(2)}</span>
-                <span class="hero-unit num">CGPA · {overall().percent.toFixed(1)}%</span>
+                <Show when={overall().credits > 0} fallback={
+                  <>
+                    <span class="huge num dim">–</span>
+                    <span class="hero-unit">no completed semester yet</span>
+                  </>
+                }>
+                  <span class="huge num">{overall().cgpa.toFixed(2)}</span>
+                  <span class="hero-unit num">CGPA · {overall().percent.toFixed(1)}%</span>
+                </Show>
               </div>
               <Show when={state.goal?.cgpa != null}>
                 <GoalGauge projected={summary().sgpaProjected}
@@ -275,9 +298,19 @@ export function Home() {
                 No target set. Set one and every number here re-reads as a route to it.
               </p>
             }>
+              {/* Missing data is not an unreachable target. `insufficient`
+                  keeps the red for the case that has actually gone wrong. */}
               {(n) => (
-                <p class="tile-verdict" classList={{ bad: !n().possible || short() > 0.005 }}>
-                  <Show when={n().possible} fallback={<>Target is out of reach — {n().reason}.</>}>
+                <p class="tile-verdict"
+                   classList={{ bad: (!n().possible && !n().insufficient) || short() > 0.005,
+                                dim: n().insufficient }}>
+                  <Show when={n().possible} fallback={
+                    <Show when={n().insufficient}
+                          fallback={<>Target is out of reach — {n().reason}.</>}>
+                      Add this semester's subjects and their credits, and this
+                      turns into the SGPA that gets you there.
+                    </Show>
+                  }>
                     <Show when={n().slack} fallback={
                       <>
                         {/* A CGPA target is a graduation target: with
