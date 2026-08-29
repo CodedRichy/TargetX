@@ -102,7 +102,20 @@ async function boot() {
  * is a flake in a suite CI now gates on, so the cost is moved here rather than
  * hidden under a raised timeout: a real 5-second hang should still fail.
  */
-beforeAll(async () => { await import("../store"); });
+/**
+ * Warm the store module before the clock starts on any test.
+ *
+ * `boot()` below calls `vi.resetModules()` and re-imports the store, and the
+ * FIRST such import costs the better part of a second - `resetModules` clears
+ * the module registry but not Vite's transform cache, so every later one is
+ * sub-millisecond. Paying that inside a test spent the test budget on module
+ * loading and produced a timeout that looked like a product failure.
+ *
+ * The generous hook timeout is the same fact stated once more: as the suite
+ * has grown, a cold transform on a loaded machine has taken over ten seconds.
+ * It is build cost, not behaviour, and no assertion here depends on it.
+ */
+beforeAll(async () => { await import("../store"); }, 60_000);
 
 beforeEach(() => {
   fake.files.clear();

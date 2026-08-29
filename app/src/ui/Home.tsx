@@ -1,7 +1,8 @@
 import { For, Show, createMemo } from "solid-js";
 import {
   ATTENDANCE_CONDONE, ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_MAX,
-  ATTENDANCE_MIN, attendanceMarks, isDebarred, isIncomplete, unconfirmedNames,
+  ATTENDANCE_MIN, attendanceMarks, isDebarred, isIncomplete, toOptionalFloat,
+  unconfirmedNames,
 } from "../engine";
 import {
   goalRequirement, overall, rows, state, summary, trend,
@@ -74,6 +75,7 @@ export function Home() {
     // sentence this feeds is that nothing else in a student's life flags
     // them - the portal shows a green 78% and says nothing about R 7.5.ii.
     let blindSpot = 0;
+    let priced = 0;
 
     for (const row of rows()) {
       const ev = row.ev;
@@ -86,6 +88,11 @@ export function Home() {
         blindSpot += 1;
       }
 
+      // Whether this subject's next band can be PRICED at all. Climbing one
+      // is counted in classes, and a student who typed a bare percentage
+      // instead of attended/held has given the app no classes to count.
+      if (toOptionalFloat(row.course.held) !== null) priced += 1;
+
       const band = ev.attBand;
       if (!band || band.nextMarks === null || band.attend <= 0) continue;
       if (!cheapest || band.attend < cheapest.attend) {
@@ -96,7 +103,7 @@ export function Home() {
         };
       }
     }
-    return { lost: Math.round(lost * 10) / 10, counted, cheapest, blindSpot };
+    return { lost: Math.round(lost * 10) / 10, counted, cheapest, blindSpot, priced };
   });
 
   /** Everything breakable, ordered by how bad it is rather than by code. */
@@ -372,8 +379,30 @@ export function Home() {
                 </p>
               </Show>
               <p class="tile-verdict">
+                {/* Three different reasons there is nothing to offer, and the
+                    tile used to give the flattering one for all of them: it
+                    said "nothing to reclaim" directly under a count of marks
+                    already lost. Marks lost with no route back is the common
+                    case for a student who typed a bare percentage, because a
+                    band is climbed in CLASSES and a percentage carries none. */}
                 <Show when={attendanceCost().cheapest} fallback={
-                  <>Every subject is already in its top attendance band. Nothing to reclaim.</>
+                  <Show when={attendanceCost().lost > 0} fallback={
+                    <>Every subject is already in its top attendance band.
+                      Nothing to reclaim.</>
+                  }>
+                    <Show when={attendanceCost().priced > 0} fallback={
+                      <>
+                        Those marks cannot be won back until TargetX knows the
+                        classes. Enter attended and held in the Semester table
+                        — a bare percentage says where you are and not how far
+                        a class moves it.
+                      </>
+                    }>
+                      No subject can climb a band with the classes that are
+                      left. The marks already lost stay lost; what is left to
+                      protect is the ones still in reach.
+                    </Show>
+                  </Show>
                 }>
                   {(c) => (
                     <>

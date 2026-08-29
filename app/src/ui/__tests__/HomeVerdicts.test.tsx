@@ -91,3 +91,29 @@ describe("a subject below the condonation floor", () => {
     expect(screen.getByText(new RegExp(`below ${ATTENDANCE_MIN}%`))).toBeTruthy();
   });
 });
+
+describe("the attendance tile", () => {
+  it("does not say there is nothing to reclaim under a count of marks lost", () => {
+    // A student who typed a bare percentage has given the app no classes to
+    // count, so no band can be priced - and the tile used to answer that with
+    // "every subject is already in its top attendance band", directly below
+    // the marks it had just said were gone.
+    withAttendance(71);
+    render(() => <Home />);
+    expect(screen.queryByText(/Nothing to reclaim/)).toBeNull();
+    expect(screen.getByText(/Enter attended and held/)).toBeTruthy();
+  });
+
+  it("still says so when every subject really is in its top band", () => {
+    edit((s) => {
+      s.semesters["S5"] = {
+        courses: [{
+          ...blankCourse("PCCST501", "Computer Networks", 4, "TH 40/60"),
+          attended: 48, held: 48, s1: 40,
+        }],
+      };
+    });
+    render(() => <Home />);
+    expect(screen.getByText(/Nothing to reclaim/)).toBeTruthy();
+  });
+});
