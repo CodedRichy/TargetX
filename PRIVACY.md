@@ -15,6 +15,7 @@ code, the file is named so it can be read rather than trusted.
 | A duplicate of the same record | Browser storage inside the application | No |
 | Your college portal password | Nowhere. It is held in memory for the length of one sign-in and discarded | No |
 | Your college portal session cookie | The application's memory only, discarded when you quit | Sent only to your own college's portal |
+| A fault log | `targetx.log` in your user log folder, up to three files of 2 MB | No, unless you choose to send it |
 
 On Windows the record is at
 `%APPDATA%\cv.codedrichy.targetx\state.json` — the roaming profile, chosen so
@@ -50,9 +51,29 @@ that process's memory and is gone when the application exits
 If you leave the password field blank, TargetX re-uses the session from earlier
 in the same run. There is nothing to re-use after a restart, by design.
 
+## The fault log
+
+When something inside TargetX fails, it writes the failure to a file so that it
+still exists afterwards. Without it a crash leaves nothing behind at all, and a
+report of "it stopped working" cannot be acted on.
+
+The file holds error messages and the point in the program they came from. It
+does not hold your marks, your attendance, your password, or the contents of any
+portal page. It can contain the portal address you typed, because a message
+about a bad address has to quote it. Nothing reads the file and nothing uploads
+it. If you want to report a fault you can open it, read it, and decide for
+yourself whether to send it — and send it yourself, by hand.
+
+On Windows it is at
+`%LOCALAPPDATA%\cv.codedrichy.targetx\logs\targetx.log`. The Data screen shows
+the exact folder for your machine. Deleting it is safe.
+
 ## Analytics
 
 There are none. No usage data, no crash telemetry, no identifiers, no counters.
+The fault log above is written to your own disk and read by nobody; it is not
+telemetry, because nothing sends it.
+
 Nobody can tell how many people use TargetX, which is a deliberate trade: it
 costs the project useful information and it is the only arrangement in which
 the paragraph above is true without qualification.

@@ -158,9 +158,18 @@ from an import get their type inferred from the code (`…L###` → lab,
 - **`Lock SGPA`** freezes a finished semester into history for CGPA maths.
 - **`Export`** downloads a formatted `.txt` report, or the full state as `.json`
   for backup and transfer.
-- Everything autosaves to browser storage (`localStorage`, key
-  `targetx.state.v1`) 250 ms after you stop typing. Storage is per-machine and
-  per-user: it does not sync, so keep a `.json` export if the data matters.
+- Everything autosaves 750 ms after you stop typing, to a real file in your
+  application-data folder, written to a temporary name and renamed over the old
+  one so an interrupted write cannot leave a half-file. Three backups sit
+  beside it, taken once per launch rather than once per save - per-save copies
+  would hold three versions of the same bad afternoon, while per-launch slots
+  reach back three sessions. A failed save is reported on screen rather than
+  swallowed.
+- **Updates arrive on their own.** A few seconds after launch the app asks
+  whether a newer build exists and offers it. It never installs unasked, and a
+  failed check is silent - being offline is not an error a student needs to see.
+- The record is per-machine and per-user. It does not sync between machines, so
+  keep a `.json` export if the data matters.
 
 Two SGPA figures are shown on purpose. **Confirmed** counts only subjects with a
 real ESE mark. **Projected** assumes you hit your target where it's reachable,
@@ -177,17 +186,18 @@ and the best grade still mathematically available where it isn't.
 | `app/src/sync/gradecard.ts` | Grade-card and public-page parsers |
 | `app/src-tauri/src/etlab.rs` | Cookie jar and HTTP. In memory only, never a file |
 | `app/src/data/curriculum.json` | Bundled course catalogue, refreshable from the repo |
-| `localStorage["targetx.state.v1"]` | Your data. Autosaved. Not a file |
+| `app/src/state/persist.ts` | Your data, saved atomically with three backups kept |
+| `app/src/sync/update.ts` | The update check. Never blocks startup, never installs unasked |
 | `legacy/` | The retired Python original, kept as the parity oracle |
 
 ## Tests
 
 ```
-cd app && npm test          # 275 tests across 15 files
+cd app && npm test          # 377 tests across 27 files
 ```
 
-Counted from a run on 2026-08-29, not estimated: **179** engine, **66** UI,
-**16** state, **14** sync.
+Counted from a run on 2026-08-29, not estimated: **179** engine, **109** UI,
+**46** sync, **43** state.
 
 `engine/__tests__/parity.test.ts` is the load-bearing one. It replays a frozen
 corpus of 612 generated course cases and 60 semester rollups produced by the
@@ -205,6 +215,25 @@ cd legacy && python test_core.py && python test_sync.py
 `test_sync.py` stands up a local server that deliberately uses a non-obvious
 login route, a Yii1 CSRF field, and data routes that aren't first in the probe
 list — so the discovery logic is actually exercised, not just the happy path.
+
+---
+
+## Privacy, and what to do when it breaks
+
+Nothing you enter leaves the machine. There is no account and no server, and
+the three network calls that exist - the portal sign-in you asked for, the
+catalogue file, and the update check - are named and located in
+[`PRIVACY.md`](PRIVACY.md).
+
+When something does break, it is written to `targetx.log` in your OS log
+folder, and the Data screen shows the exact path. A packaged build has no
+console for a crash to print to, so without that file "it stopped working" is
+the entire bug report available. The log holds error messages, not your marks.
+
+[`CHANGELOG.md`](CHANGELOG.md) is written for the student deciding whether an
+update is worth taking; its first section is the numbers that used to be wrong.
+[`SIGNING.md`](SIGNING.md) covers releasing and the two signatures a build
+carries.
 
 ---
 
