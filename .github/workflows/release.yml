@@ -195,8 +195,25 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # macOS has no sha256sum - it ships `shasum -a 256`. Picking one
+          # per platform rather than assuming: a step that only fails on the
+          # macos leg would take the whole release down at the last moment,
+          # after both other platforms had already uploaded.
+          if command -v sha256sum >/dev/null; then
+            hash() { sha256sum "$@"; }
+          else
+            hash() { shasum -a 256 "$@"; }
+          fi
           out="SHA256SUMS-${{ matrix.platform }}.txt"
-          find app/src-tauri/target -path '*bundle*' -type f             \( -name '*.exe' -o -name '*.msi' -o -name '*.dmg'                -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \)             -print0 | xargs -0 -r sha256sum | sed 's#[^ ]*/##' > "$out"
+          : > "$out"
+          # Basenames, not build paths: a checksum is checked against a file
+          # someone downloaded, and nobody downloads target/release/bundle/.
+          find app/src-tauri/target -path '*bundle*' -type f \
+            \( -name '*.exe' -o -name '*.msi' -o -name '*.dmg' \
+               -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \) \
+            | while read -r file; do
+                echo "$(hash "$file" | cut -d' ' -f1)  $(basename "$file")" >> "$out"
+              done
           if [ ! -s "$out" ]; then echo "No installer to checksum."; exit 1; fi
           cat "$out"
           gh release upload "${{ github.ref_name }}" "$out" --clobber
