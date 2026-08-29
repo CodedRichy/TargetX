@@ -49,6 +49,13 @@ checked.
       selector can be written from without anyone asking for a portal password.
       It is still not validation.
 
+      What has changed is the price of getting it. `npm run portal-check --
+      <saved-page.html>` runs the real parser over a page saved out of a
+      browser, so testing a college no longer needs an account at it: the ask
+      is now "save one page and paste three lines", which a stranger can do in
+      a minute and which moves no credential at all. Whoever finds the second
+      college should send them that, not a copy of the app.
+
 ## Layout, measured rather than argued about
 
 - [x] **Residual scroll on Home.** Done 2026-08-29, and the cause was not

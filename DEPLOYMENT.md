@@ -71,6 +71,21 @@ could not read — table shapes and headings with every digit blanked out, no
 subject row at all — which you or the student can send with a bug report. It
 will not silently record a half-read semester.
 
+**You can check whether it will work before anyone installs anything, and
+without giving us an account.** Save the academics page out of a browser that
+is already signed in (File → Save Page As), then, from a checkout of this
+repository:
+
+```
+cd app && npm install
+npm run portal-check -- ./saved-page.html
+```
+
+It prints what parsed and a block that is safe to send. The saved page is not
+safe to send — it is a student's whole academic record — and the tool never
+transmits it or writes it anywhere; it prints to your terminal and stops. Send
+the block, not the page.
+
 ## Where the data lives
 
 | | |
