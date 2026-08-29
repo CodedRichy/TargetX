@@ -14,6 +14,12 @@ fn log_error(message: String) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    // The student's record lives in a file under `appDataDir()`, not in the
+    // webview's localStorage. See `app/src/state/persist.ts`. Scoped in
+    // `capabilities/default.json` to that folder's top level and nothing else:
+    // this webview also renders a college portal's HTML, and it has no business
+    // being able to reach the rest of the disk.
+    .plugin(tauri_plugin_fs::init())
     .manage(etlab::Etlab::default())
     .invoke_handler(tauri::generate_handler![
       etlab::etlab_start,
