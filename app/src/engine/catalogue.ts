@@ -8,10 +8,32 @@ export interface CatalogueEntry {
   name: string;
 }
 
+/**
+ * A row in a branch table: code, name, credits, type, and optionally a SLOT.
+ *
+ * KTU's first year does not name every subject. Two positions are choices -
+ * Slot B is Physics or Chemistry, Slot I is Health and Wellness or Life Skills
+ * - and a student takes one of each in S1 and the other in S2. Which way round
+ * is set by the institution, not by KTU, so it cannot be derived from the
+ * branch and must not be guessed: seeding the wrong one is a wrong subject in
+ * the record, and seeding both is 4 phantom credits in the SGPA denominator.
+ * Rows sharing a slot id are alternatives, exactly one of which is real.
+ */
+type BranchRow = [string, string, number, string] | [string, string, number, string, string];
+
 interface Curriculum {
   version?: number;
   credits?: Record<string, CatalogueEntry>;
-  branches?: Record<string, Record<string, Array<[string, string, number, string]>>>;
+  branches?: Record<string, Record<string, BranchRow[]>>;
+  /**
+   * Credits KTU registers for a semester, as the curriculum itself prints them.
+   *
+   * Held separately from the tables because it is the university's number, not
+   * a sum of ours - which is the point: when a preset does not add up to it,
+   * the preset is incomplete and the app can say so instead of seeding a wrong
+   * SGPA denominator in silence.
+   */
+  expected?: Record<string, Record<string, number>>;
 }
 
 /**
@@ -110,6 +132,8 @@ export interface PresetCourse {
   credits: number;
   type: TypeKey;
   elective: boolean;
+  /** Set when this row is one of a slot's alternatives; see `BranchRow`. */
+  slot?: string;
 }
 
 /** PEC/OEC are chosen; everything else is compulsory for the branch. */
@@ -124,9 +148,43 @@ export function semesterKeys(branch: string): string[] {
 
 export function presetCourses(branch: string, semester: string): PresetCourse[] {
   const rows = active.branches?.[branch]?.[semester] ?? [];
-  return rows.map(([code, name, credits, type]) => ({
+  return rows.map(([code, name, credits, type, slot]) => ({
     code, name, credits,
     type: type as TypeKey,
     elective: ELECTIVE_PREFIXES.some((p) => code.toUpperCase().startsWith(p)),
+    ...(slot ? { slot } : {}),
   })).sort((a, b) => Number(a.elective) - Number(b.elective) || a.code.localeCompare(b.code));
+}
+
+/**
+ * Credits KTU registers for this semester, or null when nothing says.
+ *
+ * The S1 CSE preset used to list 15 credits against a curriculum that
+ * registers 20 - it was missing an entire 4-credit subject and both slot
+ * choices - so a first year seeding from it started with an SGPA divided by
+ * three quarters of the right number, on the day they installed the app, with
+ * nothing on screen to suggest anything was missing. The fix is not only the
+ * five rows that were added: it is that the app now holds the university's own
+ * total and can tell the student what a preset does not cover.
+ */
+export const expectedCredits = (branch: string, semester: string): number | null =>
+  active.expected?.[branch]?.[semester] ?? null;
+
+/**
+ * One code per slot, defaulting to the first alternative listed.
+ *
+ * A default has to be picked or the preset is short by 5 credits out of the
+ * box, and there is no way to be right: the Physics-or-Chemistry order is the
+ * institution's choice. So the picker offers them as a choice rather than
+ * hiding one, and this is only where the tick starts.
+ */
+export function defaultSlotChoice(courses: PresetCourse[]): Set<string> {
+  const chosen = new Set<string>();
+  const taken = new Set<string>();
+  for (const course of courses) {
+    if (!course.slot || taken.has(course.slot)) continue;
+    taken.add(course.slot);
+    chosen.add(course.code);
+  }
+  return chosen;
 }

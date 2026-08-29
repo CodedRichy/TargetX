@@ -38,6 +38,14 @@ figure that was shown to a student as fact.
 - **Duty leave is capped against the classes actually held** (R 6.3.ii), not a
   fixed number.
 - **A grade is withheld while attendance is unknown** rather than guessed.
+- **The first-year subject preset was missing a quarter of S1.** The S1 preset
+  listed 15 credits where KTU registers 20 — one subject was absent entirely,
+  and so were both of the first-year choices (Physics or Chemistry, and Health
+  and Wellness or Life Skills). A first year who started from it had every
+  SGPA divided by the wrong number from the day they installed the app. The
+  preset now matches the published curriculum, offers those two as choices, and
+  tells you when what you have ticked does not add up to the total KTU
+  registers for that semester.
 - **Grade cards are read as columns.** KTU prints a Result column after the
   grade, and it was being read AS the grade: an A+ imported as a P, and a
   re-sat course marked `S3(S)` imported as an S — a 10.0. A whole academic
@@ -100,6 +108,10 @@ figure that was shown to a student as fact.
 ### Security
 
 - Portal credentials are no longer sent anywhere they do not belong.
+- When the portal cannot be read, TargetX shows you a description of the page
+  it could not parse — the table headings with every number blanked out and no
+  subject row at all — so a college it does not yet work for can be fixed from
+  a bug report instead of from your password.
 - Restoring a backup or importing a grade card can no longer destroy the record
   it was merged into, and a backup from a newer build is refused rather than
   half-read.

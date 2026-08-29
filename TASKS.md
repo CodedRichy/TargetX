@@ -17,28 +17,37 @@ Ordered by what would hurt a real student most.
 
 ## Blocked on information, not on work
 
-Both of these need a document or a person, and guessing at either would
-recreate exactly the class of defect the rest of this list was about: a number
-presented as the university's that nobody checked.
+One of these turned out to be gettable and is closed; the other still needs a
+person. Guessing at either would recreate exactly the class of defect the rest
+of this list was about: a number presented as the university's that nobody
+checked.
 
-- [ ] **The S1 CSE preset is 15 credits and the catalogue's own note says 20.**
-      `GXEST104`, `GXCYT122`, `UCHUT128`, `UCPWT127` and `UCHUT347` are priced
-      in the credits map and appear in no branch table. Which of them belong to
-      S1 is not decidable from the file: KTU's first year runs a Physics stream
-      and a Chemistry stream, which is also why `GAPHT121` sits in both S1 and
-      S2 and why S2 sums to 22 against a note claiming 23. **Needs the KTU 2024
-      curriculum PDF.** Until then a first year seeding from the preset gets a
-      wrong SGPA denominator on day one. The intended fix is to carry an
-      expected per-semester total and have the app say "this preset covers 15 of
-      the 20 credits KTU registers for S1" rather than seed a wrong one in
-      silence.
+- [x] **The S1 CSE preset is 15 credits against a curriculum that registers
+      20.** Closed 2026-08-29 from the KTU B.Tech Curriculum 2024, Group A
+      tables (pages 3 and 6 of the copy at nssce.ac.in, cross-checked against
+      the Group A first-year syllabus book at sctce.ac.in). The preset was
+      missing `GXEST104` outright and both of KTU's first-year **slots** —
+      Slot B is Physics *or* Chemistry (4 cr) and Slot I is Health and Wellness
+      *or* Life Skills (1 cr), taken one way round in S1 and the other in S2,
+      in an order the institution sets rather than KTU. Those are now rows
+      carrying a slot id, the picker treats them as a choice (ticking one
+      unticks its sibling), and the app holds KTU's own S1=20 / S2=24 totals so
+      a preset that does not cover them says so instead of seeding a wrong SGPA
+      denominator in silence. S2 also gains `UCSEM129`, whose MOOC credit is
+      recorded there. Note for anyone re-checking: thejusengg.com hosts a
+      **superseded draft** of the same document with different codes and
+      credits — the sums do not match it and should not.
 
 - [ ] **Portal sync has been validated against one college.** Everything
       portal-side is n=1 and the TypeScript port has never touched a live
       portal. This is the largest commercial risk in the project and no amount
-      of local testing reduces it. A zero-course sync is now a failure rather
-      than a green tick, so a college this does not work for is at least told
-      so — but that is a safety net, not validation.
+      of local testing reduces it. Two things now blunt it rather than fix it:
+      a zero-course sync is a failure rather than a green tick, and the failure
+      carries a redacted description of the page — table shapes and headings
+      with every digit blanked, no subject row at all — that the student can
+      read and forward. That turns "sync doesn't work" into something a
+      selector can be written from without anyone asking for a portal password.
+      It is still not validation.
 
 ## Layout, measured rather than argued about
 

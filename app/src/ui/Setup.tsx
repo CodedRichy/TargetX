@@ -1,5 +1,5 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
-import { branches, presetCourses, semesterKeys } from "../engine";
+import { branches, defaultSlotChoice, expectedCredits, presetCourses, semesterKeys } from "../engine";
 import type { PresetCourse } from "../engine";
 import { applyPreset } from "../state/actions";
 import { edit, setGoal, state } from "../state/store";
@@ -168,6 +168,13 @@ function DataStep(props: { onBack: () => void; onNext: () => void }) {
  * for a seven-course semester - so this is a pick list. Core subjects arrive
  * ticked, electives do not, because seeding an elective nobody registered puts
  * phantom credits into SGPA.
+ *
+ * First year adds a third kind of row. KTU's S1 and S2 each carry two SLOTS
+ * rather than two named subjects - Physics or Chemistry, Health and Wellness or
+ * Life Skills - and the student takes one of each in S1 and the other in S2,
+ * in an order the institution sets. Those rows behave as a choice: ticking one
+ * unticks its sibling, because both is 5 credits that do not exist and neither
+ * is a semester short of the total KTU registers.
  */
 function PresetPicker(props: { onDone: () => void }) {
   const available = branches();
@@ -177,20 +184,42 @@ function PresetPicker(props: { onDone: () => void }) {
   const options = createMemo(() => presetCourses(branch(), semester()));
   const [picked, setPicked] = createSignal<Set<string>>(new Set());
 
-  // Re-tick the core subjects whenever the branch or semester changes.
+  // Re-tick the core subjects whenever the branch or semester changes, plus one
+  // alternative from each slot - a preset that starts 5 credits short would be
+  // the same wrong denominator this was written to remove.
   createMemo(() => {
-    const core = options().filter((c) => !c.elective).map((c) => c.code);
-    setPicked(new Set(core));
+    const list = options();
+    const core = list.filter((c) => !c.elective && !c.slot).map((c) => c.code);
+    setPicked(new Set([...core, ...defaultSlotChoice(list)]));
   });
 
   const toggle = (code: string) => setPicked((prev) => {
     const next = new Set(prev);
-    if (!next.delete(code)) next.add(code);
+    const course = options().find((c) => c.code === code);
+    if (next.delete(code)) {
+      // Untucking a slot leaves that slot empty rather than jumping to the
+      // sibling: a student whose college runs neither must be able to say so.
+      return next;
+    }
+    // Ticking one alternative unticks the rest of its slot. Both cannot be
+    // true, and letting both be ticked is how a first year ends up with a
+    // 24-credit S1 the university registered 20 for.
+    if (course?.slot) {
+      for (const other of options()) {
+        if (other.slot === course.slot && other.code !== code) next.delete(other.code);
+      }
+    }
+    next.add(code);
     return next;
   });
 
   const chosen = (): PresetCourse[] => options().filter((c) => picked().has(c.code));
   const credits = () => chosen().reduce((sum, c) => sum + c.credits, 0);
+  const registered = () => expectedCredits(branch(), semester());
+  const short = () => {
+    const total = registered();
+    return total === null ? 0 : total - credits();
+  };
 
   return (
     <>
@@ -213,6 +242,27 @@ function PresetPicker(props: { onDone: () => void }) {
         <span class="fineprint num">{chosen().length} subjects · {credits()} credits</span>
       </div>
 
+      {/* Said out loud rather than left as arithmetic the student has to do.
+          The preset being short is not necessarily wrong - a college can run a
+          different combination - but it is always something they should know
+          BEFORE it becomes an SGPA divided by the wrong number. */}
+      <Show when={registered() !== null && short() !== 0}>
+        <div class="notice warn">
+          <Show when={short() > 0} fallback={
+            <>
+              This is <strong class="num">{-short()}</strong> credits MORE than the{" "}
+              <strong class="num">{registered()}</strong> KTU registers for {semester()}.
+              Two subjects in the same slot are probably both ticked.
+            </>
+          }>
+            This covers <strong class="num">{credits()}</strong> of the{" "}
+            <strong class="num">{registered()}</strong> credits KTU registers for{" "}
+            {semester()}. Add the rest from your own registration — a missing
+            subject makes every SGPA here divide by the wrong number.
+          </Show>
+        </div>
+      </Show>
+
       <Show when={options().length > 0} fallback={
         <p class="lede">No curriculum on file for {branch()} {semester()} yet.</p>
       }>
@@ -230,6 +280,7 @@ function PresetPicker(props: { onDone: () => void }) {
               <span class="num code">{course.code}</span>
               <span class="pick-name">{course.name}</span>
               <Show when={course.elective}><span class="tag">elective</span></Show>
+              <Show when={course.slot}><span class="tag">choose one</span></Show>
               <span class="num pick-cr">{course.credits} cr</span>
             </li>
           )}</For>
