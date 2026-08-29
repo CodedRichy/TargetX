@@ -8,6 +8,10 @@
  * measurement are of the same app in the same state; when they were two copies
  * they drifted, and a layout fixed against one was still broken in the other.
  */
+import { createServer } from "node:http";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { extname, join, normalize } from "node:path";
+
 export const course = (code, name, credits, type, extra = {}) => ({
   code, name, credits, type,
   s1: "", s2: "", other: "", s1_max: "", s2_max: "", other_max: "",
@@ -68,3 +72,27 @@ export const seed = {
   },
   goal: { cgpa: 7.5 },
 };
+
+/**
+ * Serve the built app, so a visual tool needs one command rather than two.
+ *
+ * `vite preview` in another terminal is the documented way and it is a trap:
+ * a screenshot run against a preview of a STALE `dist` looks exactly like a
+ * screenshot run against a fresh one. Serving the directory from inside the
+ * tool means the bytes on screen are the bytes just built.
+ */
+export async function serve(port = 4173, root = "dist") {
+  const TYPES = { ".html": "text/html", ".js": "text/javascript",
+                  ".css": "text/css", ".json": "application/json",
+                  ".svg": "image/svg+xml", ".png": "image/png",
+                  ".woff2": "font/woff2", ".wasm": "application/wasm" };
+  const server = createServer((req, res) => {
+    const path = normalize(join(root, decodeURI((req.url || "/").split("?")[0])));
+    // Anything unrecognised is the SPA's own route, so index.html answers it.
+    const file = existsSync(path) && statSync(path).isFile() ? path : join(root, "index.html");
+    res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" });
+    res.end(readFileSync(file));
+  });
+  await new Promise((ready) => server.listen(port, ready));
+  return { url: `http://localhost:${port}/`, stop: () => server.close() };
+}

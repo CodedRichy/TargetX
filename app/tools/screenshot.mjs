@@ -2,20 +2,17 @@
  * Screenshot every screen, in the order a real user meets them.
  *
  * Shipping UI without looking at it is how you get a layout that only works on
- * the one state you had in mind. The seed data below is synthetic - invented
- * codes and marks, no student's record - but shaped like a real fifth semester:
- * a couple of subjects in trouble, one attendance shortage, one already graded.
+ * the one state you had in mind. The state is `tools/seed.mjs`, shared with
+ * `tools/measure.mjs` so the picture and the measurement are of the same app.
  *
- *   npx vite preview --port 4173
- *   node tools/screenshot.mjs
+ *   npm run build && node tools/screenshot.mjs
  */
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
+import { seed, serve } from "./seed.mjs";
 
-const URL = "http://localhost:4173/";
 const VIEWPORT = { width: 1600, height: 950 };
-
-const { seed } = await import("./seed.mjs");
+const { url: URL, stop } = await serve();
 
 const browser = await chromium.launch();
 mkdirSync("shots", { recursive: true });
@@ -132,4 +129,5 @@ await light.waitForTimeout(250);
 await light.screenshot({ path: "shots/12-ledger-light.png" });
 
 await browser.close();
+stop();
 console.log("wrote shots/01-welcome.png .. 12-ledger-light.png");
