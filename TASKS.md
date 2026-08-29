@@ -74,7 +74,10 @@ checked.
 
 - [ ] Buy a Windows code-signing certificate. The plumbing is done and
       secret-gated; see [`SIGNING.md`](SIGNING.md). Until then Windows tells
-      every student the publisher is unknown.
+      every student the publisher is unknown. Every release now publishes
+      `SHA256SUMS-<platform>.txt` so a college IT department has something to
+      verify against in the meantime — that proves the file did not change in
+      transit, not who built it, and is not a substitute.
 - [ ] Put the updater signing key into GitHub Actions secrets. A build
       without it exits 0 and produces installers with no update payload, so
       the release reads as clean and no installed copy is ever offered it.
@@ -83,6 +86,12 @@ checked.
 - [ ] Tag v0.1.0 and publish the release — and remember a *draft* release is
       not "latest", so nobody is offered it until it is published.
 - [ ] **Rotate the etlab password** that was pasted into a chat transcript.
+      Only you can do this. Verified 2026-08-29 that the credential appears
+      nowhere in this repo, its full history, or the built installers, and
+      `sync/__tests__/credential-containment.test.ts` now proves a password put
+      through a whole sync reaches the login POST and nothing else — not a
+      later request, the saved record, the export, or an error message. None of
+      that undoes the exposure.
 
 ## After a release
 

@@ -180,3 +180,23 @@ jobs:
             exit 1
           fi
           echo "signed:"; echo "$found"
+
+      # Until there is a code-signing certificate, Windows tells every student
+      # the publisher is unknown and a college IT department has nothing to
+      # check the download against. A checksum is not a substitute for a
+      # signature - it proves the file did not change in transit, not who made
+      # it - but it is the difference between "trust the download" and "verify
+      # the download", and it costs nothing to publish.
+      #
+      # Named per platform because all three matrix jobs upload into the same
+      # release and a shared filename would have each one clobber the last.
+      - name: Publish SHA-256 checksums
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          out="SHA256SUMS-${{ matrix.platform }}.txt"
+          find app/src-tauri/target -path '*bundle*' -type f             \( -name '*.exe' -o -name '*.msi' -o -name '*.dmg'                -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \)             -print0 | xargs -0 -r sha256sum | sed 's#[^ ]*/##' > "$out"
+          if [ ! -s "$out" ]; then echo "No installer to checksum."; exit 1; fi
+          cat "$out"
+          gh release upload "${{ github.ref_name }}" "$out" --clobber

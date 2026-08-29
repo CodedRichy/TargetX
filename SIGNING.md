@@ -97,6 +97,15 @@ The release workflow already contains the certificate-import step. It is
 skipped when `WINDOWS_CERTIFICATE` is empty, so releases keep building
 unsigned until you add it — nothing breaks in the meantime.
 
+Until then, every release publishes `SHA256SUMS-<platform>.txt` beside the
+installers. That is not a substitute for a signature — it says the file did not
+change in transit, not who built it — but it gives a college IT department
+something to check, which an unsigned download otherwise does not have:
+
+```powershell
+Get-FileHash .\TargetX_0.1.0_x64-setup.exe -Algorithm SHA256
+```
+
 **Timestamping is not optional.** Without `timestampUrl` every signature stops
 verifying the day the certificate expires, including on builds people installed
 years earlier.
