@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { Index, Show, createMemo, createSignal } from "solid-js";
 import {
   evaluate, isGraded, sgpa as computeSgpa, unconfirmedNames, GRADE_POINTS,
 } from "../engine";
@@ -118,7 +118,17 @@ export function History() {
               </tr>
             </thead>
             <tbody>
-              <For each={rows()}>{(row) => <HistoryRow row={row} />}</For>
+              {/* `Index`, not `For`. `For` keys by object identity and every
+                  recomputation of `rows()` builds fresh objects, so a commit
+                  threw away and rebuilt every `tr` in the table - taking the
+                  focused input with it. Measured before this change: from the
+                  first SGPA box, Tab moved focus to the body and the next Tab
+                  came back to the same box, so the credits column and every
+                  row below the first were unreachable by keyboard at all.
+                  `Index` keys by position and hands each row an accessor, so
+                  the input the student is typing in is the same element
+                  afterwards. */}
+              <Index each={rows()}>{(row) => <HistoryRow row={row()} />}</Index>
             </tbody>
           </table>
 
@@ -204,6 +214,10 @@ function HistoryRow(props: { row: Row }) {
     const sgpaValue = Number(sgpaDraft().trim());
     const creditValue = Number(creditDraft().trim());
     if (sgpaDraft().trim() === "") {
+      // Nothing stored and nothing typed: a blur that writes an identical
+      // store is still a store write, and every write re-runs the memo this
+      // table is built from. Tabbing across a row must cost nothing.
+      if (!props.row.published) return;
       edit((s) => { delete s.history[props.row.name]; });
       return;
     }
@@ -212,6 +226,10 @@ function HistoryRow(props: { row: Row }) {
     // back to the earned total and says so rather than dividing by nothing.
     const credits = creditDraft().trim() === "" ? null : creditValue;
     if (credits !== null && !Number.isFinite(credits)) return;
+    // Same reason: a blur off an untouched box used to rewrite the semester
+    // with the values it already had.
+    if (props.row.published?.sgpa === sgpaValue
+        && props.row.registered === credits) return;
     setHistory(props.row.name, sgpaValue, credits);
   };
 

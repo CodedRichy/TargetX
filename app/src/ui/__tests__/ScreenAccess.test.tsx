@@ -110,6 +110,30 @@ describe("the history table", () => {
     expect(screen.getByLabelText("Published SGPA for S5")).toBeTruthy();
     expect(screen.getByLabelText("Registered credits for S5")).toBeTruthy();
   });
+
+  it("survives a blur off an untouched box, which used to destroy the row", () => {
+    const { container } = render(() => <History />);
+    const before = [...container.querySelectorAll("tbody input")];
+    expect(before).toHaveLength(4);
+    // Blur every box in turn without changing anything - what Tab does.
+    before.forEach((el) => fireEvent.blur(el));
+    const after = [...container.querySelectorAll("tbody input")];
+    // Same elements, not replacements: a `For` keyed on freshly built row
+    // objects rebuilt each `tr` here, and the input the student was in went
+    // with it. Identity is the assertion because focus follows identity.
+    expect(after).toEqual(before);
+  });
+
+  it("keeps the row's element identity across a real edit", () => {
+    const { container } = render(() => <History />);
+    const sgpa = screen.getByLabelText("Published SGPA for S4") as HTMLInputElement;
+    const credits = screen.getByLabelText("Registered credits for S4");
+    fireEvent.input(sgpa, { target: { value: "8.7" } });
+    fireEvent.blur(sgpa);
+    expect(screen.getByLabelText("Published SGPA for S4")).toBe(sgpa);
+    expect(screen.getByLabelText("Registered credits for S4")).toBe(credits);
+    expect(container.querySelectorAll("tbody input")).toHaveLength(4);
+  });
 });
 
 describe("the banners that arrive on their own", () => {
