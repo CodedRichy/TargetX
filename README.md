@@ -141,9 +141,16 @@ once for your batch and it stays corrected. Format:
 ["PCCST302", "Data Structures and Algorithms", 4, "TH 40/60"]
 ```
 
-Ships with S1/S2 common, S3/S4 CSE, and blank scaffolds. Unknown codes coming in
-from an import get their type inferred from the code (`…L###` → lab,
-`PWS`/`…D###` → project) and you can override it per row.
+Ships with **one branch table, CSE, covering S1 to S8**, transcribed
+from the KTU B.Tech Curriculum 2024. Every other branch has no preset, and the
+picker says so rather than letting a student register CSE's subjects at CSE's
+credits by default. S1 and S2 carry KTU's two first-year **slots** — Physics or
+Chemistry, Health and Wellness or Life Skills — as a choice rather than as fixed
+subjects, because a student takes one of each in S1 and the other in S2 in an
+order the institution sets.
+
+Unknown codes coming in from an import get their type inferred from the code
+(`…L###` → lab, `PWS`/`…D###` → project) and you can override it per row.
 
 ---
 
