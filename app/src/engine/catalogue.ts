@@ -153,7 +153,15 @@ export function presetCourses(branch: string, semester: string): PresetCourse[] 
     type: type as TypeKey,
     elective: ELECTIVE_PREFIXES.some((p) => code.toUpperCase().startsWith(p)),
     ...(slot ? { slot } : {}),
-  })).sort((a, b) => Number(a.elective) - Number(b.elective) || a.code.localeCompare(b.code));
+  })).sort((a, b) =>
+    // Compulsory first, then each slot's alternatives TOGETHER, then
+    // electives. Alphabetical order alone scattered "choose one" rows down the
+    // list - Physics second, Chemistry fourth - so the pair read as two
+    // unrelated tick boxes that happened to share a tag rather than as one
+    // choice with two answers.
+    Number(a.elective) - Number(b.elective)
+    || (a.slot ?? "").localeCompare(b.slot ?? "")
+    || a.code.localeCompare(b.code));
 }
 
 /**
