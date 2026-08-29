@@ -10,6 +10,8 @@ import { addCourse, attendanceGaps, removeCourse, rows, updateCourse } from "../
 import { AttendanceBar } from "./charts";
 
 const dash = "–";
+/** Shown and announced on the starred cells; one string so the two agree. */
+const CUTOFF_NOTE = "The 40% ESE minimum binds here, not the total.";
 const show = (v: number | null | undefined, places = 0) =>
   v === null || v === undefined ? dash : v.toFixed(places);
 
@@ -37,17 +39,23 @@ const show = (v: number | null | undefined, places = 0) =>
  */
 function Need(props: { need: RequiredEse; best: RequiredEse; applies: boolean }) {
   const cell = () => requiredEseCell(props.need, props.best);
+  // `title` is not an accessible name on a `span`, and these two glyphs are
+  // the whole of the qualification - a screen reader that skips them hears a
+  // flat number where the row shows a bound. `role="img"` plus `aria-label`
+  // makes the sentence the name of the mark, so it is read WITH the figure
+  // rather than needing a hover the keyboard cannot produce.
+  const bound = () => boundTitle(props.need, props.best);
   return (
     <Show when={props.applies} fallback={<span style={{ color: "var(--text-faint)" }}>{dash}</span>}>
     <Show when={cell().shown.possible}
           fallback={<span class="grade f">{cell().shown.text}</span>}>
       <span class="num">
         <Show when={cell().bound}>
-          <span class="bound" title={boundTitle(props.need, props.best)}>≥</span>
+          <span class="bound" role="img" aria-label={bound()} title={bound()}>≥</span>
         </Show>
         {cell().shown.value}
         <Show when={cell().shown.binding === "cutoff"}>
-          <span class="bound" title="The 40% ESE minimum binds here, not the total.">*</span>
+          <span class="bound" role="img" title={CUTOFF_NOTE} aria-label={CUTOFF_NOTE}>*</span>
         </Show>
       </span>
     </Show>
@@ -98,11 +106,22 @@ function missingInternal(ev: Evaluation): string {
     + "can be read off a figure that is going to move.";
 }
 
+/**
+ * A mark box.
+ *
+ * `label` is required rather than optional on purpose. An `input` in a table
+ * cell has no accessible name of its own - a column header names the CELL, not
+ * the control inside it - so a screen reader reaching one of these announces
+ * "edit text" and nothing else. Making the prop mandatory means the type
+ * checker, not a reviewer, is what catches the next unnamed box.
+ */
 function Cell(props: {
-  value: unknown; onInput: (v: string) => void; wide?: boolean; placeholder?: string;
+  value: unknown; label: string; onInput: (v: string) => void;
+  wide?: boolean; placeholder?: string;
 }) {
   return (
     <input
+      aria-label={props.label}
       class={`cell-input num${props.wide ? " wide" : ""}`}
       value={props.value === null || props.value === undefined ? "" : String(props.value)}
       placeholder={props.placeholder ?? dash}
@@ -183,7 +202,7 @@ function Detail(props: {
   const passCell = () => requiredEseCell(props.ev.needPass, props.ev.needPassBest);
 
   return (
-    <tr class="detail">
+    <tr class="detail" id={`detail-${props.index}`}>
       <td colSpan={14}>
         <div class="detail-grid">
           <div class="panel">
@@ -192,12 +211,14 @@ function Detail(props: {
               <div class="field">
                 <span>{c.header} <em style={{ color: "var(--text-faint)" }}>/ {c.rawMax}</em></span>
                 <Cell value={(props.course as Record<string, unknown>)[c.key]}
+                      label={`${c.header}, out of ${c.rawMax}`}
                       onInput={(v) => set({ [c.key]: v } as Partial<Course>)} />
               </div>
             )}</For>
             <div class="field">
               <span>Published CIE</span>
               <Cell value={props.course.cie_override}
+                    label={`Published CIE, out of ${props.ev.cieMax}`}
                     placeholder={`/${props.ev.cieMax}`}
                     onInput={(v) => set({ cie_override: v })} />
             </div>
@@ -214,15 +235,18 @@ function Detail(props: {
             <h4>Attendance</h4>
             <div class="field">
               <span>Attended</span>
-              <Cell value={props.course.attended} onInput={(v) => set({ attended: v })} />
+              <Cell value={props.course.attended} label="Classes attended"
+                    onInput={(v) => set({ attended: v })} />
             </div>
             <div class="field">
               <span>Held</span>
-              <Cell value={props.course.held} onInput={(v) => set({ held: v })} />
+              <Cell value={props.course.held} label="Classes held"
+                    onInput={(v) => set({ held: v })} />
             </div>
             <div class="field">
               <span>Duty leave</span>
-              <Cell value={props.course.dl} onInput={(v) => set({ dl: v })} />
+              <Cell value={props.course.dl} label="Duty leave classes"
+                    onInput={(v) => set({ dl: v })} />
             </div>
             <p class="readout">
               <Show when={props.ev.plan} fallback={<>Enter attended and held to get a plan.</>}>
@@ -282,18 +306,20 @@ function Detail(props: {
             <h4>Exam and target</h4>
             <div class="field">
               <span>Course type</span>
-              <select class="cell-input" value={props.course.type}
+              <select class="cell-input" aria-label="Course type" value={props.course.type}
                       onChange={(e) => set({ type: e.currentTarget.value as TypeKey })}>
                 <For each={TYPE_KEYS}>{(k) => <option value={k}>{COURSE_TYPES[k].label}</option>}</For>
               </select>
             </div>
             <div class="field">
               <span>Credits</span>
-              <Cell value={props.course.credits} onInput={(v) => set({ credits: v })} />
+              <Cell value={props.course.credits} label="Credits"
+                    onInput={(v) => set({ credits: v })} />
             </div>
             <div class="field">
               <span>Published grade</span>
               <Cell value={props.course.portal_grade ?? ""} wide
+                    label="Published grade"
                     onInput={(v) => set({ portal_grade: v })} />
             </div>
             <p class="readout">
@@ -391,33 +417,48 @@ export function Ledger() {
       }>
         <table>
           <thead>
+            {/* `scope="col"` on every one, including the empty last: without
+                it a screen reader in table mode has to guess the association
+                from position, and the guess is wrong wherever a cell holds a
+                control. The last column carries the remove button and is
+                deliberately unlabelled on screen, so it is named for assistive
+                technology alone. */}
             <tr>
-              <th class="left">Code</th>
-              <th class="left">Course</th>
-              <th>Cr</th>
-              <th>CIE</th>
-              <th class="left">Attendance</th>
-              <th title="CIE marks earned by attendance alone (R 7.5.ii)">Att mk</th>
-              <th>ESE</th>
-              <th>Total</th>
-              <th>Gr</th>
-              <th title="ESE mark needed to pass">Pass</th>
-              <th class="left">Target</th>
-              <th title="ESE mark needed for the target grade">Need</th>
-              <th class="left">Status</th>
-              <th />
+              <th class="left" scope="col">Code</th>
+              <th class="left" scope="col">Course</th>
+              <th scope="col">Cr</th>
+              <th scope="col">CIE</th>
+              <th class="left" scope="col">Attendance</th>
+              <th scope="col"
+                  title="CIE marks earned by attendance alone (R 7.5.ii)">Att mk</th>
+              <th scope="col">ESE</th>
+              <th scope="col">Total</th>
+              <th scope="col">Gr</th>
+              <th scope="col" title="ESE mark needed to pass">Pass</th>
+              <th class="left" scope="col">Target</th>
+              <th scope="col" title="ESE mark needed for the target grade">Need</th>
+              <th class="left" scope="col">Status</th>
+              <th scope="col"><span class="sr-only">Remove</span></th>
             </tr>
           </thead>
           <tbody>
             <For each={zipped()}>{({ row, gap }) => (
               <>
                 <tr class={`row${open() === row.index ? " open" : ""}`}>
+                  {/* A real `button`, not a `span` wearing `role="button"`.
+                      The span handled Enter and not Space, which is half of
+                      what the role it claimed promises, and it advertised no
+                      state at all - so a screen reader user could open a row
+                      and not be told it had opened. `button.code` in app.css
+                      strips the browser chrome so this is the same drawing it
+                      was. */}
                   <td class="left">
-                    <span class="code num" onClick={() => toggle(row.index)}
-                          role="button" tabindex="0"
-                          onKeyDown={(e) => e.key === "Enter" && toggle(row.index)}>
+                    <button type="button" class="code num"
+                            aria-expanded={open() === row.index}
+                            aria-controls={`detail-${row.index}`}
+                            onClick={() => toggle(row.index)}>
                       {row.course.code || "SET CODE"}
-                    </span>
+                    </button>
                   </td>
                   <td class="left title">{row.course.name || dash}</td>
                   <td class="num">{show(row.ev.credits)}</td>
@@ -433,7 +474,8 @@ export function Ledger() {
                           would call a known number a guess. The required-mark
                           cells ask the other question. */}
                       <Show when={row.ev.cieFloor}>
-                        <span class="bound" title={missingInternal(row.ev)}>≥</span>
+                        <span class="bound" role="img" title={missingInternal(row.ev)}
+                              aria-label={missingInternal(row.ev)}>≥</span>
                       </Show>
                       {show(row.ev.cie, 1)}
                       <span style={{ color: "var(--text-faint)" }}>/{row.ev.cieMax}</span>
@@ -446,12 +488,28 @@ export function Ledger() {
                         : row.ev.attendance < ATTENDANCE_CONDONE ? "var(--danger)"
                         : row.ev.attendance < ATTENDANCE_MIN ? "var(--warn)" : "var(--text-dim)",
                     }}>{row.ev.attendance === null ? dash : `${row.ev.attendance.toFixed(0)}%`}</span>
+                    {/* The colour on that figure is the only thing saying
+                        which side of the two lines it falls, and the Status
+                        column does not always repeat it: a course published
+                        as I or W reads INCOMPLETE there whatever its
+                        attendance, so on those rows the colour is the sole
+                        carrier. Said in words for everyone who cannot see
+                        it, quoting the same two constants the colour uses. */}
+                    <Show when={row.ev.attendance !== null
+                                && row.ev.attendance < ATTENDANCE_MIN}>
+                      <span class="sr-only">
+                        {row.ev.attendance! < ATTENDANCE_CONDONE
+                          ? ` below the ${ATTENDANCE_CONDONE.toFixed(0)}% condonation floor`
+                          : ` below the ${ATTENDANCE_MIN.toFixed(0)}% eligibility line`}
+                      </span>
+                    </Show>
                   </td>
                   <td class="num" title="CIE marks from attendance">
                     {show(row.ev.attMarks)}<span style={{ color: "var(--text-faint)" }}>/5</span>
                   </td>
                   <td>
                     <Cell value={row.course.ese}
+                          label={`ESE mark, out of ${row.ev.eseMax}`}
                           onInput={(v) => updateCourse(row.index, { ese: v })}
                           placeholder={`/${row.ev.eseMax}`} />
                   </td>
@@ -463,7 +521,7 @@ export function Ledger() {
                   <td><Need need={row.ev.needPass} best={row.ev.needPassBest}
                             applies={needApplies(row.ev)} /></td>
                   <td class="left">
-                    <select class="cell-input" value={row.ev.target}
+                    <select class="cell-input" aria-label="Target grade" value={row.ev.target}
                             onChange={(e) => updateCourse(row.index, {
                               target: e.currentTarget.value as Letter })}>
                       <For each={TARGET_CHOICES}>{(g) => <option value={g}>{g}</option>}</For>
@@ -475,7 +533,11 @@ export function Ledger() {
                     <span class={`pill ${row.status.toLowerCase()}`}>{row.status}</span>
                   </td>
                   <td>
+                    {/* The visible glyph IS the name unless one is given, so
+                        without this a screen reader reads a row of buttons all
+                        called "×". `title` does not win over text content. */}
                     <button class="del" title="Remove this subject"
+                            aria-label={`Remove ${row.course.code || "this subject"}`}
                             onClick={() => removeCourse(row.index)}>&times;</button>
                   </td>
                 </tr>

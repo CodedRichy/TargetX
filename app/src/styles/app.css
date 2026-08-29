@@ -193,14 +193,18 @@ thead th {
 }
 thead th.left { text-align: left; }
 
-tbody td {
+/* `th` as well as `td`: the History table names its rows with a row header,
+   and a bare `th` would otherwise take the browser's own bold-and-centred
+   default in the middle of a body row. Same drawing, correct semantics. */
+tbody td, tbody th {
   border-bottom: 1px solid var(--hairline);
   font-size: var(--text-sm);
+  font-weight: inherit;
   padding: var(--s2) var(--s3);
   text-align: right;
   white-space: nowrap;
 }
-tbody td.left { text-align: left; }
+tbody td.left, tbody th.left { text-align: left; }
 
 /* No zebra striping: it fights the status colour, which is the one thing on
    the row that has to be read at a glance. Hover carries the row instead. */
@@ -212,6 +216,16 @@ tbody tr.row.open { background: var(--surface-1); }
   color: var(--brand-bright);
   cursor: pointer;
   font-weight: 500;
+}
+/* The row expander is a `button` so that Space, Enter and `aria-expanded`
+   come from the platform rather than from hand-written key handling. Stripped
+   back to the text it was drawn as - this is the button losing its chrome,
+   not the code gaining any. */
+button.code {
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: inherit;
 }
 .title { color: var(--text-dim); max-width: 26ch; overflow: hidden;
          text-overflow: ellipsis; }
@@ -264,6 +278,10 @@ select.cell-input { text-align: left; width: auto; }
   transition: opacity var(--fast) var(--ease), color var(--fast) var(--ease);
 }
 tr.row:hover .del { opacity: 1; }
+/* Otherwise the remove button is focusable and invisible: Tab lands on it and
+   nothing on screen moves, which is the worst kind of lost focus - present in
+   the tab order, absent from the page. */
+.del:focus-visible { opacity: 1; }
 .del:hover { color: var(--danger); }
 
 /* --- expanded detail ------------------------------------------------------ */

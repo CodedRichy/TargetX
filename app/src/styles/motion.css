@@ -247,6 +247,18 @@ button:active:not(:disabled) { transform: translateY(1px); }
   border-color: var(--brand);
 }
 
+/* Every text field sets `outline: none` on `:focus`, and a `.class:focus`
+   selector outranks the bare `:focus-visible` above however the sheets are
+   ordered - so the keyboard indicator on the mark boxes, the goal boxes, the
+   sync fields and the paste areas was a 1px border and nothing else. Restored
+   for keyboard focus only, so clicking into a cell still gets the quiet
+   treatment the table was designed around. */
+.cell-input:focus-visible, .field-input:focus-visible,
+.paste:focus-visible, .goal-input:focus-visible, .goal-huge:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tab::after { transition: none; }
   .tab:active, .sem:active, .seg button:active { transform: none; }

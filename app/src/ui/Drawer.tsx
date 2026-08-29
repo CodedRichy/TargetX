@@ -41,8 +41,12 @@ export function Drawer() {
     : {});
 
   return (
-    <aside class="drawer" classList={{ wide: tab() === "targets" }}>
-      <div class="drawer-tabs">
+    // Named so it is reachable as a landmark: an unnamed `aside` is announced
+    // as "complementary" with no clue that this is where the charts and the
+    // column glossary live.
+    <aside class="drawer" aria-label="Analytics, targets and column glossary"
+           classList={{ wide: tab() === "targets" }}>
+      <div class="drawer-tabs" role="group" aria-label="Drawer panel">
         <button class="icon-btn" aria-pressed={tab() === "analytics"}
                 style={lit("analytics")}
                 onClick={() => setTab("analytics")}>Analytics</button>

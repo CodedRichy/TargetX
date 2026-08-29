@@ -173,6 +173,28 @@ body {
   overflow: hidden;
 }
 
+/*
+ * Said, not shown.
+ *
+ * For the handful of places where meaning is carried by colour or by position
+ * and there is no room on screen to spell it out. Clipped rather than
+ * `display: none` or `visibility: hidden`, because both of those take the text
+ * out of the accessibility tree as well as off the screen, which is the exact
+ * opposite of what this is for. Never a place to hide a control: it is a
+ * 1px box, so a focused button inside one would be invisible.
+ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Tabular figures everywhere a number can change. */
 .num {
   font-family: var(--font-mono);

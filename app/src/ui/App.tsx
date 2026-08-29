@@ -241,12 +241,24 @@ export function UpdateNotice(props: { update: Available; onDismiss: () => void }
   };
 
   return (
-    <div class="launch-notice">
+    // `role="status"` (polite, atomic) rather than `alert`: an update is
+    // never why anyone opened the app, so it waits for a pause rather than
+    // cutting across what is being read.
+    <div class="launch-notice" role="status">
       <div class="notice" title={props.update.notes ?? undefined}>
         <strong>TargetX {props.update.version} is available</strong>
         <Show when={!installing()} fallback={
-          <span class="update-progress" title="Downloading the new build">
-            <span class="update-track">
+          /* Inside a polite atomic region, so the percentage text would be
+             re-read on every tick of the download - a live region that talks
+             over itself is worse than none. The figure is marked as a
+             progressbar instead: assistive technology reports it when asked
+             and does not announce each change. */
+          <span class="update-progress" title="Downloading the new build"
+                role="progressbar" aria-label="Downloading the new build"
+                aria-valuemin={0} aria-valuemax={100}
+                aria-valuenow={progress() === null
+                  ? undefined : Math.round((progress() ?? 0) * 100)}>
+            <span class="update-track" aria-hidden="true">
               <span
                 class="update-bar"
                 classList={{ indeterminate: progress() === null }}
@@ -255,7 +267,7 @@ export function UpdateNotice(props: { update: Available; onDismiss: () => void }
                   : { transform: `scaleX(${progress()})` }}
               />
             </span>
-            <span class="dim num">
+            <span class="dim num" aria-hidden="true">
               {progress() === null
                 ? "Downloading…"
                 : `${Math.round((progress() ?? 0) * 100)}%`}
@@ -295,7 +307,12 @@ export function UpdateNotice(props: { update: Available; onDismiss: () => void }
 export function SaveNotice() {
   return (
     <Show when={saveFindings().length > 0}>
-      <div class="launch-notice">
+      {/* The one banner that reports the app is NOT holding on to what is on
+          screen, so it is announced the moment it appears. Polite rather than
+          assertive all the same: it is raised by a save the student did not
+          ask for, and cutting across their typing to say so would lose them
+          the keystroke as well as the save. */}
+      <div class="launch-notice" role="status">
         <For each={saveFindings()}>{(f) => (
           <div class={`notice ${f.severity === "warn" ? "warn" : ""}`} title={f.detail}>
             <strong>{f.title}</strong>
@@ -310,7 +327,10 @@ export function SaveNotice() {
 function LaunchNotice(props: { findings: Finding[]; onDismiss: () => void }) {
   return (
     <Show when={props.findings.length > 0}>
-      <div class="launch-notice">
+      {/* Appears about half a second after launch, with nobody having done
+          anything to summon it. Without a live region a screen reader user is
+          simply not told their data did not reconcile. */}
+      <div class="launch-notice" role="status">
         <For each={props.findings}>{(f) => (
           <div class={`notice ${f.severity === "warn" ? "warn" : ""}`} title={f.detail}>
             <strong>{f.title}</strong>
@@ -448,8 +468,12 @@ export function App() {
             deliberately left off: they are buttons, and a drag region over a
             button eats the click. */}
         <header class="head" data-tauri-drag-region>
+          {/* `title` on the Mark, or the app's own name loses its last
+              letter: the X is a drawing, and `Mark` hides itself from the
+              accessibility tree unless it is given one - so the only heading
+              on the screen announced as "Target". */}
           <h1 class="wordmark" data-tauri-drag-region>Target<span class="wordmark-x" ref={wordmarkX}
-              classList={{ waiting: phase() !== "done" }}><Mark size="0.78em" /></span></h1>
+              classList={{ waiting: phase() !== "done" }}><Mark size="0.78em" title="X" /></span></h1>
 
           <nav class="tabs" aria-label="Views">
             <For each={VIEWS}>{(v) => (
@@ -465,7 +489,8 @@ export function App() {
                 <button class="sem" aria-current={state.activeSemester === name}
                         onClick={() => selectSemester(name)}>{name}</button>
               )}</For>
-              <button class="sem" title="Add the next semester" onClick={addSemester}>+</button>
+              <button class="sem" title="Add the next semester"
+                      aria-label="Add the next semester" onClick={addSemester}>+</button>
             </nav>
             <span class="kpi-note num" style={{ color: "var(--text-faint)" }}>
               {activeCourses().length} subjects

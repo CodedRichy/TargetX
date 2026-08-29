@@ -220,7 +220,12 @@ function PresetPicker(props: { onDone: () => void }) {
           <For each={options()}>{(course) => (
             <li classList={{ on: picked().has(course.code) }}
                 onClick={() => toggle(course.code)}>
+              {/* The row is a `li` with a click handler, which the keyboard
+                  cannot reach; the checkbox is the only real control in it and
+                  it had no name, so the whole list read as unlabelled tick
+                  boxes. Named for the subject it selects. */}
               <input type="checkbox" checked={picked().has(course.code)}
+                     aria-label={`${course.code} ${course.name}`}
                      onClick={(e) => { e.stopPropagation(); toggle(course.code); }} />
               <span class="num code">{course.code}</span>
               <span class="pick-name">{course.name}</span>
@@ -264,6 +269,7 @@ function GoalStep(props: { onBack: () => void; onDone: () => void }) {
 
       <div class="goal-big">
         <input class="goal-huge num" value={draft()} placeholder="8.0" inputmode="decimal"
+               aria-label="Target CGPA"
                onInput={(e) => setDraft(e.currentTarget.value)}
                onKeyDown={(e) => e.key === "Enter" && commit()} />
         <span class="fineprint">Target CGPA · 10-point scale</span>

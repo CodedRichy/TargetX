@@ -109,12 +109,12 @@ export function History() {
           <table>
             <thead>
               <tr>
-                <th class="left">Semester</th>
-                <th>Published SGPA</th>
-                <th>Registered credits</th>
-                <th>Earned</th>
-                <th>Recomputed</th>
-                <th class="left">Cross-check</th>
+                <th class="left" scope="col">Semester</th>
+                <th scope="col">Published SGPA</th>
+                <th scope="col">Registered credits</th>
+                <th scope="col">Earned</th>
+                <th scope="col">Recomputed</th>
+                <th class="left" scope="col">Cross-check</th>
               </tr>
             </thead>
             <tbody>
@@ -217,13 +217,20 @@ function HistoryRow(props: { row: Row }) {
 
   return (
     <tr class="row">
-      <td class="left num code">{props.row.name}</td>
+      {/* `scope="row"` so the semester name is what a screen reader quotes
+          when it reads a cell out of this table, and an `aria-label` on each
+          box naming the same semester - a column header names a cell, never
+          the control inside it, so both boxes on every row announced as bare
+          "edit text". */}
+      <th class="left num code" scope="row">{props.row.name}</th>
       <td>
         <input class="cell-input num" value={sgpaDraft()} placeholder="–"
+               aria-label={`Published SGPA for ${props.row.name}`}
                onInput={(e) => setSgpaDraft(e.currentTarget.value)} onBlur={commit} />
       </td>
       <td>
         <input class="cell-input num" value={creditDraft()} placeholder="–"
+               aria-label={`Registered credits for ${props.row.name}`}
                onInput={(e) => setCreditDraft(e.currentTarget.value)} onBlur={commit} />
       </td>
       <td class="num">

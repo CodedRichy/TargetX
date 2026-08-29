@@ -85,14 +85,21 @@ function PasteImport() {
         is left alone.
       </p>
 
-      <div class="seg">
+      {/* Which of the two is selected was carried by `.on` - a colour - and
+          by nothing else. `aria-pressed` says the same thing in the tree, and
+          the group is named so the pair reads as a choice rather than as two
+          loose buttons. */}
+      <div class="seg" role="group" aria-label="What you are pasting">
         <button classList={{ on: mode() === "attendance" }}
+                aria-pressed={mode() === "attendance"}
                 onClick={() => setMode("attendance")}>Attendance</button>
         <button classList={{ on: mode() === "marks" }}
+                aria-pressed={mode() === "marks"}
                 onClick={() => setMode("marks")}>Series marks</button>
       </div>
 
       <textarea class="paste num" rows="4" value={text()}
+                aria-label="Rows copied from your portal"
                 placeholder={mode() === "attendance"
                   ? "PCCST501  Computer Networks  41  48  85.4%"
                   : "PCCST501  Computer Networks  38  31  8"}
@@ -169,6 +176,7 @@ function GradeCardImport() {
       </p>
 
       <textarea class="paste num" rows="3" value={text()}
+                aria-label="Grade card text"
                 placeholder="PCCST501  Computer Networks  4  A+&#10;SGPA: 8.42"
                 onInput={(e) => setText(e.currentTarget.value)} />
 
@@ -274,10 +282,18 @@ function Backup() {
 
       <hr class="rule" />
 
+      {/* Pressing "Erase everything" unmounts the button that was focused,
+          so keyboard focus fell to the document body and the next Tab
+          restarted at the top of the app - the confirmation was on screen and
+          out of reach. Focus moves onto the confirmation itself instead of
+          onto either of its buttons: putting it on "Yes, erase it" would make
+          a second Enter, pressed on the way past, delete everything. */}
       <Show when={confirming()} fallback={
         <button class="danger" onClick={() => setConfirming(true)}>Erase everything</button>
       }>
-        <div class="notice bad">
+        <div class="notice bad" tabindex="-1" role="group"
+             aria-label="Confirm erasing everything"
+             ref={(el) => queueMicrotask(() => el.focus())}>
           <strong>This deletes every subject, mark and past semester on this
           computer.</strong> It cannot be undone, and TargetX has no copy of your
           data anywhere else. Export a backup first if there is any doubt.
