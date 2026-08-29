@@ -158,3 +158,27 @@ The general shape: **every failure mode here is a green build.** An unsigned
 update payload exits 0, a draft release is not "latest", and a missing
 certificate only shows up on a stranger's machine. None of them announce
 themselves, so none of them can be caught by watching for a red X.
+
+## What has been proved locally, and what has not
+
+Run 2026-08-29 on Windows, with the real key exported into the environment:
+
+```bash
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/targetx-updater.key)"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(cat ~/.tauri/targetx-updater.password)"
+npm run tauri build
+```
+
+It ended with `Finished 2 updater signatures at:` and produced
+`TargetX_0.1.0_x64-setup.exe.sig` and `TargetX_0.1.0_x64_en-US.msi.sig`. The
+key id inside those signatures was decoded and compared against the `pubkey` in
+`tauri.conf.json` — the eight bytes at offset 2 of each are the same,
+`362B796343C421AA`. That is the pairing the whole updater rests on: an
+installed build verifies against that public key and nothing else.
+
+So the chain is **proved as far as this machine can prove it**. What remains
+untested is only what needs GitHub: the same key read from a repository secret,
+and `latest.json`, which `tauri build` does not write — it is assembled by
+tauri-action from the `.sig` files at release time. The workflow's post-build
+`.sig` check exists precisely because that last step is where a silent failure
+would otherwise land.
