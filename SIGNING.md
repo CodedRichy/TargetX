@@ -42,8 +42,17 @@ A public key has been found, but no private key. Make sure to set
 — and then **exited 0**. No `.sig` file, no `latest.json`, green build. A CI
 run missing that secret therefore looks like a clean release while shipping
 installers that no existing install can ever be offered. The release workflow
-now refuses to start when the secret is empty, which is the only reason that
-silence is survivable.
+refuses to start when the secret is empty, and after the build it checks that a
+`.sig` was actually produced - the first catches the cause we know about, the
+second catches a wrong key, a password that does not decrypt it, or a bundler
+that skipped the updater target, all of which end the same way.
+
+Verified locally on 29 August 2026 by comparing key ids: the keypair at
+`~/.tauri/targetx-updater.key.pub` has id `AA21C44363792B36`, which is the id
+inside the `pubkey` compiled into `tauri.conf.json`. That is the pairing with
+no recovery if it is ever broken, so it is worth re-checking after any key
+rotation - a mismatched pair produces updates that are correctly signed and
+that every installed copy silently refuses.
 
 > **If you lose that private key you cannot update anyone who has already
 > installed TargetX.** Their build trusts only the matching public key, which

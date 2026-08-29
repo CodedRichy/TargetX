@@ -162,3 +162,21 @@ jobs:
           prerelease: false
           includeUpdaterJson: true
           args: ${{ matrix.args }}
+
+      # The gate above catches the one cause we know about - an empty secret.
+      # This catches the rest: a wrong key, a password that does not decrypt
+      # it, a bundler that skipped the updater target. All of them end the same
+      # way, with a green build, installers, and no payload any installed copy
+      # will ever be offered. Checked after the fact because the only reliable
+      # evidence that signing happened is a signature.
+      - name: Verify an updater payload was actually signed
+        shell: bash
+        run: |
+          found=$(find app/src-tauri/target -name '*.sig' 2>/dev/null | head -20)
+          if [ -z "$found" ]; then
+            echo "The build produced no .sig file, so there is no signed update"
+            echo "payload in this release. Installed copies of TargetX would"
+            echo "never be offered it. See SIGNING.md."
+            exit 1
+          fi
+          echo "signed:"; echo "$found"
