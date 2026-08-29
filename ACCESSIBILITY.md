@@ -11,6 +11,14 @@ measurement is named; where it rests on a test, the test file is named.
 **Target: WCAG 2.1 Level AA.** No formal third-party audit has been carried
 out. This is a self-assessment, and it is dated: **29 August 2026**.
 
+A dated claim goes stale the moment a surface is added, and a stale
+accessibility statement is worse than none, because someone may rely on it. The
+keyboard pass is therefore a script rather than a memory — `npm run keyboard`
+tabs every screen and prints the tag, accessible name, computed outline and box
+of each stop, failing on any stop that is unnamed, invisible, zero-sized or
+without a focus ring. Re-run it after touching the interface; the date above is
+the last time it was run and came back clean.
+
 ## What has been verified
 
 ### Colour contrast — measured, and enforced by a test
@@ -35,9 +43,11 @@ own text. Asserting them would be conformance theatre.
 ### Keyboard operation — driven, not reasoned about
 
 Every focus stop on all four screens was tabbed through in a real browser, with
-the tag, accessible name, ARIA state, computed outline and opacity printed at
-each stop. All of them show a 2px focus ring. There is no keyboard trap, no
-zero-size stop and no invisible stop.
+the tag, accessible name, computed outline and box printed at each stop. All of
+them show a 2px focus ring. There is no keyboard trap, no zero-size stop and no
+invisible stop. Last run 29 August 2026 against the current build: **0 problem
+stops**, including the surfaces added that day — the saved-portal-page check on
+Data among them.
 
 That pass found two real defects that reading the code had not:
 
@@ -87,6 +97,12 @@ stalled, and freezing them would turn a download into what looks like a hang.
   roles and states are asserted by tests that render the real components, and
   the keyboard pass was driven through a real browser — but neither is the same
   as NVDA or Narrator on the shipped app.
+- **Two surfaces cannot be reached by the automated pass at all**, so they are
+  verified by rendering tests and by reading rather than by driving: the portal
+  sign-in form and its failure diagnostic, which only render inside the desktop
+  shell, and the saved-page report on Data, which only exists after a file has
+  been chosen. Both are covered by tests that render the real components; that
+  is not the same as tabbing through them in the shipped app.
 - **The window's own title-bar buttons are untested in place.** TargetX draws
   its own close, minimise and maximise controls, and they only render inside
   the desktop shell, so the automated pass could not reach them. They carry

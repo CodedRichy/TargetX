@@ -11,6 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "portal-check": "vite-node tools/portal-check.ts",
+    "keyboard": "node tools/keyboard.mjs",
+    "measure": "node tools/measure.mjs",
+    "shots": "node tools/screenshot.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
