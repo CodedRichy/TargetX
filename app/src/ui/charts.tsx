@@ -266,20 +266,24 @@ export function AttendanceScatter(props: { points: ScatterPoint[] }) {
   const y = (frac: number) => PAD_T + (1 - Math.min(Math.max(frac, 0), 1)) * (H - PAD_T - PAD_B);
 
   /**
-   * A threshold line and its label. `row` staggers the two labels vertically.
+   * A threshold line and its caption.
    *
-   * They sit 15 percentage points apart on a 60-point axis, so in the drawer
-   * the caption for the 60% floor ran to within a few pixels of the 75% line
-   * and would have crossed it in any narrower panel. Sharing a baseline made
-   * that a function of the container width; two baselines makes it never
-   * happen at any width.
+   * The two lines sit 15 percentage points apart on a 60-point axis, so in the
+   * drawer they are about 80px apart and both captions did not fit to the
+   * right of them: the 60% one ran across the 75% line. It is written leftward
+   * into the empty 40-60 stretch instead, where nothing is ever plotted -
+   * a subject below 40% attendance is off the scale, and the axis is clamped.
+   * `row` then keeps the two off a shared baseline so they cannot touch even
+   * in a panel narrow enough to bring the lines together.
    */
-  const line = (pct: number, colour: string, label: string, row: number) => (
+  const line = (pct: number, colour: string, label: string,
+                row: number, leftward = false) => (
     <>
       <line x1={x(pct)} x2={x(pct)} y1={PAD_T} y2={H - PAD_B}
             stroke={colour} stroke-width="1" stroke-dasharray="4 3" />
-      <text x={x(pct) + 4} y={PAD_T + 9 + row * 14} fill={colour} font-size="10"
-            letter-spacing="0.6">{label}</text>
+      <text x={x(pct) + (leftward ? -4 : 4)} y={PAD_T + 9 + row * 14}
+            text-anchor={leftward ? "end" : "start"}
+            fill={colour} font-size="10" letter-spacing="0.6">{label}</text>
     </>
   );
 
@@ -290,7 +294,7 @@ export function AttendanceScatter(props: { points: ScatterPoint[] }) {
       <svg viewBox={`0 0 ${W()} ${H}`} width={W()} height={H} role="img"
            aria-label="Attendance against internal marks, by subject">
         {line(ATTENDANCE_MIN, "var(--warn)", "75% ELIGIBLE", 0)}
-        {line(ATTENDANCE_CONDONE, "var(--danger)", "60% FLOOR", 1)}
+        {line(ATTENDANCE_CONDONE, "var(--danger)", "60% FLOOR", 1, true)}
 
         <line x1={PAD_L} x2={W() - PAD_R} y1={H - PAD_B} y2={H - PAD_B}
               stroke="var(--hairline-strong)" stroke-width="1" />

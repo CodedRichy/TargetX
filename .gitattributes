@@ -1,0 +1,15 @@
+# Line endings are declared here rather than left to each machine's
+# core.autocrlf. Without this, a file written with LF by a tool on a Windows
+# checkout shows as modified with an EMPTY diff - git normalises it away on
+# comparison but the working copy still differs on disk. That happened to
+# src-tauri/Cargo.toml during a build and cost real time to work out, because
+# "modified, no changes" reads as a corrupt index rather than as a newline.
+* text=auto
+
+# Binary, so git never tries to normalise them or offer a line diff.
+*.png binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
