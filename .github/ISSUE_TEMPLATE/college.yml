@@ -1,0 +1,75 @@
+name: My college
+description: Sync does not read my college's portal, or my college sets its own regulations
+labels: ["college"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Two different problems arrive through this form, and the fix is
+        different for each - the questions below sort them apart.
+
+        **Do not paste your portal password, and do not paste a screenshot of
+        your marks.** Nothing here needs either. An issue is a public page:
+        blank out your roll number before you post.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Which is it
+      options:
+        - TargetX cannot read my college's portal
+        - My college sets its own regulations (autonomous)
+        - Both
+    validations:
+      required: true
+  - type: input
+    id: college
+    attributes:
+      label: College
+      description: Name is enough. Add the town if the name is a common one.
+      placeholder: "e.g. NSS College of Engineering, Palakkad"
+    validations:
+      required: true
+  - type: dropdown
+    id: affiliation
+    attributes:
+      label: Affiliation
+      options:
+        - Affiliated to KTU, follows the KTU 2024 scheme
+        - Autonomous, sets its own regulations
+        - I am not sure
+    validations:
+      required: true
+  - type: textarea
+    id: shapes
+    attributes:
+      label: What the compatibility check reported
+      description: >
+        In the app: **Data → "Will sync work at my college?"**. Save your
+        academics page from a browser you are already signed in to, drop the
+        file in, and press copy. What it produces is a description of the
+        table shapes with every digit replaced by #. It contains no marks, no
+        name and no roll number - open it and read it before you paste it, so
+        you can see that for yourself.
+      render: text
+  - type: textarea
+    id: regulations
+    attributes:
+      label: If your college is autonomous, what do its rules say
+      description: >
+        The four that decide whether the arithmetic here is yours: the internal
+        and end-semester split (KTU uses 40/60), the minimum needed in the
+        end-semester exam on its own (KTU uses 40%), the attendance percentage
+        required to sit an exam (KTU uses 75%, condonable to 60%), and whether
+        attendance earns internal marks at all (under KTU it is worth 5).
+        A link to the regulations PDF is better than a summary.
+  - type: markdown
+    attributes:
+      value: |
+        **What happens next.** A portal TargetX cannot read is usually a small
+        fix, and the shapes above are normally enough to make it.
+
+        A college with its own regulations is a larger change, because the
+        rules are currently built into the app rather than configured. It is
+        not being refused - it is being counted. The more colleges named here,
+        the sooner it is worth doing properly, so this issue is useful even if
+        nothing happens on it immediately.

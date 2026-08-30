@@ -25,7 +25,31 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   already reads the PDF directly - it is buried on the Data screen, where a
   student who has never opened it will not look.
 
+- **Telling us your college works, in one press.** TargetX can already check
+  whether it will read your college's portal without anyone handing over an
+  account: you save your academics page and drop the file in, and it reports
+  the shape of the tables it found with every digit blanked out. What it then
+  does is copy that to your clipboard and leave you to work out where it
+  goes. Instead it will offer to open a pre-filled report - the college, the
+  shapes it found, and nothing else - so a portal that does not work becomes
+  something that can be fixed rather than something you give up on.
+
+- **A list of the colleges it is known to work at.** So the answer to "will
+  this work for me?" is usually a name on a page rather than a test you have
+  to run, and so the same portal is not reported five times.
+
 ### Under consideration
+
+- **Autonomous colleges.** An autonomous college sets its own regulations,
+  and TargetX has KTU's built into it - the 40/60 split, the pass rules, the
+  attendance bands worth 5 marks, the grade boundaries. Where your college
+  has written its own, the arithmetic on this page is not your arithmetic,
+  and the honest position is that TargetX does not support you yet rather
+  than that it half does. Making those rules per-college is a real change and
+  not a small one, so the first step is finding out how many people it would
+  serve: if that is your college, say so in an issue, and bring your
+  regulations. Enough of them and this stops being a maybe.
+
 
 - **Signing in to KTU from inside the app.** Not planned, and worth saying
   why: the KTU portal is behind a captcha and a one-time password. Those exist
