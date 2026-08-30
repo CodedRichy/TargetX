@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="TargetX">
+  <!--
+    The same mark the app ships as its window and installer icon, redrawn as
+    strokes rather than exported as a bitmap: a favicon is rendered at 16px on
+    most tabs, and a downscaled 128px PNG loses the crossing point to blur at
+    that size. Two strokes on a dark tile, because the tile is what keeps the
+    mark visible on a light browser chrome as well as a dark one.
+  -->
+  <defs>
+    <linearGradient id="x" x1="6" y1="6" x2="26" y2="26" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2f7a6e"/>
+      <stop offset="0.5" stop-color="#63c8b4"/>
+      <stop offset="1" stop-color="#2f7a6e"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7.5" fill="#0f0c0a"/>
+  <g stroke="url(#x)" stroke-width="4.4" stroke-linecap="round">
+    <path d="M10 10 L22 22"/>
+    <path d="M22 10 L10 22"/>
+  </g>
+</svg>
