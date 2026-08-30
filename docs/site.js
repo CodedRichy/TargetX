@@ -81,6 +81,21 @@
   function mb(bytes) { return (bytes / 1048576).toFixed(1) + " MB"; }
 
   var here = platform();
+
+  /* Table order. Sorting by OS name put Linux above Windows, which is the
+     alphabet talking rather than anything about the reader - and the row a
+     reader wants is the one for the machine they are on, so that OS goes
+     first and the rest follow in order of how many students run them. */
+  var OS_ORDER = { windows: 1, macos: 2, linux: 3 };
+  function weight(os) { return os === here ? 0 : (OS_ORDER[os] || 9); }
+
+  /* The OS warnings the two notices below the table explain. Repeated on the
+     row itself so someone who scans straight to a download still meets them.
+     Kept here as well as in the static markup because these rows replace it. */
+  var UNSIGNED = {
+    windows: "unsigned",
+    macos: "not notarised"
+  };
   var heroBtn = document.getElementById("hero-dl");
   heroBtn.firstChild.nodeValue = "Download for " + LABEL[here] + " ";
 
@@ -123,7 +138,7 @@
         name: asset.name, size: asset.size, url: asset.browser_download_url
       };
     }).filter(Boolean).sort(function (a, b) {
-      return a.os.localeCompare(b.os) || a.rank - b.rank;
+      return weight(a.os) - weight(b.os) || a.rank - b.rank;
     });
 
     if (!assets.length) {
@@ -153,7 +168,9 @@
     var rows = assets.map(function (a) {
       return "<tr>" +
         "<td>" + LABEL[a.os] + "</td>" +
-        "<td class=\"file\">" + a.name + "</td>" +
+        "<td class=\"file\">" + a.name +
+          (UNSIGNED[a.os] ? " <span class=\"unsigned\">" + UNSIGNED[a.os] + "</span>" : "") +
+        "</td>" +
         "<td class=\"size\">" + mb(a.size) + "</td>" +
         "<td><a href=\"" + a.url + "\">Download</a></td>" +
         "</tr>";
