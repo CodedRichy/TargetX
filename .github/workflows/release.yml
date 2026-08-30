@@ -85,7 +85,12 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+          # libappindicator3-dev is NOT in this list on purpose: it and
+          # libayatana-appindicator3-dev declare a Conflicts against each
+          # other, so asking for both is unsatisfiable and apt exits 100
+          # before a single line of the app is compiled. Tauri 2 uses the
+          # ayatana fork; the old one is what Ubuntu itself has replaced.
+          sudo apt-get install -y libwebkit2gtk-4.1-dev \
             librsvg2-dev patchelf build-essential curl wget file libssl-dev \
             libgtk-3-dev libayatana-appindicator3-dev
 
@@ -143,14 +148,29 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # macOS notarisation. Absent these, the .dmg is unsigned and Gatekeeper
-          # refuses it outright rather than merely warning, as Windows does.
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # macOS signing and notarisation are deliberately NOT listed here.
+          #
+          # `APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}` with no such
+          # secret does not leave the variable unset - it sets it to the empty
+          # string, which is a value, and Tauri decides whether to codesign by
+          # asking whether the variable is present rather than whether it has
+          # anything in it. So the macOS leg compiled the whole app, reached
+          # the bundler, ran `security import` against an empty certificate and
+          # died there:
+          #
+          #   failed codesign application: failed to import keychain certificate
+          #
+          # An absent certificate has to look absent. When a Developer ID is
+          # bought, add the secrets and restore this block - and note that
+          # signing is only half of it: an app that is signed but not notarised
+          # is still refused by Gatekeeper, so APPLE_ID, APPLE_PASSWORD and
+          # APPLE_TEAM_ID belong in the same change as the certificate, not a
+          # later one.
+          #
+          #   APPLE_CERTIFICATE / APPLE_CERTIFICATE_PASSWORD / APPLE_SIGNING_IDENTITY
+          #   APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID
+          #
+          # Until then the .dmg ships unsigned, and the download page says so.
         with:
           projectPath: app
           tagName: ${{ github.ref_name }}
