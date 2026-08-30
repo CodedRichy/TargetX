@@ -56,15 +56,52 @@
   var RELEASES = "https://github.com/" + REPO + "/releases";
 
   /* --- which platform is this? ------------------------------------------ */
+  /*
+   * Guessing, and saying so by offering rather than deciding: the full table
+   * is directly below, and every row is one click away. A wrong guess should
+   * cost a reader one glance, never a download that cannot run.
+   *
+   * `navigator.userAgentData` is the supported way to ask and is exact where
+   * it exists (Chromium). Everything else still needs the user-agent string,
+   * which browsers have been freezing for years - so it is read for the OS
+   * family only, never for a version.
+   */
   function platform() {
-    var ua = (navigator.userAgent || "");
-    if (/Win/i.test(ua)) return "windows";
-    if (/Mac|iPhone|iPad/i.test(ua)) return "macos";
-    if (/Linux|X11|Android/i.test(ua)) return "linux";
-    return "windows";
+    var d = navigator.userAgentData;
+    if (d && d.platform) {
+      var p = d.platform.toLowerCase();
+      if (d.mobile) return "mobile";
+      if (p.indexOf("win") === 0) return "windows";
+      if (p.indexOf("mac") === 0) return "macos";
+      if (p.indexOf("linux") === 0 || p === "chrome os") return "linux";
+    }
+
+    var ua = navigator.userAgent || "";
+
+    /* Phones and tablets first, or they are misread as the desktop OS they
+       are related to and handed an installer that cannot run. An iPad has
+       reported itself as "Macintosh" since iPadOS 13, which no amount of
+       string matching distinguishes from a real Mac - the touch points do,
+       because no Mac reports more than one. */
+    if (/iPhone|iPod|Android/i.test(ua)) return "mobile";
+    if (/iPad/i.test(ua)) return "mobile";
+    if (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1) return "mobile";
+
+    if (/Windows|Win32|Win64/i.test(ua)) return "windows";
+    if (/Macintosh|Mac OS X/i.test(ua)) return "macos";
+    if (/Linux|X11|CrOS/i.test(ua)) return "linux";
+
+    /* Unrecognised: fall through to no recommendation rather than a wrong
+       one. The table below is the answer either way. */
+    return "";
   }
 
-  var LABEL = { windows: "Windows", macos: "macOS", linux: "Linux" };
+  /* "mobile" and "" are not platforms we build for - they are the two cases
+     where the honest thing is to stop recommending and point at the table. */
+  var LABEL = {
+    windows: "Windows", macos: "macOS", linux: "Linux",
+    mobile: "desktop", "": "your computer"
+  };
 
   /* Asset extension -> platform, in the order we would offer them. */
   function classify(name) {
@@ -81,6 +118,7 @@
   function mb(bytes) { return (bytes / 1048576).toFixed(1) + " MB"; }
 
   var here = platform();
+  var DESKTOP_ONLY = here === "mobile";
 
   /* Table order. Sorting by OS name put Linux above Windows, which is the
      alphabet talking rather than anything about the reader - and the row a
@@ -97,7 +135,13 @@
     macos: "not notarised"
   };
   var heroBtn = document.getElementById("hero-dl");
-  heroBtn.firstChild.nodeValue = "Download for " + LABEL[here] + " ";
+  heroBtn.firstChild.nodeValue = DESKTOP_ONLY
+    ? "See the downloads "
+    : "Download for " + LABEL[here] + " ";
+  /* On a phone the button cannot do what it says, so it stops claiming to:
+     it scrolls to the table instead of handing over an installer that will
+     not run. */
+  if (DESKTOP_ONLY) heroBtn.href = "#download";
 
   /* --- fill in the real release, if we can reach it --------------------- */
   var meta = document.getElementById("dl-meta");
@@ -150,7 +194,19 @@
 
     /* The one that matches this machine, promoted. */
     var mine = assets.filter(function (a) { return a.os === here; })[0];
-    if (mine) {
+    if (DESKTOP_ONLY) {
+      /* Not a failure, and it should not read as one. TargetX is a desktop
+         app; a phone is simply not where it gets installed, and saying that
+         plainly is more use than offering a .dmg that cannot open. */
+      document.getElementById("dl-for").textContent = "TargetX " + version;
+      document.getElementById("dl-what").textContent = "A desktop app";
+      meta.textContent = "Open this page on your laptop to install it. " +
+        "Every build is listed below.";
+      var mobileBtn = document.getElementById("dl-button");
+      mobileBtn.href = RELEASES;
+      mobileBtn.textContent = "All builds";
+      document.getElementById("hero-dl-meta").textContent = "· " + version;
+    } else if (mine) {
       document.getElementById("dl-what").textContent = LABEL[here] + " · " + mine.kind;
       meta.textContent = mine.name + " · " + mb(mine.size);
       var button = document.getElementById("dl-button");

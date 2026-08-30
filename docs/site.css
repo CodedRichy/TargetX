@@ -216,7 +216,12 @@ p { margin: 0; }
 @media (max-width: 62rem) {
   .band-inner { grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
   .mark { position: static; padding-top: 0; }
-  .mark b { display: inline; }
+  /* The markup is `Regulation<b>R 7.5.ii</b>` with no whitespace between,
+     because in the rail the two are stacked and a space would be a stray
+     text node. Once the rail collapses and the b goes inline, that missing
+     space is suddenly visible: it printed REGULATIONR 7.5.ii. The gap has to
+     come from the style that made them adjacent. */
+  .mark b { display: inline; margin-left: 0.6ch; }
 }
 
 /* --- masthead ----------------------------------------------------------- */
@@ -525,6 +530,10 @@ p { margin: 0; }
   border-radius: var(--radius-lg);
   padding: var(--s5);
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--s5);
+  /* Had a bottom margin and no top one, so it sat flush against the prose
+     above and read as though it belonged to the paragraph rather than
+     following it. */
+  margin-top: var(--s6);
   margin-bottom: var(--s5);
 }
 .dl-primary > div:first-child { flex: 1 1 22rem; min-width: 0; }
@@ -558,7 +567,60 @@ p { margin: 0; }
 .dl-table td.file { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim); }
 .dl-table td.size { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-faint); white-space: nowrap; }
 .dl-table td:last-child, .dl-table th:last-child { padding-right: 0; text-align: right; }
-.dl-wrap { overflow-x: auto; }
+/*
+ * `position: relative` is load-bearing, not decoration. The header of the
+ * last column holds a visually-hidden `.sr-only` span, which is positioned
+ * absolutely - and an absolutely positioned box is laid out against its
+ * nearest positioned ancestor, not its nearest scroll container. With none,
+ * that ancestor was the page: the span sat at the table's full width in
+ * document coordinates and dragged the document 94px wider than the viewport
+ * on a 390px phone. Nothing looked wrong, because the span is invisible; the
+ * only symptom was the whole page scrolling sideways.
+ */
+.dl-wrap { overflow-x: auto; position: relative; }
+
+/*
+ * On a phone the table is wider than the screen, and the column that goes
+ * off the edge is the one holding the download link - so the action for
+ * every row sat behind a sideways scroll nobody would think to try. A table
+ * is the right shape for comparing five builds on a laptop and the wrong one
+ * for tapping a single build on a phone, so below 40rem the rows stop being
+ * rows: each build becomes a block with its link in it.
+ */
+@media (max-width: 40rem) {
+  .dl-table, .dl-table tbody, .dl-table tr, .dl-table td { display: block; }
+  .dl-table thead { display: none; }
+  /* A caption on a block-displayed table shrinks to its longest word and set
+     itself one word per line - EVERY / BUILD / IN / V0.1.0. */
+  .dl-table caption { display: block; width: 100%; }
+  .dl-table tr {
+    border-bottom: 1px solid var(--hairline);
+    padding-block: var(--s4);
+  }
+  .dl-table td {
+    border: 0;
+    padding: 0;
+    text-align: left;
+  }
+  .dl-table td:first-child {
+    font-size: 0.95rem; font-weight: 500; color: var(--text);
+  }
+  .dl-table td.file { margin-top: var(--s2); white-space: normal; word-break: break-all; }
+  .dl-table td.size { margin-top: var(--s1); }
+  /* The link becomes the row's button rather than a word in a right-hand
+     column, because on a touch screen it is the only thing being aimed at. */
+  .dl-table td:last-child, .dl-table th:last-child { text-align: left; }
+  .dl-table td:last-child a {
+    display: inline-block; margin-top: var(--s3);
+    font-family: var(--font-mono); font-size: 0.78rem;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    border: 1px solid var(--hairline-strong); border-radius: var(--radius);
+    /* 44px is the smallest thing a finger hits reliably; at 0.5rem padding
+       this came out at 37. */
+    min-height: 44px; padding: 0.7rem 1rem; box-sizing: border-box;
+    text-decoration: none; color: var(--brand);
+  }
+}
 
 /* Says on the row itself what the two notices below the table explain. A
    student who scans the table and downloads without reading the prose should
@@ -717,7 +779,9 @@ html { scroll-behavior: smooth; scroll-padding-top: 5rem; }
 
 /* The store table is the answer to the whole question, so it gets the width
    the reading column does not. */
-.store { max-width: 78rem; overflow-x: auto; margin-top: var(--s5); }
+/* Positioned for the same reason as .dl-wrap above: this scroller also holds
+   a table, and a future `.sr-only` inside one would escape it identically. */
+.store { max-width: 78rem; overflow-x: auto; position: relative; margin-top: var(--s5); }
 .store table { width: 100%; border-collapse: collapse; font-size: 0.92rem; min-width: 44rem; }
 .store th, .store td {
   text-align: left; vertical-align: top;
