@@ -260,13 +260,13 @@
             <tbody id="dl-rows">
               <tr>
                 <td>Windows</td>
-                <td class="file">.exe installer, and .msi for deployment</td>
+                <td class="file">.exe installer, and .msi for deployment <span class="unsigned">unsigned</span></td>
                 <td class="size">—</td>
                 <td><a href="https://github.com/CodedRichy/TargetX/releases">Releases</a></td>
               </tr>
               <tr>
                 <td>macOS</td>
-                <td class="file">.dmg, universal</td>
+                <td class="file">.dmg, universal <span class="unsigned">not notarised</span></td>
                 <td class="size">—</td>
                 <td><a href="https://github.com/CodedRichy/TargetX/releases">Releases</a></td>
               </tr>
@@ -292,6 +292,22 @@
           A certificate is on the list. A checksum proves the file did not
           change in transit, not who built it — it is not a substitute, and this
           page will say so until one is bought.
+        </div>
+
+        <div class="notice">
+          <strong>macOS will refuse to open it outright.</strong> The build is
+          not notarised by Apple, so Gatekeeper does not offer a way through —
+          it reports that TargetX is damaged, or that the developer cannot be
+          verified, and stops. It is neither; that is the message macOS gives
+          any unnotarised app. Open <em>System Settings → Privacy &amp;
+          Security</em>, scroll to the note about TargetX being blocked, and
+          choose <em>Open Anyway</em>. If it does not appear there, clear the
+          quarantine flag the browser attached:
+          <code class="cmd">xattr -dr com.apple.quarantine /Applications/TargetX.app</code>
+          Check the SHA-256 above first. Running that command on software you
+          have not verified is exactly how the protection is meant to be used
+          against you, and it is worth being suspicious of any page that tells
+          you to type it — including this one.
         </div>
 
         <div class="notice plain">

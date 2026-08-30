@@ -560,6 +560,24 @@ p { margin: 0; }
 .dl-table td:last-child, .dl-table th:last-child { padding-right: 0; text-align: right; }
 .dl-wrap { overflow-x: auto; }
 
+/* Says on the row itself what the two notices below the table explain. A
+   student who scans the table and downloads without reading the prose should
+   still meet the OS warning already knowing it is coming. */
+.unsigned {
+  display: inline-block;
+  margin-left: var(--s2);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: 2px;
+  padding: 0.1em 0.45em;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
 .notice {
   max-width: 64rem;
   border-left: 2px solid var(--warn);
