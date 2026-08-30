@@ -148,7 +148,15 @@
 
   function noRelease(message, action, href) {
     meta.textContent = message;
-    document.getElementById("dl-what").textContent = LABEL[here];
+    /* "Recommended for you: desktop" reads as though desktop were a platform
+       we had picked out. On a phone there is nothing to recommend, so the
+       card says what the app is instead. */
+    if (DESKTOP_ONLY) {
+      document.getElementById("dl-for").textContent = "TargetX";
+      document.getElementById("dl-what").textContent = "A desktop app";
+    } else {
+      document.getElementById("dl-what").textContent = LABEL[here];
+    }
     if (action) {
       var button = document.getElementById("dl-button");
       button.textContent = action;
