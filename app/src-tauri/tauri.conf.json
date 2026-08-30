@@ -46,7 +46,7 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
-    "targets": ["nsis", "msi", "deb", "appimage", "dmg"],
+    "targets": ["nsis", "msi", "deb", "appimage", "app", "dmg"],
     "publisher": "Rishi Praseeth Krishnan",
     "copyright": "Copyright (c) 2026 Rishi Praseeth Krishnan. Licensed under BUSL-1.1; see LICENSE.",
     "licenseFile": "../../LICENSE",
