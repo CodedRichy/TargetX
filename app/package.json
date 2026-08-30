@@ -17,7 +17,8 @@
     "tauri": "tauri",
     "picker-width": "node tools/picker-width.mjs",
     "site": "node tools/site.mjs",
-    "site:audit": "node tools/site-audit.mjs"
+    "site:audit": "node tools/site-audit.mjs",
+    "og": "node tools/og-image.mjs"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.3.0",

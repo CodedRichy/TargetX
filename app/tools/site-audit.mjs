@@ -165,6 +165,39 @@ const FIXTURE = {
   })),
 };
 
+/*
+ * The tags a link preview and a search result are built from. These fail
+ * silently and invisibly - a missing og:image is a blank grey box in a
+ * WhatsApp share, and nothing on the page looks wrong - so they are checked
+ * rather than remembered. Run once, not per device.
+ */
+const META_PROBE = () => {
+  const need = [
+    ["title", () => document.title, 15],
+    ['meta[name="description"]', null, 70],
+    ['link[rel="canonical"]', null, 0],
+    ['meta[property="og:title"]', null, 10],
+    ['meta[property="og:description"]', null, 40],
+    ['meta[property="og:image"]', null, 10],
+    ['meta[property="og:url"]', null, 10],
+    ['meta[name="twitter:card"]', null, 5],
+    ['script[type="application/ld+json"]', null, 0],
+  ];
+  const missing = [];
+  for (const [sel, direct, min] of need) {
+    let value;
+    if (direct) value = direct();
+    else {
+      const el = document.querySelector(sel);
+      value = el && (el.getAttribute("content") || el.getAttribute("href") || el.textContent);
+    }
+    if (!value) missing.push(`${sel} absent`);
+    else if (min && value.trim().length < min) missing.push(`${sel} too short (${value.trim().length})`);
+  }
+  const img = document.querySelector('meta[property="og:image"]');
+  return { missing, image: img && img.getAttribute("content") };
+};
+
 const CASES = [
   { name: "desktop-1440-dark", viewport: { width: 1440, height: 900 }, theme: "dark" },
   { name: "desktop-1440-light", viewport: { width: 1440, height: 900 }, theme: "light" },
@@ -198,6 +231,27 @@ for (const c of CASES) {
   await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), c.theme);
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(1800); // the releases call
+
+  /* Once, on the first case: the tags do not vary by viewport. */
+  if (c === CASES[0]) {
+    const meta = await page.evaluate(META_PROBE);
+    if (meta.missing.length) {
+      problems += meta.missing.length;
+      for (const m of meta.missing) console.log(`  META    ${m}`);
+    } else {
+      console.log("  meta    complete");
+    }
+    /* An og:image that 404s is worse than none: the unfurler shows a broken
+       card rather than falling back to text. */
+    if (meta.image) {
+      const local = meta.image.replace("https://codedrichy.github.io/TargetX/", "");
+      const target = LIVE ? meta.image : base + local;
+      const res = await page.request.get(target).catch(() => null);
+      const ok = res && res.ok();
+      console.log(`  og:image ${ok ? "reachable" : "UNREACHABLE"}  ${target}`);
+      if (!ok) problems++;
+    }
+  }
 
   const dl = await page.evaluate(DOWNLOAD_PROBE);
   const tight = await page.evaluate(SPACING_PROBE);

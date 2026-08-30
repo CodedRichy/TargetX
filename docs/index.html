@@ -3,12 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TargetX</title>
-<meta name="description" content="A KTU 2024-scheme tracker that tells you the mark you still need — and counts the CIE marks your attendance is already costing you. Free for students, forever.">
+<title>TargetX — KTU 2024 CGPA calculator and attendance tracker</title>
+<meta name="description" content="Free desktop app for the KTU 2024 scheme. Works out the mark you still need in each exam, how many classes you can miss, and the CIE marks your attendance is already costing you.">
+<link rel="canonical" href="https://codedrichy.github.io/TargetX/">
 
-<meta property="og:title" content="TargetX">
-<meta property="og:description" content="Every other calculator tells you what you already scored. TargetX tells you the mark you still need.">
+<meta property="og:title" content="TargetX — the mark you still need, for the KTU 2024 scheme">
+<meta property="og:description" content="Every other KTU calculator tells you what you already scored. TargetX tells you what you need — and counts the internal marks your attendance is quietly costing you.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://codedrichy.github.io/TargetX/">
+<meta property="og:site_name" content="TargetX">
+<meta property="og:locale" content="en_IN">
+<meta property="og:image" content="https://codedrichy.github.io/TargetX/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="TargetX: every calculator tells you what you scored, this one tells you what you need. A five-step stair showing the CIE marks attendance earns.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TargetX — the mark you still need, for the KTU 2024 scheme">
+<meta name="twitter:description" content="Attendance is worth 5 internal marks under R 7.5.ii. At 76% you have already lost two, and nothing else will tell you.">
+<meta name="twitter:image" content="https://codedrichy.github.io/TargetX/og.png">
+
 <meta name="theme-color" content="#1a1512">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.ico" sizes="32x32">
@@ -26,6 +39,44 @@
     var t = localStorage.getItem("targetx.theme");
     if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
   } catch (e) {}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "TargetX",
+  "applicationCategory": "EducationalApplication",
+  "applicationSubCategory": "Academic tracker",
+  "operatingSystem": "Windows, macOS, Linux",
+  "softwareVersion": "0.1.0",
+  "url": "https://codedrichy.github.io/TargetX/",
+  "downloadUrl": "https://github.com/CodedRichy/TargetX/releases/latest",
+  "screenshot": "https://codedrichy.github.io/TargetX/home.png",
+  "description": "Desktop tracker for the KTU 2024 scheme. Works out the mark still needed in each exam against both pass conditions, how many classes can still be missed, and the CIE marks attendance is costing under Regulation 7.5.ii.",
+  "inLanguage": "en",
+  "isAccessibleForFree": true,
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "INR",
+    "category": "Free for students"
+  },
+  "license": "https://github.com/CodedRichy/TargetX/blob/main/LICENSE",
+  "author": { "@type": "Person", "name": "Rishi Praseeth Krishnan" },
+  "audience": {
+    "@type": "EducationalAudience",
+    "educationalRole": "student",
+    "audienceType": "APJ Abdul Kalam Technological University B.Tech students"
+  },
+  "featureList": [
+    "Mark still needed per subject, against both the aggregate and the separate 40% end-semester minimum",
+    "CIE marks earned by attendance under Regulation 7.5.ii",
+    "Classes that can still be missed, with the Regulation 6.3.ii duty-leave cap",
+    "CGPA target solved backwards to per-subject moves",
+    "Portal sync, grade-card import and paste",
+    "Runs locally: no account, no server, no telemetry"
+  ]
+}
 </script>
 </head>
 <body>
@@ -398,6 +449,59 @@
             <dd><a href="https://github.com/CodedRichy/TargetX/blob/main/DEPLOYMENT.md">DEPLOYMENT.md</a> answers “what is this and what does it touch?” — every claim on this page is checkable there against named files.</dd>
           </div>
         </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ problems ============================ -->
+  <section class="band" id="problems">
+    <div class="wrap band-inner">
+      <p class="mark">Something<b>wrong?</b></p>
+      <div>
+        <h2 class="claim">A wrong number is a bug, and it is worth reporting.</h2>
+        <p class="prose">
+          TargetX has been proved against one college’s portal and one set of
+          regulations read carefully. Neither of those is the same as being
+          right everywhere. If a figure it shows you disagrees with what your
+          college recorded, <strong>the college is right and this is a
+          defect</strong> — and it is one worth knowing about, because the same
+          arithmetic runs for everyone.
+        </p>
+
+        <div class="dl-primary">
+          <div>
+            <p class="for">Report a problem</p>
+            <p class="what">GitHub issues</p>
+            <p class="meta">
+              No account with us — you will need a free GitHub account, and
+              nothing else.
+            </p>
+          </div>
+          <div class="cta">
+            <a class="btn btn-primary" href="https://github.com/CodedRichy/TargetX/issues/new">
+              Open an issue
+            </a>
+          </div>
+        </div>
+
+        <div class="notice plain">
+          <strong>What makes a report actionable.</strong> The subject code, the
+          figure TargetX showed, the figure you expected, and where the real one
+          came from — a portal page or a grade card. If a sync failed, the app’s
+          Data screen names the log file; its contents are error messages and
+          nothing about your marks, and you can read it before you send it.
+          <strong>Never paste your portal password into an issue</strong>, and
+          blank out your roll number: an issue is a public page.
+        </div>
+
+        <p class="prose" style="margin-top: var(--s5)">
+          Questions and “will this work at my college?” belong in
+          <a href="https://github.com/CodedRichy/TargetX/discussions">discussions</a>
+          rather than issues. Security problems should not be filed in public at
+          all — use GitHub’s
+          <a href="https://github.com/CodedRichy/TargetX/security/advisories/new">private advisory</a>
+          form, which is only visible to the maintainer.
+        </p>
       </div>
     </div>
   </section>

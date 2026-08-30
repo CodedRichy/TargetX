@@ -1,0 +1,128 @@
+<!doctype html>
+<!--
+  Source for docs/og.png. Rendered by tools/og-image.mjs at 1200x630, which is
+  the size every link unfurler crops to.
+
+  It is a designed card rather than a screenshot of the page: a screenshot at
+  this size is unreadable on a phone's chat preview, which is where most of
+  these will be seen. One claim, set large enough to survive being shown at
+  400px wide in a WhatsApp bubble.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --stone:      oklch(0.145 0.012 68);
+    --stone-2:    oklch(0.185 0.013 68);
+    --text:       oklch(0.96 0.006 68);
+    --text-dim:   oklch(0.76 0.008 68);
+    --text-faint: oklch(0.60 0.010 68);
+    --brand:      oklch(0.74 0.10 178);
+    --warn:       oklch(0.80 0.15 80);
+    --hairline:   oklch(0.30 0.010 68);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1200px; height: 630px;
+    background: var(--stone);
+    color: var(--text);
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    row-gap: 34px;
+    padding: 56px 72px 52px;
+    overflow: hidden;
+  }
+
+  .top { display: flex; align-items: center; justify-content: space-between; }
+  .wordmark { font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
+  .wordmark span { color: var(--brand); }
+  .eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 15px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .eyebrow em { font-style: normal; color: var(--brand); }
+
+  .mid { display: grid; grid-template-columns: 1fr auto; gap: 56px; align-items: center; }
+
+  h1 {
+    font-size: 66px; line-height: 1.04; letter-spacing: -0.022em;
+    font-weight: 700; text-wrap: balance;
+  }
+  h1 .quiet { color: var(--text-dim); }
+  .lede {
+    margin-top: 26px; font-size: 23px; line-height: 1.4;
+    color: var(--text-dim); max-width: 30ch;
+  }
+  .lede b { color: var(--text); font-weight: 500; }
+
+  /* The stair, five bands because the regulation has five. Carried over from
+     the page so the card and the site are recognisably the same thing. */
+  .stair { display: grid; grid-template-columns: repeat(5, 46px); gap: 7px; align-items: end; height: 232px; }
+  .step {
+    border: 1px solid var(--hairline); border-radius: 4px 4px 0 0;
+    background: var(--stone-2);
+    display: flex; flex-direction: column; justify-content: flex-end;
+    align-items: center; padding-bottom: 10px; gap: 4px;
+  }
+  .step .m { font-size: 24px; font-weight: 500; color: var(--text-faint); }
+  .step .a {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; color: var(--text-faint);
+  }
+  .step.here { border-color: var(--warn); background: oklch(0.80 0.15 80 / 0.10); }
+  .step.here .m { color: var(--warn); }
+  .step.gone { border-style: dashed; border-color: oklch(0.80 0.15 80 / 0.5); }
+  .step.full { border-color: var(--brand); background: oklch(0.74 0.10 178 / 0.10); }
+  .step.full .m { color: var(--brand); }
+
+  .bottom {
+    display: flex; align-items: center; justify-content: space-between;
+    border-top: 1px solid var(--hairline); padding-top: 22px;
+  }
+  .plat {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 15px; color: var(--text-faint); letter-spacing: 0.04em;
+  }
+  .free {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--brand); border: 1px solid var(--brand);
+    border-radius: 3px; padding: 7px 14px;
+  }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="wordmark">Target<span>X</span></div>
+    <div class="eyebrow">KTU B.Tech · <em>2024 scheme</em></div>
+  </div>
+
+  <div class="mid">
+    <div>
+      <h1>Every calculator tells you what you scored.<br>
+        <span class="quiet">This one tells you what you need.</span></h1>
+      <p class="lede">Attendance is worth <b>5 internal marks</b>. At 76% you
+        have already lost two — and nothing else will tell you.</p>
+    </div>
+
+    <div class="stair" aria-hidden="true">
+      <div class="step" style="height: 32%"><span class="m">1</span><span class="a">60%</span></div>
+      <div class="step" style="height: 47%"><span class="m">2</span><span class="a">70%</span></div>
+      <div class="step here" style="height: 64%"><span class="m">3</span><span class="a">75%</span></div>
+      <div class="step gone" style="height: 82%"><span class="m">4</span><span class="a">80%</span></div>
+      <div class="step full gone" style="height: 100%"><span class="m">5</span><span class="a">85%</span></div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <span class="plat">Windows · macOS · Linux — no account, no server</span>
+    <span class="free">Free for students</span>
+  </div>
+</body>
+</html>

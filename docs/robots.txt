@@ -1,0 +1,7 @@
+# Everything here is meant to be found: the whole point of the page is that a
+# student searching for a KTU calculator arrives at one that applies the 2024
+# rules rather than the 2019 ones.
+User-agent: *
+Allow: /
+
+Sitemap: https://codedrichy.github.io/TargetX/sitemap.xml
