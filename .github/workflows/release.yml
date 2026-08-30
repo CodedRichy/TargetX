@@ -79,7 +79,7 @@ jobs:
           echo "this version. See SIGNING.md."
           exit 1
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Linux build dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -89,7 +89,7 @@ jobs:
             librsvg2-dev patchelf build-essential curl wget file libssl-dev \
             libgtk-3-dev libayatana-appindicator3-dev
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm

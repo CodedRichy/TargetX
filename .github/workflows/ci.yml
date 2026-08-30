@@ -29,11 +29,11 @@ jobs:
       # Full history, not the default shallow clone: the parity gate below
       # diffs against 9b2bdc2, and at depth 1 that commit does not exist in
       # the checkout - the step would fail as a git error rather than pass.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
@@ -70,9 +70,9 @@ jobs:
     name: rust
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
           cache: npm
