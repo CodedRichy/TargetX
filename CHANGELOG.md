@@ -8,6 +8,33 @@ were shown before was wrong.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Planned
+
+- **Your KTU results and your college portal, told apart.** Right now a figure
+  that came from your KTU grade card and one scraped from your college portal
+  land in the same record and look identical afterwards. They are not the
+  same: the grade card is the university's own document and outranks anything
+  the portal says, and a disagreement between them is worth seeing rather than
+  silently resolving. Each source will keep its own view, switched between
+  like accounts rather than shown side by side, so it is always clear which
+  one you are reading.
+
+- **A KTU import you can find.** Bringing in a grade card already works and
+  already reads the PDF directly - it is buried on the Data screen, where a
+  student who has never opened it will not look.
+
+### Under consideration
+
+- **Signing in to KTU from inside the app.** Not planned, and worth saying
+  why: the KTU portal is behind a captcha and a one-time password. Those exist
+  to stop software logging in, and a tool that defeats them would be teaching
+  every student who installed it to hand its credentials to something that
+  bypasses the university's own access control. The grade card you download
+  yourself carries exactly the same information, and TargetX will keep reading
+  it. If KTU ever publishes an API for students, this changes.
+
 ## [0.1.0] - 2026-08-30
 
 First public release.
@@ -137,4 +164,5 @@ figure that was shown to a student as fact.
 - Writes are atomic against a crash but not against sudden power loss; the
   backups exist for that case.
 
+[Unreleased]: https://github.com/CodedRichy/TargetX/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/CodedRichy/TargetX/releases/tag/v0.1.0
