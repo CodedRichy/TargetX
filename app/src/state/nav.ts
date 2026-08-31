@@ -10,11 +10,12 @@ import { state } from "./store";
  * steps look skippable in the UI and the main views look sequential.
  */
 
-export type View = "home" | "ledger" | "history" | "data";
+export type View = "home" | "ledger" | "attendance" | "history" | "data";
 
 export const VIEWS: Array<{ id: View; label: string; hint: string }> = [
   { id: "home", label: "Home", hint: "Where you stand and what needs doing" },
   { id: "ledger", label: "Semester", hint: "Marks, attendance and what you still need" },
+  { id: "attendance", label: "Attendance", hint: "How many classes you can still miss, per subject" },
   { id: "history", label: "History", hint: "Published results from past semesters" },
   { id: "data", label: "Data", hint: "Sync, import, catalogue and backup" },
 ];

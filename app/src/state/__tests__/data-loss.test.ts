@@ -110,7 +110,7 @@ describe("a restore replaces the document rather than merging into it", () => {
 
     importJson(backup);
     expect(state.history["S1"]).toEqual(
-      { sgpa: 8.1, creditsRegistered: 22, creditsEarned: null });
+      { sgpa: 8.1, creditsRegistered: 22, creditsEarned: null, source: "manual", conflict: null });
   });
 
   it("restores the semesters the backup does carry", () => {

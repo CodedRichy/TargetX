@@ -1,14 +1,16 @@
 import { For, Show, createMemo } from "solid-js";
 import {
   ATTENDANCE_CONDONE, ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_MAX,
-  ATTENDANCE_MIN, attendanceMarks, isDebarred, isIncomplete, toOptionalFloat,
+  ATTENDANCE_MIN, attendanceMarks, courseLabel, isDebarred, isIncomplete,
+  toOptionalFloat,
   unconfirmedNames,
 } from "../engine";
 import {
-  goalRequirement, overall, rows, state, summary, trend,
+  dismissChanges, goalRequirement, overall, rows, state, summary, trend,
 } from "../state/store";
 import { setView } from "../state/nav";
 import { GoalGauge, TrendChart } from "./charts";
+import type { Change } from "../engine";
 
 /**
  * Home.
@@ -38,7 +40,8 @@ const FORFEIT_AT_ELIGIBILITY =
 
 /** A subject worth surfacing, with the reason it made the list. */
 interface Concern {
-  code: string;
+  /** The subject as the student knows it. See `courseLabel`. */
+  label: string;
   detail: string;
   severity: "bad" | "warn";
   /** Lower sorts first. Consequence order, not alphabetical. */
@@ -69,7 +72,7 @@ export function Home() {
   const attendanceCost = createMemo(() => {
     let lost = 0;
     let counted = 0;
-    let cheapest: { code: string; attend: number; marks: number } | null = null;
+    let cheapest: { label: string; attend: number; marks: number } | null = null;
     // Subjects a student would call fine: past the eligibility line, short of
     // the line where attendance stops costing marks. The whole point of the
     // sentence this feeds is that nothing else in a student's life flags
@@ -97,7 +100,7 @@ export function Home() {
       if (!band || band.nextMarks === null || band.attend <= 0) continue;
       if (!cheapest || band.attend < cheapest.attend) {
         cheapest = {
-          code: row.course.code || row.course.name || "?",
+          label: courseLabel(row.course),
           attend: band.attend,
           marks: band.nextMarks - band.earned,
         };
@@ -111,7 +114,7 @@ export function Home() {
     const out: Concern[] = [];
     for (const row of rows()) {
       const ev = row.ev;
-      const code = row.course.code || row.course.name || "?";
+      const label = courseLabel(row.course);
 
       // Withdrawn or incomplete: nothing below applies to a course the
       // student is not sitting, least of all an attendance shortage that
@@ -119,7 +122,7 @@ export function Home() {
       if (isIncomplete(ev.grade)) continue;
 
       if (ev.grade === "F") {
-        out.push({ code, severity: "bad", rank: 0,
+        out.push({ label, severity: "bad", rank: 0,
                    detail: "failed — needs a supplementary attempt" });
       } else if (ev.grade === null && !ev.needPassBest.possible) {
         // Ahead of the attendance clause, and with no `assessed` gate, so this
@@ -136,7 +139,7 @@ export function Home() {
         // that simply has marks still to come. Telling a student their pass is
         // gone over an unwritten series exam is the worst false alarm this
         // screen could raise.
-        out.push({ code, severity: "bad", rank: 1,
+        out.push({ label, severity: "bad", rank: 1,
                    detail: "a pass is no longer reachable from the internals" });
       } else if (ev.grade === null && ev.cieIncomplete && ev.assessed) {
         // Attendance is not recorded, so the internal is short of its R 7.5.ii
@@ -148,7 +151,7 @@ export function Home() {
         // those instead. When both are missing the attendance field is still
         // the actionable half, but it is not the whole story and the detail
         // must not imply that filling it in settles the internal.
-        out.push({ code, severity: "warn", rank: 2,
+        out.push({ label, severity: "warn", rank: 2,
                    detail: ev.cieUnmarked
                      ? "attendance not recorded and a component still unmarked "
                        + "— its internal is incomplete, so no grade is being read off it"
@@ -160,18 +163,18 @@ export function Home() {
         // however many classes are left. Telling this student "N classes in a
         // row to be eligible" is not encouragement, it is a wrong instruction
         // they will follow. `Ledger.tsx` already draws this line; Home did not.
-        out.push({ code, severity: "bad", rank: 1,
+        out.push({ label, severity: "bad", rank: 1,
                    detail: `below the ${ATTENDANCE_CONDONE}% condonation floor `
                      + "— the exam cannot be sat this semester, and attending "
                      + "from here does not change that" });
       } else if (ev.eligible === false) {
         const plan = ev.plan;
-        out.push({ code, severity: "warn", rank: 2,
+        out.push({ label, severity: "warn", rank: 2,
                    detail: plan?.attend
                      ? `below ${ATTENDANCE_MIN}% — ${plan.attend} classes in a row to be eligible`
                      : `below ${ATTENDANCE_MIN}% — not eligible to sit the exam` });
       } else if (ev.grade === null && ev.assessed && !ev.needTargetBest.possible) {
-        out.push({ code, severity: "warn", rank: 3,
+        out.push({ label, severity: "warn", rank: 3,
                    detail: `target out of reach — best still open is ${ev.maxPossibleGrade}` });
       }
     }
@@ -227,6 +230,10 @@ export function Home() {
     return clauses.length > 0 ? `Assumes ${clauses.join(", and ")}.` : null;
   };
 
+  // The pointer-tracked light that plays across these tiles is wired once for
+  // the whole app - a single delegated `pointermove` in `App`'s `onMount` feeds
+  // every card-like surface, tiles included, so nothing is wired here.
+
   return (
     <div class="screen home">
       <div class="screen-head">
@@ -245,6 +252,10 @@ export function Home() {
           </span>
         </Show>
       </div>
+
+      <Show when={state.changes}>
+        {(c) => <ChangesPanel at={c().at} items={c().items} />}
+      </Show>
 
       <Show when={started()} fallback={<EmptyHome />}>
         <div class="bento">
@@ -408,7 +419,7 @@ export function Home() {
                     <>
                       Cheapest to win back:{" "}
                       <strong class="num">{c().attend}</strong> classes in a row in{" "}
-                      <strong>{c().code}</strong> buys{" "}
+                      <strong>{c().label}</strong> buys{" "}
                       <strong class="num">{c().marks}</strong> mark
                       {c().marks === 1 ? "" : "s"}.
                     </>
@@ -434,7 +445,7 @@ export function Home() {
                 <For each={concerns().slice(0, 5)}>{(c) => (
                   <li>
                     <span class={`dot ${c.severity}`} aria-hidden="true"></span>
-                    <b class="num">{c.code}</b>
+                    <b>{c.label}</b>
                     <span>{c.detail}</span>
                   </li>
                 )}</For>
@@ -448,7 +459,7 @@ export function Home() {
             </Show>
           </section>
 
-          <section class="tile">
+          <section class="tile now">
             <div class="tile-head">
               <h3>{state.activeSemester}</h3>
               <span class="tile-note num">
@@ -502,6 +513,64 @@ export function Home() {
         </div>
       </Show>
     </div>
+  );
+}
+
+/**
+ * What the last sync moved.
+ *
+ * A sync replaces the whole record silently; this is the one place that says
+ * what was new about it. Shown from the second sync on (a first has nothing to
+ * compare against), and dismissible - once a student has read that a grade
+ * posted, the news has been delivered and a permanent banner would just be
+ * clutter they learn to scroll past.
+ *
+ * An EMPTY batch is still shown, briefly stated: "synced, nothing moved" is a
+ * real answer to "did anything change", and the silence of no panel at all
+ * leaves the student wondering whether the sync even ran.
+ */
+const CHANGE_ORDER: Record<Change["kind"], number> = {
+  grade: 0, sgpa: 1, attendance: 2, series: 3,
+};
+const CHANGE_CAP = 8;
+
+function ChangesPanel(props: { at: string; items: Change[] }) {
+  const sorted = () => [...props.items].sort(
+    (a, b) => CHANGE_ORDER[a.kind] - CHANGE_ORDER[b.kind]);
+  const when = () => new Date(props.at).toLocaleDateString();
+
+  return (
+    <section class="changes" classList={{ quiet: props.items.length === 0 }}>
+      <div class="changes-head">
+        <h3>
+          <Show when={props.items.length > 0}
+                fallback={<>Synced {when()} — nothing had moved</>}>
+            What changed since your last sync
+          </Show>
+        </h3>
+        <button class="link" onClick={() => dismissChanges()}>Dismiss</button>
+      </div>
+      <Show when={props.items.length > 0}>
+        <ul class="change-list">
+          <For each={sorted().slice(0, CHANGE_CAP)}>{(c) => (
+            <li>
+              <span class={`chip ${c.kind}`}>{c.field}</span>
+              <b>{c.course}</b>
+              <span class="num">
+                <Show when={c.before !== null}
+                      fallback={<>posted <strong>{c.after}</strong></>}>
+                  {c.before} <span class="arrow" aria-label="changed to">-&gt;</span>{" "}
+                  <strong>{c.after}</strong>
+                </Show>
+              </span>
+            </li>
+          )}</For>
+        </ul>
+        <Show when={props.items.length > CHANGE_CAP}>
+          <p class="fineprint">and {props.items.length - CHANGE_CAP} more</p>
+        </Show>
+      </Show>
+    </section>
   );
 }
 

@@ -54,12 +54,18 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  margin-left: auto;
-  /* Cancels the header's own side padding so the buttons reach the window
-     edge. A gap between the close button and the corner is the tell that a
-     title bar is a web page pretending to be one, and it also breaks the
-     Fitts's-law corner: at the true edge the pointer cannot overshoot. */
-  margin-right: calc(var(--s5) * -1);
+  /* NO margin-left:auto here. `.kpis` already carries the single auto margin
+     that splits the header into a left group and a right group; a second one
+     here made flexbox share the free space between the two, so the KPIs floated
+     in mid-air with an uneven gap on each side that shifted from screen to
+     screen. The window controls sit at the far right by being last after the
+     KPIs' auto margin, not by fighting it for the gap. */
+  /* The buttons sit inside the header's own right padding rather than being
+     pulled to the true window edge. The edge-flush version (a negative margin
+     that cancelled the padding) won the Fitts's-law corner but read as
+     cramped - the close button hard against the frame - so the padding stays
+     and the close button gets the same breathing room as the wordmark on the
+     left. Deliberate over the theoretical corner target. */
   align-self: stretch;
 }
 .winbtn {
@@ -172,7 +178,14 @@
 
 /* --- ledger --------------------------------------------------------------- */
 
-.ledger { grid-area: ledger; overflow: auto; min-width: 0; }
+/* The table carried no gutter of its own, so its first column sat hard against
+   the window edge - left of the header, the goal bar and the notice that share
+   this screen, all of which inset by `--s5`. Switching to it from History or
+   Data, whose content is inset further still, the whole page appeared to jump
+   left. A horizontal gutter matching the chrome above it lines the mark sheet
+   up with its own screen without turning a dense instrument into a padded
+   reading column. Issue #3. */
+.ledger { grid-area: ledger; overflow: auto; min-width: 0; padding-inline: var(--s5); }
 
 table { border-collapse: collapse; width: 100%; }
 
@@ -272,6 +285,18 @@ select.cell-input { text-align: left; width: auto; }
 /* The asterisk that says the 40% ESE minimum is binding, not the aggregate. */
 .bound { color: var(--warn); font-weight: 600; }
 
+/* The component marks beneath the CIE total (see CieParts). A quiet second
+   line: faint and small so the total stays the headline it was, and nowrap
+   because the abbreviated labels are short enough not to need to wrap. */
+.cie-parts {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  letter-spacing: normal;
+  line-height: 1.3;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
 .del {
   background: none; border: 0; color: var(--text-faint);
   cursor: pointer; opacity: 0; padding: 0 var(--s1);
@@ -305,7 +330,13 @@ tr.row:hover .del { opacity: 1; }
   padding: var(--s4) var(--s5) var(--s5);
 }
 
-.panel { max-width: 38ch; }
+.panel {
+  max-width: 38ch;
+  /* Stacking context for the pointer-light `::before` (motion.css): the glow
+     sits at z-index -1, above the panel and below its fields. */
+  position: relative;
+  isolation: isolate;
+}
 
 .panel h4 {
   color: var(--text-faint);
@@ -482,6 +513,12 @@ tr.row:hover .del { opacity: 1; }
    NOT `.route` - screens.css already owns that name for the setup step's
    choice card, and reusing it dressed every route row in a bordered, hover-
    lit panel with an oversized <strong>. Caught by looking at a screenshot. */
+/* Stacking context for the pointer-light `::before` (motion.css): the analytics
+   panels catch the same cursor glow the tiles and cards do. */
+.route-panel {
+  position: relative;
+  isolation: isolate;
+}
 .route-panel + .route-panel {
   border-top: 1px solid var(--hairline);
   padding-top: var(--s5);

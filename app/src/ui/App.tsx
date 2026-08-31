@@ -1,4 +1,4 @@
-import { For, Show, createSignal, onMount } from "solid-js";
+import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
 import {
   activeCourses, addSemester, attendanceGaps, goalRequirement, hydrate, overall,
   selectSemester, semesterNames, setAttendanceTarget, setGoal, state, summary,
@@ -9,6 +9,7 @@ import { appearance, setTheme, startTheme, theme } from "../state/theme";
 import { Data } from "./Data";
 import { WindowChrome } from "./WindowChrome";
 import { Drawer } from "./Drawer";
+import { Attendance } from "./Attendance";
 import { History } from "./History";
 import { Home } from "./Home";
 import { Ledger } from "./Ledger";
@@ -383,6 +384,43 @@ export function App() {
   const [update, setUpdate] = createSignal<Available | null>(null);
   const [updateDismissed, setUpdateDismissed] = createSignal(false);
 
+  // Pointer-tracked light, wired once for the whole app.
+  //
+  // A single delegated `pointermove` on the document writes --mx/--my onto
+  // whichever card-like surface the cursor is inside, and every such surface's
+  // `::before` (motion.css) draws the glow from those two variables. One
+  // listener rather than one per screen: a card that appears anywhere - Home's
+  // tiles, the Data and Attendance cards, the ledger detail panels, the route
+  // analytics panels - is lit without its component knowing this exists.
+  //
+  // Its own `onMount`, kept synchronous, so `onCleanup` registers against the
+  // component's owner (the launch-check `onMount` below is async, and a cleanup
+  // queued after its first `await` would have no owner to attach to). Skipped
+  // wholesale under reduced motion - the CSS already drops the `::before`, and
+  // there is no reason to run the maths for a glow that will never paint.
+  onMount(() => {
+    if (typeof document === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // The app's whole card vocabulary. Mirrors the `::before` selector list in
+    // motion.css - the two must name the same surfaces or a card lights with no
+    // handler feeding it, or a handler writes variables nothing draws.
+    const SURFACES = ".tile, .card, .panel, .route-panel";
+
+    const spotlight = (e: PointerEvent) => {
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+      const surface = target.closest(SURFACES) as HTMLElement | null;
+      if (!surface) return;
+      const r = surface.getBoundingClientRect();
+      surface.style.setProperty("--mx", `${((e.clientX - r.left) / r.width) * 100}%`);
+      surface.style.setProperty("--my", `${((e.clientY - r.top) / r.height) * 100}%`);
+    };
+
+    document.addEventListener("pointermove", spotlight, { passive: true });
+    onCleanup(() => document.removeEventListener("pointermove", spotlight));
+  });
+
   onMount(async () => {
     const started = Date.now();
     // Before the check, not after: `runLaunchCheck` audits what the app is
@@ -449,11 +487,20 @@ export function App() {
     const dx = (target.left + target.width / 2) - (from.left + from.width / 2);
     const dy = (target.top + target.height / 2) - (from.top + from.height / 2);
 
+    // Translate and scale only - NO rotation. A full turn passes through 45,
+    // 135, 225 and 315 degrees, where an X reads as a plus, and the mark must
+    // not become a different symbol on its way anywhere - the same rule the
+    // breathe animation is built around (see motion.css). At 60fps a spin is a
+    // spin, but a real WebView dropping frames while the dashboard mounts shows
+    // it at two or three of those angles and then snaps, which reads as the
+    // animation breaking off rather than landing. A clean glide survives a
+    // slow frame: dropped frames just make it move in bigger steps along the
+    // same straight line, still unmistakably the X arriving.
     const flight = node.animate([
-      { transform: "translate(0px, 0px) scale(1) rotate(0deg)" },
-      { transform: `translate(${dx}px, ${dy}px) scale(${scale}) rotate(360deg)` },
+      { transform: "translate(0px, 0px) scale(1)" },
+      { transform: `translate(${dx}px, ${dy}px) scale(${scale})` },
     ], {
-      duration: 760,
+      duration: 720,
       // Slow to leave, quick to arrive: it should look like it lands rather
       // than like it drifts.
       easing: "cubic-bezier(0.7, 0, 0.15, 1)",
@@ -537,6 +584,7 @@ export function App() {
         </Show>
 
         <Show when={view() === "home"}><Home /></Show>
+        <Show when={view() === "attendance"}><Attendance /></Show>
         <Show when={view() === "history"}><History /></Show>
         <Show when={view() === "data"}><Data /></Show>
       </div>

@@ -76,6 +76,42 @@ button:active:not(:disabled) { transform: translateY(1px); }
    somewhere. A card that moves without being clickable is a lie. */
 .tile:has(button:hover) { border-color: var(--hairline-strong); }
 
+/* Pointer-tracked light. A soft brand-tinted glow follows the cursor across
+   whichever card-like surface it is over - the restrained answer to a parallax:
+   it responds to the hand rather than drifting on its own, so it reads as the
+   surface catching light under the pointer, not as decoration. A single global
+   listener (see `App`'s `onMount`) writes --mx/--my as percentages onto
+   whichever surface the pointer is inside; this draws them. z-index -1 keeps it
+   above the surface and below its content (each surface is a stacking context
+   via `isolation`). It fades in only while hovered, so a surface the pointer
+   never touches stays perfectly still.
+
+   The selector list is the app's card vocabulary: Home's `.tile`s, the `.card`s
+   on Data and Attendance, the ledger detail `.panel`s, and the `.route-panel`
+   analytics blocks. Any element carrying one of these classes must also be a
+   stacking context (`position: relative; isolation: isolate;`) for the -1 to
+   land correctly - the four are already set up that way in screens.css/app.css. */
+.tile::before,
+.card::before,
+.panel::before,
+.route-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 50%),
+    color-mix(in srgb, var(--brand) 12%, transparent), transparent 62%);
+  opacity: 0;
+  transition: opacity var(--med) var(--ease);
+  pointer-events: none;
+}
+.tile:hover::before,
+.card:hover::before,
+.panel:hover::before,
+.route-panel:hover::before { opacity: 1; }
+
 .row { transition: background var(--fast) var(--ease); }
 
 /* The expanding subject row unfolds rather than appearing. It is the one
@@ -186,6 +222,13 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .detail td > *,
   .gauge-arc { animation: none; }
   button:active:not(:disabled) { transform: none; }
+  /* The pointer-light is motion under the cursor; drop it entirely rather than
+     freeze it at a stale position. Every card surface it can land on, not just
+     the tiles. */
+  .tile::before,
+  .card::before,
+  .panel::before,
+  .route-panel::before { content: none; }
 }
 
 /* --- clicks that answer back ----------------------------------------------

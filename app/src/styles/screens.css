@@ -133,6 +133,19 @@ button.link.back { display: block; margin-bottom: var(--s4); }
 }
 .field-input:focus { border-color: var(--brand-deep); outline: none; }
 
+/* The opt-in "remember this login" row (issue #2). A horizontal label, unlike
+   the stacked field labels above it, because the control IS the statement here
+   rather than captioning a box beneath it. */
+.remember {
+  align-items: center;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  font-size: var(--text-sm);
+  gap: var(--s2);
+}
+.remember input { accent-color: var(--brand); cursor: pointer; }
+
 label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
 
 /* --- setup ----------------------------------------------------------------- */
@@ -372,6 +385,11 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
   padding: var(--s4);
+  /* Stacking context for the pointer-light `::before` (motion.css): `relative`
+     anchors it, `isolation` lets its z-index -1 sit above the card's surface
+     and below its content. Same setup the `.tile` carries. */
+  position: relative;
+  isolation: isolate;
 }
 .card h3 {
   font-size: var(--text-lg);
@@ -423,6 +441,18 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   margin: 0 0 var(--s3);
   text-transform: uppercase;
 }
+
+/* Where two sources disagreed on a semester's SGPA. The trusted figure stays
+   the headline; this states the losing one on its own line beneath, muted, so
+   the disagreement is visible without competing with the number in force. */
+.source-conflict {
+  color: var(--text-faint);
+  display: block;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  margin-top: var(--s2);
+}
+.source-conflict strong { color: var(--text-dim); font-weight: 600; }
 
 @media (max-width: 1100px) {
   .history-grid { grid-template-columns: 1fr; }
@@ -537,6 +567,11 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   flex-direction: column;
   gap: var(--s3);
   padding: var(--s5);
+  /* `isolation` makes the tile its own stacking context so the pointer-light
+     `::before` (motion.css) can sit at z-index -1: above the tile's surface,
+     below its content, clipped to the rounded corners. `relative` anchors it. */
+  position: relative;
+  isolation: isolate;
 }
 
 /* The two cards allowed to occupy two columns: standing is the question the
@@ -544,12 +579,21 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
    axis, so width is data to it rather than decoration. */
 .home .hero { grid-column: span 2; }
 .home .trend { grid-column: span 2; }
+/* The current-semester tile widens to two columns at the four-column size so
+   the second row fills: Standing(2)+Attendance(1)+Needs(1) across the top,
+   then this(2)+Trend(2) beneath, instead of leaving a dead cell bottom-right.
+   Narrower breakpoints below reset it to one column, where a full row does not
+   need it. */
+.home .now { grid-column: span 2; }
 
 /* Three columns. The hero keeps its width - it is the headline - and the trend
    gives its up, which is what collapses Home from three rows to two. */
 @media (max-width: 1367px) {
   .home .bento { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .home .trend { grid-column: span 1; }
+  /* Three columns already tile without a gap; the wide semester tile would put
+     the gap back, so it drops to one. */
+  .home .now { grid-column: span 1; }
 }
 
 /* Two columns: the hero takes the full row, and the trend takes it back,
@@ -626,12 +670,92 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   font-size: var(--text-sm);
   gap: var(--s3);
 }
-.concerns b { color: var(--text); font-weight: 600; min-width: 8ch; }
-.concerns span { color: var(--text-dim); line-height: 1.45; }
+/* `flex: none` is load-bearing: without it the `min-width` lets flexbox shrink
+   the name BELOW the width its own text needs, and a long unbreakable subject
+   ("MICROCONTROLLERS") then overflows its box and prints on top of the detail.
+   None means the name is always at least as wide as its content; `min-width`
+   still sets the floor that aligns short names. `overflow-wrap` lets a
+   pathologically long single word break rather than push past the tile edge. */
+.concerns b {
+  color: var(--text);
+  flex: none;
+  font-weight: 600;
+  min-width: 8ch;
+  overflow-wrap: anywhere;
+}
+.concerns span { color: var(--text-dim); line-height: 1.45; min-width: 0; }
 
 .dot { border-radius: 50%; flex: none; height: 0.45rem; width: 0.45rem; }
 .dot.bad { background: var(--danger); }
 .dot.warn { background: var(--warn); }
+
+/* "What changed since last sync" (issue: the new-features batch).
+
+   A banner, not a tile: it sits above the bento and answers a question the
+   grid does not - what is NEW - so it reads as an announcement across the top
+   rather than as one more equal pane. A left brand rule and a wash tie it to
+   the sync it reports without borrowing the warn/danger colours the tiles use
+   to mean risk; nothing changing is good news, not a caution. */
+.changes {
+  /* The brand wash is what sets this apart from the risk-coloured tiles below
+     - a distinct ground, not a coloured edge. An accent rule down one side is
+     the tell of a template, and the tint already does the separating. */
+  background: var(--brand-wash);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin-bottom: var(--s6);
+  padding: var(--s4) var(--s5);
+}
+/* An empty batch is a quiet aside, not an announcement - it only exists so a
+   student is not left wondering whether the sync ran, so it drops the tint. */
+.changes.quiet { background: none; }
+.changes-head {
+  align-items: baseline;
+  display: flex;
+  gap: var(--s4);
+  justify-content: space-between;
+}
+.changes-head h3 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  margin: 0;
+}
+.change-list { display: flex; flex-direction: column; gap: var(--s2); list-style: none; margin: 0; padding: 0; }
+.change-list li {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  gap: var(--s3);
+}
+.change-list b { color: var(--text); font-weight: 600; }
+.change-list .num { color: var(--text-dim); }
+.change-list strong { color: var(--text); font-weight: 600; }
+.change-list .arrow { color: var(--text-faint); }
+/* The field tag: which kind of fact moved, colour-keyed to its meaning. A
+   grade or an SGPA is a settled result (good); attendance and series marks are
+   progress in flight (neutral brand). Uppercase micro-label, same family as
+   the pills on the ledger. */
+.change-list .chip {
+  border-radius: var(--radius);
+  flex: none;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-wide);
+  min-width: 6.5ch;
+  padding: 0.1rem var(--s2);
+  text-align: center;
+}
+.change-list .chip.grade, .change-list .chip.sgpa {
+  background: var(--good-wash); color: var(--good);
+}
+.change-list .chip.attendance, .change-list .chip.series {
+  background: var(--brand-wash); color: var(--brand-bright);
+}
 
 .split { display: flex; gap: var(--s6); }
 .split > div { display: flex; flex-direction: column; gap: 0.1rem; }
@@ -776,3 +900,25 @@ a.link:hover { text-decoration-thickness: 2px; }
   padding: 2px var(--s2);
   user-select: all;
 }
+
+/* --- attendance: the miss budget, drawn ------------------------------------
+ *
+ * Reuses the Data screen's `.cards` grid and `.card` shell so the surface reads
+ * as the same app - the only new thing is the strip. Each pip is one class: a
+ * filled square the student can still skip, or one they owe back. The colour is
+ * a status colour on purpose (room is `--good`, a shortfall is `--warn`), which
+ * is the one family the tokens reserve for exactly this kind of standing.
+ */
+.att-pips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  margin: var(--s2) 0;
+}
+.att-pip {
+  block-size: 0.85rem;
+  border-radius: 2px;
+  inline-size: 0.85rem;
+}
+.att-pip.miss { background: var(--good); }
+.att-pip.recover { background: var(--warn); }

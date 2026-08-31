@@ -32,7 +32,7 @@ beforeEach(() => {
   edit((d) => {
     d.semesters = { S5: { courses: [] } };
     d.activeSemester = "S5";
-    d.history = { S4: { sgpa: 8.1, creditsRegistered: 22, creditsEarned: 22 } };
+    d.history = { S4: { sgpa: 8.1, creditsRegistered: 22, creditsEarned: 22, source: "gradecard", conflict: null } };
   });
   addCourse();
   updateCourse(0, COURSE);

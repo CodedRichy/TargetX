@@ -54,7 +54,7 @@ describe("the standing figure", () => {
   it("is the real CGPA once a semester is on record", () => {
     withAttendance(90);
     edit((s) => {
-      s.history["S3"] = { sgpa: 7.83, creditsRegistered: 22, creditsEarned: 22 };
+      s.history["S3"] = { sgpa: 7.83, creditsRegistered: 22, creditsEarned: 22, source: "gradecard", conflict: null };
     });
     render(() => <Home />);
     expect(screen.getByText("7.83")).toBeTruthy();
@@ -67,7 +67,7 @@ describe("a target with nothing to solve against", () => {
     // Zero registered credits now, so there is nothing to solve the target
     // against - which is missing data, not an unreachable goal.
     edit((s) => {
-      s.history["S3"] = { sgpa: 7.83, creditsRegistered: 22, creditsEarned: 22 };
+      s.history["S3"] = { sgpa: 7.83, creditsRegistered: 22, creditsEarned: 22, source: "gradecard", conflict: null };
     });
     setGoal(8);
     render(() => <Home />);

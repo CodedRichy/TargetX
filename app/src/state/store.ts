@@ -7,7 +7,7 @@ import {
   normaliseTargets, planForSgpa, reconcileSgpaTarget, requiredSgpaForCgpa,
   sgpaTargetFor, statusFor, summarise, toFloat, toOptionalFloat,
 } from "../engine";
-import type { Course, MarkInput, SemesterHistory, Targets } from "../engine";
+import type { Course, HistorySource, MarkInput, SemesterHistory, Targets } from "../engine";
 import type { AppState, Semester } from "../engine/course";
 
 const KEY = "targetx.state.v1";
@@ -35,12 +35,30 @@ export function migrateHistory(raw: unknown): Record<string, SemesterHistory> {
   for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
     if (!value || typeof value !== "object") continue;
     const entry = value as { sgpa?: MarkInput; credits?: MarkInput;
-                             creditsRegistered?: MarkInput; creditsEarned?: MarkInput };
+                             creditsRegistered?: MarkInput; creditsEarned?: MarkInput;
+                             source?: unknown; conflict?: unknown };
+    // A save written before provenance was tracked has no `source`; its origin
+    // cannot be recovered, so it is tagged `unknown` - trusted over a fresh
+    // scrape but below a grade card. A new save round-trips its own source, so
+    // the migration is idempotent. Any stored conflict is a plain {source,sgpa}
+    // and rides along untouched when present.
+    const source: HistorySource =
+      entry.source === "gradecard" || entry.source === "manual" || entry.source === "etlab"
+        ? entry.source : "unknown";
+    const rawConflict = entry.conflict as { source?: unknown; sgpa?: unknown } | null | undefined;
+    const conflict =
+      rawConflict && typeof rawConflict === "object" &&
+      (rawConflict.source === "gradecard" || rawConflict.source === "manual" ||
+       rawConflict.source === "unknown" || rawConflict.source === "etlab")
+        ? { source: rawConflict.source as HistorySource, sgpa: toFloat(rawConflict.sgpa as MarkInput, 0) }
+        : null;
     out[name] = {
       sgpa: toFloat(entry.sgpa, 0),
       creditsRegistered: toOptionalFloat(entry.creditsRegistered),
       creditsEarned: toOptionalFloat(
         entry.creditsEarned !== undefined ? entry.creditsEarned : entry.credits),
+      source,
+      conflict,
     };
   }
   return out;
@@ -368,11 +386,32 @@ export function setDefaultSgpaTarget(sgpaDefault: number | null) {
  */
 export function setHistory(name: string, sgpa: number, creditsRegistered: number | null) {
   edit((s) => {
+    // The History screen is where the student supplies the one figure no source
+    // publishes - the registered-credits denominator - and corrects an SGPA by
+    // hand. It is an EDIT of the existing record, not a rival source: it keeps
+    // whatever source the figure already had (a card stays a card) and only
+    // tags `manual` when there was nothing there to edit. Folding it through
+    // `mergeHistory` instead would let a stored grade card discard the credits
+    // the student just typed, which is the opposite of the screen's job.
+    const prev = s.history[name];
     s.history[name] = {
       sgpa, creditsRegistered,
-      creditsEarned: s.history[name]?.creditsEarned ?? null,
+      creditsEarned: prev?.creditsEarned ?? null,
+      source: prev?.source ?? "manual",
+      conflict: prev?.conflict ?? null,
     };
   });
+}
+
+/**
+ * Clear the "what changed since last sync" batch once the student has read it.
+ *
+ * Dismissing drops the whole record, not one line: the panel answers a single
+ * question - "what moved in the last sync" - and a half-dismissed answer to it
+ * is worse than none. The next sync writes a fresh batch regardless.
+ */
+export function dismissChanges() {
+  edit((s) => { s.changes = undefined; });
 }
 
 // --- derived ---------------------------------------------------------------

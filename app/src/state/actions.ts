@@ -1,9 +1,10 @@
 import { unwrap } from "solid-js/store";
 import {
   CATALOGUE_URL, blankCourse, catalogueVersion, courseFromCode, defaultState,
-  defaultTargets, normaliseTargets, parseEtlab, requiredEseCell, setCatalogue,
+  defaultTargets, diffSync, mergeHistory, mergeHistoryInto, normaliseTargets,
+  parseEtlab, requiredEseCell, setCatalogue,
 } from "../engine";
-import type { Course, PresetCourse, RequiredEse } from "../engine";
+import type { ChangeSide, Course, PresetCourse, RequiredEse } from "../engine";
 import type { SyncResult } from "../sync/etlab";
 import type { GradeCard } from "../sync/gradecard";
 import { edit, migrateHistory, state } from "./store";
@@ -29,6 +30,17 @@ import { edit, migrateHistory, state } from "./store";
  * because the portal publishes neither.
  */
 export function applySync(result: SyncResult) {
+  // Snapshot the record as it stands BEFORE the sync overwrites it, so the diff
+  // has a fixed "before" to read. `unwrap` gives the plain values behind the
+  // store proxy; a structured clone detaches them from the store so the edit
+  // below cannot mutate the very thing being compared against. `hadSync` gates
+  // the whole feature: the first sync has nothing to diff, and a null lastSync
+  // is how that is known.
+  const hadSync = Boolean(state.lastSync);
+  const before: ChangeSide = {
+    semesters: structuredClone(unwrap(state.semesters)),
+    history: structuredClone(unwrap(state.history)),
+  };
   edit((s) => {
     for (const [name, incoming] of Object.entries(result.semesters)) {
       const existing = s.semesters[name]?.courses ?? [];
@@ -51,10 +63,33 @@ export function applySync(result: SyncResult) {
         creditCheck: incoming.creditCheck,
       };
     }
-    // Published SGPA is the university's number and outranks anything derived.
-    Object.assign(s.history, result.history);
+    // A portal scrape folded through precedence, not assigned over the top:
+    // `Object.assign` here used to let an etlab re-sync silently overwrite a
+    // grade-card SGPA, which is exactly the bug #5 reported. `mergeHistoryInto`
+    // keeps the higher-trust source and records the scrape as a conflict when
+    // it disagrees. `result.history` is already tagged `source: "etlab"`.
+    s.history = mergeHistoryInto(s.history, result.history);
     if (result.current) s.activeSemester = result.current;
     s.lastSync = new Date().toISOString();
+
+    // Bonus schedule pages. Stored only when this sync actually read them: a
+    // null means the page 404'd or did not parse, and overwriting a good grid
+    // with that would throw away the last-known-good over a portal hiccup. So a
+    // failed schedule fetch leaves whatever was there, exactly like the record.
+    if (result.daywiseAttendance) s.daywiseAttendance = result.daywiseAttendance;
+    if (result.timetable) s.timetable = result.timetable;
+
+    // The diff runs against the freshly-merged state, not against `result`:
+    // history precedence may have rejected an incoming SGPA, and only what
+    // actually landed in the record counts as a change the student sees. From
+    // the second sync on - a first one has no `before` worth reporting.
+    if (hadSync) {
+      // `s` is the produce draft, already carrying the merged result. diffSync
+      // only ever reads it, and builds its output from plain strings, so no
+      // draft reference escapes into what is assigned back.
+      const after: ChangeSide = { semesters: s.semesters, history: s.history };
+      s.changes = { at: s.lastSync, items: diffSync(before, after) };
+    }
   });
 }
 
@@ -209,7 +244,12 @@ export function applyGradeCard(card: GradeCard): CardOutcome {
       s.semesters[name] = { ...s.semesters[name], courses: merged };
       courses += entry.courses.length;
       if (entry.sgpaPrinted !== undefined) {
-        s.history[name] = {
+        // The grade card is the university's own document and the top of the
+        // precedence order: folded through `mergeHistory` it overwrites a
+        // portal scrape for the same semester and records the scrape's figure
+        // as a conflict when the two disagree - the whole point of #5. A card
+        // re-imported over a card just refreshes.
+        s.history[name] = mergeHistory(s.history[name], {
           sgpa: entry.sgpaPrinted,
           // `entry.credits` is the registered total - the one KTU weights the
           // CGPA by. The card lists every course the student registered for,
@@ -220,7 +260,9 @@ export function applyGradeCard(card: GradeCard): CardOutcome {
           // total rides along for display.
           creditsRegistered: entry.credits,
           creditsEarned: entry.creditsEarned,
-        };
+          source: "gradecard",
+          conflict: null,
+        });
       }
       if (entry.mismatch) mismatched.push(name);
     }
@@ -381,5 +423,6 @@ export function resetEverything() {
     s.goal = defaultTargets();
     s.onboarded = false;
     s.lastSync = undefined;
+    s.changes = undefined;
   });
 }

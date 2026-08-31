@@ -1,7 +1,7 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import {
   ATTENDANCE_CONDONE, ATTENDANCE_MIN, COURSE_TYPES, TARGET_CHOICES, TYPE_KEYS,
-  isIncomplete, requiredEseCell,
+  isIncomplete, requiredEseCell, toOptionalFloat,
 } from "../engine";
 import type {
   AttendanceTargetGap, Course, Evaluation, Letter, RequiredEse, TypeKey,
@@ -392,6 +392,52 @@ function Detail(props: {
   );
 }
 
+/**
+ * The internal's component marks - Series 1, Series 2, assignment - shown
+ * inline under the CIE total. The single CIE number hides its own shape: a low
+ * total might be one weak series or a mark not yet entered, and the student
+ * would have to open the row to tell which. This puts the pieces on the row
+ * itself. Labels are abbreviated ("S1", "S2", "A") to fit the narrow numeric
+ * column; the `title` restores the full names and maxes on hover. Shown only
+ * when the type actually has components and there is real data to show, so a
+ * fresh unmarked row is not littered with a line of dashes.
+ *
+ * Labs are excluded. The 2024 scheme models a lab's CIE as Cont/Test/Record
+ * internally so the total has a shape to compute against, but the college does
+ * not publish a lab's internal as discrete series marks the way a theory paper
+ * does - etlab carries a single continuous-evaluation figure. Breaking a lab's
+ * CIE into a per-component line would be inventing a structure the student is
+ * never shown, so the breakdown is theory/project only and a lab keeps just its
+ * CIE total.
+ */
+function CieParts(props: { course: Course; ev: Evaluation }) {
+  const showsComponents = () => !(props.course.type ?? "").startsWith("LAB");
+  const parts = () =>
+    COURSE_TYPES[(props.course.type ?? "TH 40/60") as TypeKey].components.map((c) => {
+      const raw = toOptionalFloat(props.course[c.key]);
+      const short = c.header.startsWith("Series")
+        ? `S${c.header.replace(/\D/g, "")}`
+        : c.header.charAt(0).toUpperCase();
+      return { short, header: c.header, rawMax: c.rawMax,
+               mark: raw === null ? dash : String(Math.round(raw)) };
+    });
+  const anyMarked = () => parts().some((p) => p.mark !== dash);
+
+  return (
+    <Show when={showsComponents() && parts().length > 0 && (anyMarked() || props.ev.assessed)}>
+      <div class="cie-parts"
+           title={parts().map((p) => `${p.header} ${p.mark}/${p.rawMax}`).join(" · ")}>
+        <For each={parts()}>{(p, i) => (
+          <>
+            <Show when={i() > 0}>{" · "}</Show>
+            {p.short}{" "}<span class="num">{p.mark}</span>
+          </>
+        )}</For>
+      </div>
+    </Show>
+  );
+}
+
 export function Ledger() {
   const [open, setOpen] = createSignal<number | null>(null);
   const toggle = (i: number) => setOpen(open() === i ? null : i);
@@ -490,6 +536,7 @@ export function Ledger() {
                       {show(row.ev.cie, 1)}
                       <span style={{ color: "var(--text-faint)" }}>/{row.ev.cieMax}</span>
                     </Show>
+                    <CieParts course={row.course} ev={row.ev} />
                   </td>
                   <td class="left">
                     <AttendanceBar pct={row.ev.attendance} />{" "}
@@ -547,7 +594,7 @@ export function Ledger() {
                         without this a screen reader reads a row of buttons all
                         called "×". `title` does not win over text content. */}
                     <button class="del" title="Remove this subject"
-                            aria-label={`Remove ${row.course.code || "this subject"}`}
+                            aria-label={`Remove ${row.course.name || row.course.code || "this subject"}`}
                             onClick={() => removeCourse(row.index)}>&times;</button>
                   </td>
                 </tr>

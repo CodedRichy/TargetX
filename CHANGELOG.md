@@ -12,14 +12,11 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Planned
 
-- **Your KTU results and your college portal, told apart.** Right now a figure
-  that came from your KTU grade card and one scraped from your college portal
-  land in the same record and look identical afterwards. They are not the
-  same: the grade card is the university's own document and outranks anything
-  the portal says, and a disagreement between them is worth seeing rather than
-  silently resolving. Each source will keep its own view, switched between
-  like accounts rather than shown side by side, so it is always clear which
-  one you are reading.
+- **Each source on its own view.** Your KTU grade card and your college portal
+  are now told apart, and a disagreement between them is shown rather than
+  silently resolved (see 0.2.0). The step left is to let you switch between the
+  two like accounts, so you can read the whole record from one source's point
+  of view rather than one figure at a time.
 
 - **A KTU import you can find.** Bringing in a grade card already works and
   already reads the PDF directly - it is buried on the Data screen, where a
@@ -51,13 +48,65 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   regulations. Enough of them and this stops being a maybe.
 
 
-- **Signing in to KTU from inside the app.** Not planned, and worth saying
-  why: the KTU portal is behind a captcha and a one-time password. Those exist
-  to stop software logging in, and a tool that defeats them would be teaching
-  every student who installed it to hand its credentials to something that
-  bypasses the university's own access control. The grade card you download
-  yourself carries exactly the same information, and TargetX will keep reading
-  it. If KTU ever publishes an API for students, this changes.
+- **Signing in to KTU for a marks cross-check.** The public KTU site is behind
+  a captcha, and defeating that to log in is off the table for good - a tool
+  that does it teaches every student to hand credentials to something that
+  bypasses the university's own gate. But the student results portal is a
+  different door: a plain sign-in, no captcha and no one-time password, the
+  same shape as the college portal TargetX already reads. That reopens one
+  narrow thing worth doing. Your college portal's marks can be wrong; your KTU
+  grade card is the university's own record. Reading the card lets TargetX
+  check the two against each other and, where they disagree, trust KTU over the
+  portal every time - attendance still comes from the college, because KTU does
+  not publish it. Only if it can be done without weakening the promise that
+  your credentials never leave your machine.
+
+## [0.2.0] - 2026-08-31
+
+### Added
+
+- **What changed since your last sync.** A sync used to replace your whole
+  record in silence — you saw today's numbers with no way to tell which of them
+  was new. Now the second sync onward opens with a short list of what actually
+  moved: a series mark posted, an attendance figure that shifted, a grade
+  published, a semester's SGPA finalised. Nothing else — the derived figures
+  that move as a result are not repeated back at you. Read it and dismiss it;
+  the next sync writes a fresh one. A sync that moved nothing says so, so you
+  are never left wondering whether it ran.
+
+- **Attendance, as how many classes you can still miss.** A screen per subject
+  that answers the question a percentage does not: how many more classes you
+  can skip before you drop below the line, and how many in a row it takes to
+  climb back. The marks attendance is quietly costing under R 7.5.ii — worth up
+  to five of your internal, and needing 85%, not the 75% you are told about —
+  are counted here rather than left invisible.
+
+- **Remember your portal login, if you ask.** Off by default, and desktop only.
+  Tick the box and your college portal password is kept in Windows Credential
+  Manager — encrypted for your account by Windows itself, never in TargetX's
+  backup, never in a log, never off your machine. Untick it, or sign out, to
+  forget it. If you do not tick it, nothing changes: the password is used for
+  the one sign-in and dropped.
+
+### Changed
+
+- **Your KTU results and your college portal, told apart.** A figure from your
+  KTU grade card and one scraped from your college portal used to land in the
+  same record and look identical. They are not the same — the grade card is the
+  university's own document and now outranks the portal — and where the two
+  name a different SGPA for a semester, the disagreement is shown on the
+  History screen instead of one figure quietly overwriting the other. Your
+  marks can cross-check themselves.
+
+- **Subjects go by their name.** Where TargetX had room to name a subject it
+  now shows the name — "Computer Networks", not "PCCST501" — so a sentence
+  about how many classes buys a mark points at a subject you recognise. The
+  code stays where you edit it, in the semester table.
+
+- **A steadier window and a cleaner semester screen.** The title bar TargetX
+  draws for itself — this build has no operating-system title bar — sits
+  properly against the window edge, and the semester screen has had its spacing
+  and alignment reworked.
 
 ## [0.1.0] - 2026-08-30
 

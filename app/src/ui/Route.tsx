@@ -54,7 +54,7 @@ export function RoutePanel(props: RouteProps) {
   };
 
   /** Rows whose quoted mark buys its quoted grade only at the CIE ceiling. */
-  const boundRows = () => rows().filter((r) => bound().includes(r.code));
+  const boundRows = () => rows().filter((r) => bound().includes(r.label));
 
   return (
     <div class="chart-block route-panel">
@@ -76,7 +76,7 @@ export function RoutePanel(props: RouteProps) {
         <dl style={{ margin: 0 }}>
           <For each={rows()}>{(row) => (
             <div class="field">
-              <span class="num">{row.code}</span>
+              <span class="num">{row.label}</span>
               <span>
                 <strong style={{ color: "var(--brand-bright)" }}>{row.grade}</strong>
                 <Show when={!row.locked}>
@@ -99,7 +99,7 @@ export function RoutePanel(props: RouteProps) {
                     binds at both ends of the internal, a rising CIE buys the
                     requirement down by nothing and the mark is exact - so the
                     warning colour belongs on this one. */}
-                <Show when={bound().includes(row.code)}>
+                <Show when={bound().includes(row.label)}>
                   <span style={{ color: "var(--warn)" }}>
                     {" "}· {row.secured} on today's internal
                   </span>
@@ -163,7 +163,7 @@ export function RoutePanel(props: RouteProps) {
           <For each={boundRows()}>{(row, i) => (
             <>
               <Show when={i() > 0}>, </Show>
-              <span class="num">{row.code}</span> (quoted for {row.grade}, secures{" "}
+              <span class="num">{row.label}</span> (quoted for {row.grade}, secures{" "}
               {row.secured} on today's internal)
             </>
           )}</For>

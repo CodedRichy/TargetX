@@ -3,9 +3,21 @@ import {
   driftsFrom, evaluate, isGraded, sgpa as computeSgpa, unconfirmedNames,
   GRADE_POINTS,
 } from "../engine";
-import type { SemesterHistory } from "../engine";
+import type { HistorySource, SemesterHistory } from "../engine";
 import { overall, setHistory, state, edit, trend } from "../state/store";
 import { TrendChart } from "./charts";
+
+/**
+ * How a source names itself to the student. The grade card is "KTU" because
+ * that is the word a student uses for the university's own record; the college
+ * portal is "portal" for the same reason. See `HistorySource`.
+ */
+const SOURCE_LABEL: Record<HistorySource, string> = {
+  gradecard: "KTU grade card",
+  manual: "your entry",
+  unknown: "an earlier sync",
+  etlab: "the college portal",
+};
 
 /**
  * Past semesters.
@@ -286,6 +298,20 @@ function HistoryRow(props: { row: Row }) {
           }>
             <span class="pill safe">reconciles</span>
           </Show>
+        </Show>
+        {/* Two sources named a different SGPA for this semester. The trusted
+            one is what the row shows; the disagreement is stated rather than
+            dropped, so a student can see the portal was wrong instead of
+            wondering why the number moved. #5. */}
+        <Show when={props.row.published?.conflict}>
+          {(c) => (
+            <span class="source-conflict">
+              {SOURCE_LABEL[props.row.published!.source]}{" "}
+              <strong class="num">{props.row.published!.sgpa.toFixed(2)}</strong>
+              {" · "}{SOURCE_LABEL[c().source]} said{" "}
+              <span class="num">{c().sgpa.toFixed(2)}</span>
+            </span>
+          )}
         </Show>
       </td>
     </tr>

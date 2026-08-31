@@ -57,10 +57,10 @@ describe("applying a grade card", () => {
     applyGradeCard(parseGradeCard(CARD));
 
     expect(state.history["S1"]).toEqual(
-      { sgpa: 9.05, creditsRegistered: 20, creditsEarned: 20 });
+      { sgpa: 9.05, creditsRegistered: 20, creditsEarned: 20, source: "gradecard", conflict: null });
     // The F costs 4 earned credits; it costs nothing in the denominator.
     expect(state.history["S3"]).toEqual(
-      { sgpa: 5.05, creditsRegistered: 20, creditsEarned: 16 });
+      { sgpa: 5.05, creditsRegistered: 20, creditsEarned: 16, source: "gradecard", conflict: null });
   });
 
   it("divides the CGPA by registered credits, not earned ones", () => {
@@ -81,7 +81,7 @@ describe("saves written before the two totals were told apart", () => {
     const migrated = migrateHistory({ S3: { sgpa: 5.05, credits: 16 } });
 
     expect(migrated["S3"]).toEqual(
-      { sgpa: 5.05, creditsRegistered: null, creditsEarned: 16 });
+      { sgpa: 5.05, creditsRegistered: null, creditsEarned: 16, source: "unknown", conflict: null });
     // Reinterpreting 16 as registered would move a real student's CGPA with
     // nothing on screen to explain it, so the old weighting stands and the
     // semester is named instead.
@@ -100,7 +100,7 @@ describe("saves written before the two totals were told apart", () => {
     // Clearing the box gives up the registered total but not the earned one
     // the card published, so the CGPA still has something to weigh by.
     expect(state.history["S3"]).toEqual(
-      { sgpa: 5.05, creditsRegistered: null, creditsEarned: 16 });
+      { sgpa: 5.05, creditsRegistered: null, creditsEarned: 16, source: "gradecard", conflict: null });
     expect(cgpa().unconfirmed).toEqual([{ name: "S3", basis: "earned" }]);
     expect(cgpa().credits).toBe(36);
   });

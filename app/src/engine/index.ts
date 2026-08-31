@@ -10,3 +10,5 @@ export * from "./targets";
 export * from "./catalogue";
 export * from "./parse";
 export * from "./course";
+export * from "./history";
+export * from "./changes";

@@ -124,7 +124,7 @@ describe("every control in a row is named", () => {
     const c = seed(SHORT);
     const del = c.querySelector("button.del")!;
     expect(del.textContent).toBe("\u00d7");
-    expect(del.getAttribute("aria-label")).toBe("Remove CST303");
+    expect(del.getAttribute("aria-label")).toBe("Remove Compiler Design");
   });
 
   it("leaves no input or select in the expanded row without a name", () => {

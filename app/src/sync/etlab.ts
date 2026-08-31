@@ -15,7 +15,8 @@ import {
   COURSE_TYPES, blankCourse, inferCredits, isIncomplete, lookupCourse,
   normaliseGrade, toFloat, verifyCredits,
 } from "../engine";
-import type { Course, SemesterHistory, TypeKey } from "../engine";
+import type { Course, DaywiseAttendance, SemesterHistory, Timetable, TypeKey } from "../engine";
+import { parseDaywiseAttendance, parseTimetable } from "./etlab-schedule";
 
 export class EtlabError extends Error {
   /**
@@ -41,6 +42,8 @@ export const canSync = (): boolean =>
 const LOGIN_PATHS = ["/user/login", "/site/login", "/index.php/user/login", "/login", "/"];
 const ACADEMICS_PATHS = ["/ktuacademics/student/studentacademics", "/student/results"];
 const SUBJECT_PATHS = ["/student/subject"];
+const ATTENDANCE_PATHS = ["/student/attendance"];
+const TIMETABLE_PATHS = ["/student/timetable"];
 
 /** A page still calling itself a login page has not authenticated anyone. */
 export const LOGIN_TITLE_RE = /\b(log\s?in|sign\s?in|logon)\b/i;
@@ -558,6 +561,8 @@ export async function discoverLinks(): Promise<Record<string, string>> {
     const lowered = href.toLowerCase();
     if (lowered.includes("academic")) found["academics"] ??= href;
     else if (lowered.endsWith("/student/subject")) found["subjects"] ??= href;
+    else if (lowered.endsWith("/student/attendance")) found["attendance"] ??= href;
+    else if (lowered.endsWith("/student/timetable")) found["timetable"] ??= href;
     else if (lowered.includes("result")) found["results"] ??= href;
   }
   return found;
@@ -616,6 +621,42 @@ export async function fetchSubjectTypes(): Promise<Record<string, TypeKey>> {
   return {};
 }
 
+/**
+ * The day-wise attendance grid, or null.
+ *
+ * A bonus page. Every failure is swallowed and returns null: a 404, a parse
+ * that finds no days, or a transport error must not surface as a sync failure,
+ * because the academic record has already synced by the time this runs.
+ */
+export async function fetchDaywiseAttendance(): Promise<DaywiseAttendance | null> {
+  const links = await discoverLinks().catch(() => ({} as Record<string, string>));
+  const paths = [...(links["attendance"] ? [links["attendance"]] : []), ...ATTENDANCE_PATHS];
+  for (const path of paths) {
+    try {
+      const response = await get(path);
+      if (response.status >= 400) continue;
+      const parsed = parseDaywiseAttendance(response.body);
+      if (parsed.length) return parsed;
+    } catch { /* bonus page; never fatal to a sync */ }
+  }
+  return null;
+}
+
+/** The weekly timetable, or null. Bonus page, same non-fatal rule as above. */
+export async function fetchTimetable(): Promise<Timetable | null> {
+  const links = await discoverLinks().catch(() => ({} as Record<string, string>));
+  const paths = [...(links["timetable"] ? [links["timetable"]] : []), ...TIMETABLE_PATHS];
+  for (const path of paths) {
+    try {
+      const response = await get(path);
+      if (response.status >= 400) continue;
+      const parsed = parseTimetable(response.body);
+      if (parsed.grid.length) return parsed;
+    } catch { /* bonus page; never fatal to a sync */ }
+  }
+  return null;
+}
+
 // --- mapping onto app state -------------------------------------------------
 
 const inferType = (code: string): TypeKey => {
@@ -659,6 +700,15 @@ export interface SyncResult {
    * student checking three subjects and a student trusting seven.
    */
   inferredTypes: string[];
+  /**
+   * The two bonus schedule pages, when they could be read.
+   *
+   * Optional and independently nullable: the academic record above is the sync,
+   * and these ride along. `fullSync` sets each to what it parsed or to null on
+   * any failure, so a 404 or an unreadable page here never touches the record.
+   */
+  daywiseAttendance?: DaywiseAttendance | null;
+  timetable?: Timetable | null;
 }
 
 /**
@@ -759,6 +809,11 @@ export function academicsToState(
           : null,
         // A missing published total is unknown, not zero.
         creditsEarned: entry.earnedCredits ?? null,
+        // A college-portal scrape - the lowest-trust source, and the one the
+        // student who filed #5 said was wrong. It never overwrites a grade
+        // card; see `mergeHistory`.
+        source: "etlab",
+        conflict: null,
       };
     }
   }
@@ -776,5 +831,16 @@ export async function fullSync(
   await login(base, username, password);
   const academics = await fetchAcademics();
   const types = await fetchSubjectTypes();
-  return academicsToState(academics, types);
+  const result = academicsToState(academics, types);
+
+  // The two schedule pages are a bonus and must never sink the sync. Each
+  // fetcher already swallows its own failures and returns null; the extra
+  // try/catch is belt-and-braces against anything they let through, so the
+  // academic record above stands whatever these do.
+  try { result.daywiseAttendance = await fetchDaywiseAttendance(); }
+  catch { result.daywiseAttendance = null; }
+  try { result.timetable = await fetchTimetable(); }
+  catch { result.timetable = null; }
+
+  return result;
 }

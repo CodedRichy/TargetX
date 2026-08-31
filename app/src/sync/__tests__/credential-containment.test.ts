@@ -104,6 +104,44 @@ describe("a password that has been through a whole sync", () => {
   });
 });
 
+describe("a password the student chose to remember", () => {
+  // Issue #2 adds an opt-in credential store. It moves the password to exactly
+  // one new resting place - the OS vault, reached through `cred_save` - which
+  // is the credential-store equivalent of the login POST: the single sanctioned
+  // exception. Everywhere the login POST is forbidden, the vault path must be
+  // too. This extends the containment guarantee to cover it rather than
+  // relaxing it.
+  it("reaches the vault, and no forbidden place", async () => {
+    const { saveCreds } = await import("../../state/creds");
+    const { fullSync } = await import("../etlab");
+    const { applySync, exportJson } = await import("../../state/actions");
+    const { state } = await import("../../state/store");
+
+    applySync(await fullSync("https://p.edu", "24CS999", SENTINEL));
+    await saveCreds("https://p.edu", "24CS999", SENTINEL);
+
+    // It did land in the vault write - that is the whole point of the feature.
+    const saves = calls.filter((c) => c.command === "cred_save");
+    expect(saves).toHaveLength(1);
+    expect(JSON.stringify(saves[0]!.args)).toContain(SENTINEL);
+
+    // And in none of the places the sync itself is forbidden to leave it.
+    expect(JSON.stringify(state)).not.toContain(SENTINEL);
+    expect(exportJson()).not.toContain(SENTINEL);
+    expect(JSON.stringify(localStorage)).not.toContain(SENTINEL);
+  });
+
+  it("is never written to the vault as a side effect of syncing", async () => {
+    // The store is opt-in. A plain sync must not call `cred_save` at all - the
+    // password reaches the vault only when the student ticks the box, never
+    // because they synced.
+    const { fullSync } = await import("../etlab");
+    const { applySync } = await import("../../state/actions");
+    applySync(await fullSync("https://p.edu", "24CS999", SENTINEL));
+    expect(calls.filter((c) => c.command === "cred_save")).toHaveLength(0);
+  });
+});
+
 describe("a password that has been through a FAILED sync", () => {
   it("is not quoted back in the error the student is shown", async () => {
     // The failure path is where credentials leak: a message built by
