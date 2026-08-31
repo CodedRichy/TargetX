@@ -2,9 +2,10 @@ import {
   ATTENDANCE_CONDONE, GRADE_BANDS, GRADE_POINTS, TOTAL_PASS_MARK,
 } from "./constants";
 import { specFor } from "./cie";
+import { courseLabel } from "./course";
 import { evaluate, isDebarred } from "./evaluate";
 import { isIncomplete, requiredEse } from "./grade";
-import type { Course, Evaluation, Grade, SemesterHistory } from "./types";
+import type { Course, Evaluation, Grade, HistoryFigure, SemesterHistory } from "./types";
 import { round, toFloat } from "./util";
 
 /**
@@ -24,7 +25,7 @@ import { round, toFloat } from "./util";
  * missing data this engine exists to refuse. It is reported instead, with
  * basis `none`, and every surface that prints the CGPA has to say so.
  */
-export function historyCredits(entry: SemesterHistory): number {
+export function historyCredits(entry: HistoryFigure): number {
   return entry.creditsRegistered ?? entry.creditsEarned ?? 0;
 }
 
@@ -59,7 +60,7 @@ export interface UnconfirmedSemester {
  * than deciding it a second way alongside it.
  */
 export function unconfirmedSemesters(
-  history: Record<string, SemesterHistory>,
+  history: Record<string, HistoryFigure>,
 ): UnconfirmedSemester[] {
   return Object.entries(history)
     .filter(([, v]) => v.creditsRegistered == null)
@@ -115,7 +116,7 @@ const DEFAULT_SEMESTER_CREDITS = 20;
  */
 export function horizonToGraduation(
   activeSemester: string,
-  history: Record<string, SemesterHistory>,
+  history: Record<string, HistoryFigure>,
   semesterCredits: number,
 ): GoalHorizon {
   const match = /^S(\d+)$/i.exec(activeSemester.trim());
@@ -179,7 +180,7 @@ export interface RequiredSgpa {
  */
 export function requiredSgpaForCgpa(
   targetCgpa: number,
-  history: Record<string, SemesterHistory>,
+  history: Record<string, HistoryFigure>,
   semesterCredits: number,
   horizon: GoalHorizon,
 ): RequiredSgpa {
@@ -317,7 +318,13 @@ export function courseOptions(course: Course): CourseOption[] {
 }
 
 export interface PlanRow {
-  code: string;
+  /**
+   * How the row names its course to the student - the subject name where there
+   * is one, the code otherwise. See `courseLabel`. It was called `code` while
+   * it held one; nothing keys off it, and calling a name a code was what let
+   * issue #7 sit unnoticed in three screens at once.
+   */
+  label: string;
   grade: Grade;
   ese: number;
   credits: number;
@@ -690,7 +697,7 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
 
   for (const course of courses) {
     const ev = evaluate(course);
-    const label = course.code || course.name || "?";
+    const label = courseLabel(course);
     const excluded = unplannable(ev);
     if (excluded === null) {
       plannable.push(course);
@@ -735,7 +742,7 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
 
   for (const course of plannable) {
     const options = courseOptions(course);
-    const label = course.code || course.name || "?";
+    const label = courseLabel(course);
     if (options.length === 0) {
       // Unreachable by construction: `courseOptions` returns nothing only when
       // no letter is payable, and P is the cheapest letter there is, so an
@@ -807,7 +814,7 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
     const from = evs[i]!;
     const secured = pick.locked ? pick.grade : securedGrade(from.course, from.ev, pick.ese);
     return {
-      code: labels[i]!, grade: pick.grade, ese: pick.ese, credits: pick.credits,
+      label: labels[i]!, grade: pick.grade, ese: pick.ese, credits: pick.credits,
       locked: pick.locked, eseMax: pick.eseMax, cieUnknown: pick.cieUnknown, secured,
     };
   });
@@ -827,7 +834,7 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
   // warning on good news.
   const bound = plan
     .filter((row) => GRADE_POINTS[row.secured] < GRADE_POINTS[row.grade])
-    .map((row) => row.code);
+    .map((row) => row.label);
 
   const reachable = held >= neededPoints - 1e-9;
   return {
@@ -864,7 +871,7 @@ export interface CgpaResult {
 }
 
 export function cgpaFromSemesters(
-  semMap: Record<string, SemesterHistory>,
+  semMap: Record<string, HistoryFigure>,
 ): CgpaResult {
   const rows = Object.entries(semMap);
   const unconfirmed = unconfirmedSemesters(semMap);

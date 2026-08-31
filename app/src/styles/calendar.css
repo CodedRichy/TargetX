@@ -1,0 +1,272 @@
+/*
+ * Calendar + timetable.
+ *
+ * Two grids that hang below the miss-budget cards on the Attendance screen. The
+ * calendar is a heatmap: one small block per period, coloured by status, so a
+ * month reads as a texture and a bad week is a red smear you see before you read
+ * anything. The timetable is the plan those blocks are measured against.
+ *
+ * Both live inside their own horizontal scroller: eight periods plus a label
+ * will not fit a narrow window, and the page itself must never scroll sideways.
+ * The label column is sticky, so it stays put while the periods scroll under it.
+ *
+ * Status colour follows the app's semantic trio and nothing invents a new hue:
+ * present is good, absent is danger, an excused class (on duty / duty leave) is
+ * warn because it is credited rather than missed, and the inert states (holiday,
+ * no class) recede into the ground instead of adding noise.
+ */
+
+.schedule-section {
+  margin-top: var(--s7);
+}
+
+.schedule-section > .screen-head {
+  margin-bottom: var(--s4);
+}
+
+.schedule-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s4);
+  flex-wrap: wrap;
+}
+
+.schedule-head h3 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+}
+
+.schedule-sub {
+  margin: var(--s1) 0 0;
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  max-width: 62ch;
+  line-height: 1.6;
+}
+
+/* --- shared scroll frame ------------------------------------------------- */
+
+.grid-frame {
+  margin-top: var(--s4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  overflow: hidden;
+}
+
+.grid-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.grid-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  /* Fixed layout so a long subject name obeys its column and WRAPS instead of
+     stretching the cell into its neighbour - auto layout ignores a cell's
+     max-width and let "Design and Analysis of Algorithms" run one line straight
+     into the next period. The min-width keeps eight periods legible: below it
+     the `.grid-scroll` frame scrolls sideways rather than crushing every column
+     to a few characters. */
+  table-layout: fixed;
+  min-width: 820px;
+}
+
+.grid-table th,
+.grid-table td {
+  text-align: center;
+  padding: var(--s2);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.grid-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-2);
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  white-space: nowrap;
+}
+
+.grid-table tbody tr:last-child th,
+.grid-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* The day/label column stays anchored while the periods scroll under it. */
+.grid-label {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--surface-2);
+  text-align: left !important;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text);
+  /* Fixed layout sizes a column from its width, not its content, so the day
+     name needs an explicit one or it collapses to an even share. */
+  width: 11ch;
+  min-width: 11ch;
+}
+
+.grid-table thead th.grid-label {
+  z-index: 3;
+}
+
+.grid-label .grid-label-sub {
+  display: block;
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+/* --- attendance calendar ------------------------------------------------- */
+
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  margin-top: var(--s3);
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+}
+
+.cal-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.cal-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid var(--edge-hi);
+  flex: 0 0 auto;
+}
+
+.cal-cell {
+  padding: var(--s1);
+}
+
+.cal-block {
+  width: 100%;
+  min-width: 26px;
+  height: 22px;
+  margin: 0 auto;
+  border-radius: 2px;
+  border: 1px solid transparent;
+}
+
+.cal-swatch.present, .cal-block.present { background: var(--good); }
+.cal-swatch.absent,  .cal-block.absent  { background: var(--danger); }
+.cal-swatch.credited, .cal-block.credited { background: var(--warn); }
+.cal-swatch.leave,   .cal-block.leave   { background: var(--text-dim); }
+
+/* Holiday reads as ruled-off, not empty; a no-class period is barely there. */
+.cal-swatch.holiday, .cal-block.holiday {
+  background: repeating-linear-gradient(
+    -45deg, var(--surface-2), var(--surface-2) 3px,
+    var(--surface-3) 3px, var(--surface-3) 6px);
+}
+.cal-block.none {
+  background: var(--surface-2);
+  border-color: var(--hairline);
+  opacity: 0.5;
+}
+
+/* --- weekly timetable ---------------------------------------------------- */
+
+.tt-cell {
+  vertical-align: top;
+  text-align: left !important;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
+/* `white-space` inherits, and an ancestor sets `nowrap`; without resetting it
+   here a long subject holds one line and, once the window narrows enough for the
+   grid to scroll, runs straight into the next period. `normal` + `anywhere` lets
+   it wrap at spaces first and break a single long token only as a last resort. */
+.tt-subject {
+  display: block;
+  color: var(--text);
+  font-weight: 500;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.tt-teacher {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-faint);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.tt-empty {
+  color: var(--text-faint);
+  opacity: 0.55;
+}
+
+/* --- substitutions ------------------------------------------------------- */
+
+.tt-subs {
+  margin-top: var(--s4);
+}
+
+.tt-subs h4 {
+  margin: 0 0 var(--s2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.tt-sub-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s2) var(--s3);
+  padding: var(--s2) var(--s3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  font-size: var(--text-sm);
+}
+
+.tt-sub-row + .tt-sub-row {
+  margin-top: var(--s2);
+}
+
+.tt-sub-when {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.tt-sub-body { color: var(--text-dim); }
+.tt-sub-body strong { color: var(--text); font-weight: 600; }
+
+/* --- quiet placeholder --------------------------------------------------- */
+
+.schedule-empty {
+  margin-top: var(--s4);
+  padding: var(--s5);
+  border: 1px dashed var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+  text-align: center;
+}

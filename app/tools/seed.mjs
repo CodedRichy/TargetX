@@ -71,6 +71,106 @@ export const seed = {
     S4: { sgpa: 6.71, creditsRegistered: 24, creditsEarned: 24 },
   },
   goal: { cgpa: 7.5 },
+  // The day-wise attendance calendar and the weekly timetable. Both screens
+  // render an empty "sync to see" placeholder without these, so a screenshot
+  // run that skipped them would only ever review the empty state. Shaped like
+  // the etlab parser output: five teaching days, eight periods, one holiday
+  // row, and the mix of statuses (absent, on-duty, duty-leave) the legend has
+  // to explain.
+  daywiseAttendance: [
+    { label: "Mon 18 Aug", periods: [
+      { status: "present", subject: "Computer Networks" },
+      { status: "present", subject: "Design and Analysis of Algorithms" },
+      { status: "absent", subject: "Operating Systems" },
+      { status: "present", subject: "Software Engineering" },
+      { status: "present", subject: "Networks Lab" },
+      { status: "present", subject: "Networks Lab" },
+      { status: "none", subject: null },
+      { status: "od", subject: "Artificial Intelligence" }] },
+    { label: "Tue 19 Aug", periods: [
+      { status: "present", subject: "Operating Systems" },
+      { status: "absent", subject: "Computer Networks" },
+      { status: "absent", subject: "Design and Analysis of Algorithms" },
+      { status: "present", subject: "Industrial Economics" },
+      { status: "present", subject: "Artificial Intelligence" },
+      { status: "dutyleave", subject: "Software Engineering" },
+      { status: "dutyleave", subject: "Software Engineering" },
+      { status: "none", subject: null }] },
+    { label: "Wed 20 Aug", periods: [
+      { status: "holiday", subject: null }, { status: "holiday", subject: null },
+      { status: "holiday", subject: null }, { status: "holiday", subject: null },
+      { status: "holiday", subject: null }, { status: "holiday", subject: null },
+      { status: "holiday", subject: null }, { status: "holiday", subject: null }] },
+    { label: "Thu 21 Aug", periods: [
+      { status: "present", subject: "Design and Analysis of Algorithms" },
+      { status: "present", subject: "Computer Networks" },
+      { status: "present", subject: "Operating Systems" },
+      { status: "leave", subject: "Artificial Intelligence" },
+      { status: "leave", subject: "Software Engineering" },
+      { status: "present", subject: "Industrial Economics" },
+      { status: "none", subject: null }, { status: "none", subject: null }] },
+    { label: "Fri 22 Aug", periods: [
+      { status: "present", subject: "Computer Networks" },
+      { status: "present", subject: "Operating Systems" },
+      { status: "present", subject: "Design and Analysis of Algorithms" },
+      { status: "present", subject: "Networks Lab" },
+      { status: "present", subject: "Networks Lab" },
+      { status: "absent", subject: "Artificial Intelligence" },
+      { status: "present", subject: "Software Engineering" },
+      { status: "none", subject: null }] },
+  ],
+  timetable: {
+    grid: [
+      { day: "Monday", periods: [
+        { subject: "Computer Networks", teacher: "Dr A Nair" },
+        { subject: "Design and Analysis of Algorithms", teacher: "Prof R Menon" },
+        { subject: "Operating Systems", teacher: "Dr S Pillai" },
+        { subject: "Software Engineering", teacher: "Prof K Das" },
+        { subject: "Networks Lab", teacher: "Dr A Nair" },
+        { subject: "Networks Lab", teacher: "Dr A Nair" },
+        { subject: null, teacher: null },
+        { subject: "Artificial Intelligence", teacher: "Dr V Iyer" }] },
+      { day: "Tuesday", periods: [
+        { subject: "Operating Systems", teacher: "Dr S Pillai" },
+        { subject: "Computer Networks", teacher: "Dr A Nair" },
+        { subject: "Design and Analysis of Algorithms", teacher: "Prof R Menon" },
+        { subject: "Industrial Economics", teacher: "Prof M Joseph" },
+        { subject: "Artificial Intelligence", teacher: "Dr V Iyer" },
+        { subject: "Software Engineering", teacher: "Prof K Das" },
+        { subject: "Software Engineering", teacher: "Prof K Das" },
+        { subject: null, teacher: null }] },
+      { day: "Wednesday", periods: [
+        { subject: "Design and Analysis of Algorithms", teacher: "Prof R Menon" },
+        { subject: "Operating Systems", teacher: "Dr S Pillai" },
+        { subject: "Computer Networks", teacher: "Dr A Nair" },
+        { subject: "Artificial Intelligence", teacher: "Dr V Iyer" },
+        { subject: "Software Engineering", teacher: "Prof K Das" },
+        { subject: "Industrial Economics", teacher: "Prof M Joseph" },
+        { subject: null, teacher: null },
+        { subject: null, teacher: null }] },
+      { day: "Thursday", periods: [
+        { subject: "Computer Networks", teacher: "Dr A Nair" },
+        { subject: "Design and Analysis of Algorithms", teacher: "Prof R Menon" },
+        { subject: "Operating Systems", teacher: "Dr S Pillai" },
+        { subject: "Artificial Intelligence", teacher: "Dr V Iyer" },
+        { subject: "Software Engineering", teacher: "Prof K Das" },
+        { subject: "Industrial Economics", teacher: "Prof M Joseph" },
+        { subject: null, teacher: null },
+        { subject: null, teacher: null }] },
+      { day: "Friday", periods: [
+        { subject: "Computer Networks", teacher: "Dr A Nair" },
+        { subject: "Operating Systems", teacher: "Dr S Pillai" },
+        { subject: "Design and Analysis of Algorithms", teacher: "Prof R Menon" },
+        { subject: "Networks Lab", teacher: "Dr A Nair" },
+        { subject: "Networks Lab", teacher: "Dr A Nair" },
+        { subject: "Artificial Intelligence", teacher: "Dr V Iyer" },
+        { subject: "Software Engineering", teacher: "Prof K Das" },
+        { subject: null, teacher: null }] },
+    ],
+    substitutions: [
+      { date: "Thu 21 Aug", period: 6, teacher: "Prof S Kurian", inPlaceOf: "Industrial Economics" },
+    ],
+  },
 };
 
 /**

@@ -285,8 +285,8 @@ describe("an unknown attendance is not spent as a zero inside the CIE", () => {
     // The core loop must survive a failed attendance scrape: every course
     // unplannable would leave the student with no route at all.
     const plan = planForSgpa([
-      { ...os(), ese: null },
-      { ...os(), code: "PCCST505", ese: null },
+      { ...os(), name: "SE", ese: null },
+      { ...os(), code: "PCCST505", name: "Compilers", ese: null },
     ], 7.0);
     expect(plan.plan.length).toBe(2);
     expect(plan.credits).toBe(8);
@@ -302,7 +302,7 @@ describe("an unknown attendance is not spent as a zero inside the CIE", () => {
     // than with a real 62% in it.
     expect(plan.reachable).toBe(false);
     expect(plan.conditional).toBe(true);
-    expect(plan.bound).toEqual(["PCCST504", "PCCST505"]);
+    expect(plan.bound).toEqual(["SE", "Compilers"]);
     expect(plan.plan.map((row) => [row.grade, row.ese, row.secured]))
       .toEqual([["C+", 29, "C"], ["C+", 29, "C"]]);
     expect(plan.sgpa).toBe(7);
@@ -324,12 +324,12 @@ describe("an unknown attendance is not spent as a zero inside the CIE", () => {
       { ...blankCourse("PCCST502", "DAA", 4), cie_override: 25 },
       project,
     ], 7.5);
-    expect(plan.plan.map((row) => row.code)).not.toContain("PRJST501");
+    expect(plan.plan.map((row) => row.label)).not.toContain("Project");
     expect(plan.reason).toContain("attendance is not recorded");
     // Out of the ROUTE, not out of the arithmetic: its four credits are
     // registered and stay in the denominator the target was solved over.
     expect(plan.credits).toBe(12);
-    expect(plan.unpriced).toEqual(["PRJST501"]);
+    expect(plan.unpriced).toEqual(["Project"]);
   });
 });
 
@@ -929,7 +929,7 @@ describe("an ungraded course is not a zero-CIE course", () => {
     const plan = planForSgpa(semester(), 7.5);
     expect(plan.reachable).toBe(true);
     expect(plan.plan.length).toBe(5);
-    expect(plan.plan.map((row) => row.code)).toContain("PBLST506");
+    expect(plan.plan.map((row) => row.label)).toContain("Mini Project");
   });
 
   it("prices its ladder from a full CIE, as the least each grade could cost", () => {
@@ -951,7 +951,7 @@ describe("an ungraded course is not a zero-CIE course", () => {
 
   it("carries the assumption into the plan rather than burying it", () => {
     const plan = planForSgpa(semester(), 7.5);
-    const pbl = plan.plan.find((row) => row.code === "PBLST506")!;
+    const pbl = plan.plan.find((row) => row.label === "Mini Project")!;
     expect(pbl.cieUnknown).toBe(true);
     expect(plan.plan.filter((row) => row.cieUnknown).length).toBe(1);
   });
@@ -1001,7 +1001,7 @@ describe("an unmarked component is unknown, not a zero", () => {
 
     const plan = planForSgpa([lab(), healthy()], 7.0);
     expect(plan.reachable).toBe(true);
-    expect(plan.plan.map((row) => row.code).sort()).toEqual(["LAB1", "PCCST501"]);
+    expect(plan.plan.map((row) => row.label).sort()).toEqual(["CN", "Lab"]);
     expect(plan.credits).toBe(6);
     expect(plan.reason).toBeUndefined();
   });
@@ -1155,7 +1155,7 @@ describe("a debarred course is not planned as a pass", () => {
     // "debarred" is the word `statusFor` uses for the same fact, so the plan
     // and the row now name it the same way.
     expect(plan.reason)
-      .toContain("PCCST502 counted at zero: debarred, attendance below 60%");
+      .toContain("DAA counted at zero: debarred, attendance below 60%");
   });
 
   it("plans the target it can actually reach over both courses", () => {
@@ -1163,7 +1163,7 @@ describe("a debarred course is not planned as a pass", () => {
     // that can still earn them.
     const plan = planForSgpa([attending, debarred], 4.0);
     expect(plan.reachable).toBe(true);
-    expect(plan.plan.map((row) => row.code)).toEqual(["PCCST501"]);
+    expect(plan.plan.map((row) => row.label)).toEqual(["CN"]);
     expect(plan.plan[0]!.grade).toBe("B+");
     expect(plan.credits).toBe(8);
     expect(plan.sgpa).toBe(4);
@@ -1172,14 +1172,14 @@ describe("a debarred course is not planned as a pass", () => {
   it("says so by name when every course is debarred", () => {
     const plan = planForSgpa([debarred], 7.5);
     expect(plan.reachable).toBe(false);
-    expect(plan.reason).toContain("PCCST502");
+    expect(plan.reason).toContain("DAA");
   });
 
   it("plans an unknown attendance normally - it is not a debarment", () => {
     const blank: Course = { ...blankCourse("PCCST503", "OS", 4), cie_override: 30 };
     expect(evaluate(blank).attendance).toBeNull();
     const plan = planForSgpa([attending, blank], 7.5);
-    expect(plan.plan.map((row) => row.code).sort()).toEqual(["PCCST501", "PCCST503"]);
+    expect(plan.plan.map((row) => row.label).sort()).toEqual(["CN", "OS"]);
     expect(plan.reason).toBeUndefined();
   });
 
@@ -1187,7 +1187,7 @@ describe("a debarred course is not planned as a pass", () => {
     const graded: Course = { ...debarred, portal_grade: "B+" };
     expect(summarise([graded]).sgpaProjected).toBe(8.0);
     const plan = planForSgpa([attending, graded], 7.5);
-    expect(plan.plan.map((row) => row.code).sort()).toEqual(["PCCST501", "PCCST502"]);
+    expect(plan.plan.map((row) => row.label).sort()).toEqual(["CN", "DAA"]);
   });
 });
 
@@ -1207,20 +1207,20 @@ describe("an internal-only course is not free grade points", () => {
 
   it("does not climb an unmarked one to an S and call the target met", () => {
     const plan = planForSgpa([...papers(), project()], 7.5);
-    expect(plan.plan.map((row) => row.code)).not.toContain("PRJST501");
-    expect(plan.reason).toContain("PRJST501 not priced");
+    expect(plan.plan.map((row) => row.label)).not.toContain("Project");
+    expect(plan.reason).toContain("Project not priced");
     // Its four credits are registered, so the denominator is 12 - but no grade
     // point is invented for them, and the papers are asked to carry the target
     // rather than being subsidised by a grade nobody earned.
     expect(plan.credits).toBe(12);
-    expect(plan.unpriced).toEqual(["PRJST501"]);
+    expect(plan.unpriced).toEqual(["Project"]);
     expect(plan.plan.every((row) => row.ese > 0)).toBe(true);
   });
 
   it("plans one whose internals are marked, since the CIE is the whole grade", () => {
     const marked: Course = { ...project(), cie_override: 86 };
     const plan = planForSgpa([...papers(), marked], 7.5);
-    const row = plan.plan.find((r) => r.code === "PRJST501")!;
+    const row = plan.plan.find((r) => r.label === "Project")!;
     expect(row.grade).toBe("A+");
     // eseMax 0 is what tells the screen not to call this an exam mark.
     expect(row.eseMax).toBe(0);
@@ -1281,16 +1281,16 @@ describe("a withdrawn or incomplete course is not a failure", () => {
 
   it("leaves it out of the plan, credits and all, and names why", () => {
     const plan = planForSgpa(semester(), 7.5);
-    expect(plan.plan.map((row) => row.code).sort())
-      .toEqual(["PCCST301", "PCCST302", "PCCST303"]);
+    expect(plan.plan.map((row) => row.label).sort())
+      .toEqual(["DBMS", "DSA", "OOP"]);
     expect(plan.credits).toBe(11);
-    expect(plan.reason).toContain("PCCST304 left out: withdrawn");
+    expect(plan.reason).toContain("Economics left out: withdrawn");
   });
 
   it("names an incomplete course as incomplete rather than as withdrawn", () => {
     const plan = planForSgpa(
       [semester()[0]!, { ...blankCourse("PCCST305", "Physics", 3), portal_grade: "I" }], 7.5);
-    expect(plan.reason).toContain("PCCST305 left out: incomplete");
+    expect(plan.reason).toContain("Physics left out: incomplete");
   });
 });
 
@@ -1343,13 +1343,13 @@ describe("the target and the route divide by one denominator", () => {
 
     const plan = planForSgpa(courses, 7.5);
     expect(plan.credits).toBe(6);
-    expect(plan.unpriced).toEqual(["PCCSI706"]);
+    expect(plan.unpriced).toEqual(["Project"]);
     // The paper alone cannot carry 7.5 across six credits: an S in it is 20 of
     // the 45 points needed. That is not "unreachable" - the project has not
     // been marked - so the route is still shown and the shortfall is named.
     expect(plan.reachable).toBe(false);
     expect(plan.conditional).toBe(true);
-    expect(plan.plan.map((row) => row.code)).toEqual(["UEHUT704"]);
+    expect(plan.plan.map((row) => row.label)).toEqual(["Humanities"]);
     expect(plan.plan[0]!.grade).toBe("S");
     expect(plan.sgpa).toBe(3.333);
     expect(plan.maxSgpa).toBe(10);
@@ -1366,7 +1366,7 @@ describe("the target and the route divide by one denominator", () => {
     expect(plan.reachable).toBe(false);
     expect(plan.conditional).toBe(true);
     expect(plan.plan.length).toBe(1);
-    expect(plan.reason).toContain("PCCSI706 not priced");
+    expect(plan.reason).toContain("Project not priced");
   });
 
   it("still refuses a target that is out of reach at every end", () => {
@@ -1394,7 +1394,7 @@ describe("the target and the route divide by one denominator", () => {
     const plan = planForSgpa(courses, 7.5);
     expect(plan.credits).toBe(4);
     expect(plan.unpriced).toBeUndefined();
-    expect(plan.reason).toBe("PCCST504 left out: withdrawn");
+    expect(plan.reason).toBe("Economics left out: withdrawn");
   });
 
   it("divides by summarise's credits on every corpus semester", () => {
@@ -1546,7 +1546,7 @@ describe("one course a student cannot pass is not a dead semester", () => {
 
     const plan = planForSgpa([dead(), healthy()], 6.0);
     expect(plan.reachable).toBe(true);
-    expect(plan.plan.map((row) => row.code)).toEqual(["PCCST501"]);
+    expect(plan.plan.map((row) => row.label)).toEqual(["Networks"]);
     // 6.0 over both courses' 6 credits is 36 points, and the dead lab
     // contributes none of them, so the healthy course has to carry all 36
     // over its 4 credits: grade point 9, an A+, at 52 of 60.
@@ -1554,7 +1554,7 @@ describe("one course a student cannot pass is not a dead semester", () => {
     expect(plan.plan[0]!.ese).toBe(52);
     expect(plan.sgpa).toBe(6.0);
     expect(plan.reason).toBe(
-      "DEAD counted at zero: unreachable, "
+      "Networks Lab counted at zero: unreachable, "
       + "even full marks in the exam leave the total under 50",
     );
     // A course you cannot pass still counts against the SGPA, so its credits
@@ -1582,14 +1582,17 @@ describe("one course a student cannot pass is not a dead semester", () => {
     expect(ev.cieFloor).toBe(true);
     expect(ev.needPassBest.possible).toBe(false);
     expect(statusFor(ev)).toBe("UNREACHABLE");
-    // And the header count names exactly the same course.
+    // And the header count is the same course. It is keyed by CODE where the
+    // route names it by SUBJECT: `summarise`'s lists are pinned in the frozen
+    // parity corpus and are only ever rendered as a count, so they stay
+    // identifiers. See `courseLabel`.
     expect(summarise([deadUnrecorded(), healthy()]).impossible).toEqual(["DEADB"]);
 
     const plan = planForSgpa([deadUnrecorded(), healthy()], 6.0);
     expect(plan.reachable).toBe(true);
-    expect(plan.plan.map((row) => row.code)).toEqual(["PCCST501"]);
+    expect(plan.plan.map((row) => row.label)).toEqual(["Networks"]);
     expect(plan.reason).toBe(
-      "DEADB counted at zero: unreachable, "
+      "Networks Lab counted at zero: unreachable, "
       + "even full marks in the exam leave the total under 50",
     );
   });
@@ -1600,7 +1603,7 @@ describe("one course a student cannot pass is not a dead semester", () => {
     expect(plan.maxSgpa).toBe(0);
     expect(plan.credits).toBe(2);
     expect(plan.reason).toBe(
-      "target is above the best still available; DEAD counted at zero: "
+      "target is above the best still available; Networks Lab counted at zero: "
       + "unreachable, even full marks in the exam leave the total under 50",
     );
   });
@@ -1746,7 +1749,7 @@ describe("the projection divides by the credits the goal is solved over", () => 
     // Which is deliberately NOT the floor the route is guaranteed against.
     // `reachable` has to take the bottom of an open range; a forecast does not.
     const plan = planForSgpa(courses, 8.667);
-    expect(plan.unpriced).toEqual(["PCCSI706"]);
+    expect(plan.unpriced).toEqual(["Project"]);
     expect(plan.reachable).toBe(false);
     expect(plan.conditional).toBe(true);
     expect(plan.sgpa).toBe(3.333);
@@ -1944,7 +1947,7 @@ describe("the route guarantees what it quotes", () => {
     const plan = planForSgpa([half(), {
       ...blankCourse("OK", "OK", 4, "TH 40/60"), cie_override: 30, attended: 95, held: 100,
     }], 6.0);
-    expect(plan.plan.find((r) => r.code === "LAB1")!.secured).toBe("P");
+    expect(plan.plan.find((r) => r.label === "LAB1")!.secured).toBe("P");
     expect(plan.reachable).toBe(true);
     expect(plan.bound).toBeUndefined();
     expect(plan.sgpaGuaranteed).toBe(plan.sgpa);
@@ -2159,7 +2162,7 @@ describe("the route guarantees what it quotes", () => {
       let points = 0;
       for (const row of plan.plan) {
         const after = evaluate({
-          ...byCode.get(row.code)!, attended: truth.get(row.code)!, held: 100, ese: row.ese,
+          ...byCode.get(row.label)!, attended: truth.get(row.label)!, held: 100, ese: row.ese,
         });
         points += (after.grade === null || isIncomplete(after.grade)
           ? 0 : GRADE_POINTS[after.grade as Grade]) * after.credits;
@@ -2241,8 +2244,8 @@ describe("the route guarantees what it quotes", () => {
         // The unmarked component comes in at zero, which is the worst case the
         // ladder priced at its whole weight.
         const after = evaluate({
-          ...byCode.get(row.code)!, s2: byCode.get(row.code)!.s2 === "" ? 0 : byCode.get(row.code)!.s2,
-          attended: truth.get(row.code)!, held: 100, ese: row.ese,
+          ...byCode.get(row.label)!, s2: byCode.get(row.label)!.s2 === "" ? 0 : byCode.get(row.label)!.s2,
+          attended: truth.get(row.label)!, held: 100, ese: row.ese,
         });
         points += (after.grade === null || isIncomplete(after.grade)
           ? 0 : GRADE_POINTS[after.grade as Grade]) * after.credits;

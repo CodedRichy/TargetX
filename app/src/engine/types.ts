@@ -237,6 +237,31 @@ export type Status =
  * total under a field the CGPA reads inflates every semester that carries a
  * backlog, so the two totals are named apart and never conflated.
  */
+/**
+ * Where a stored figure came from, and which one wins a disagreement.
+ *
+ * A KTU grade card is the university's own document; the college portal is a
+ * scrape of a system the student themselves has seen be wrong. So when the two
+ * name a different SGPA for the same semester, the card is trusted and the
+ * portal is not - not averaged, not "most recent", not silently overwritten.
+ * `manual` is a figure the student typed on the History screen, a deliberate
+ * act that a later scrape must not clobber. `unknown` tags a semester restored
+ * from a save written before provenance was tracked: its origin cannot be
+ * recovered, so it is trusted over a fresh scrape (it may itself be a card) but
+ * yields to one. See `HISTORY_RANK` and `mergeHistory` in engine/history.ts.
+ */
+export type HistorySource = "gradecard" | "manual" | "unknown" | "etlab";
+
+/**
+ * The numbers a CGPA is computed from - the subset of a stored semester that
+ * the arithmetic actually reads. The readers take this rather than the whole
+ * `SemesterHistory` so they neither see nor depend on where a figure came from;
+ * a full record satisfies it structurally.
+ */
+export type HistoryFigure = Pick<
+  SemesterHistory, "sgpa" | "creditsRegistered" | "creditsEarned"
+>;
+
 export interface SemesterHistory {
   sgpa: number;
   /**
@@ -252,4 +277,74 @@ export interface SemesterHistory {
    * Null when nothing published it.
    */
   creditsEarned: number | null;
+  /**
+   * Which source this figure came from. Governs precedence on a re-sync: a
+   * lower-ranked source never overwrites a higher one. See `HistorySource`.
+   */
+  source: HistorySource;
+  /**
+   * A figure from another source that disagreed with the one kept, held so the
+   * disagreement can be SHOWN rather than silently dropped. Set when two
+   * sources name a different SGPA for the semester; the losing side is recorded
+   * here. Null when nothing has contradicted the stored figure.
+   */
+  conflict?: { source: HistorySource; sgpa: number } | null;
+}
+
+// --- schedule: day-wise attendance and the weekly timetable ----------------
+//
+// Additive shapes for the two bonus pages `sync/etlab-schedule.ts` parses. They
+// live here so `AppState` can carry them and the parsers and UI can share one
+// definition. Nothing in the calculation core reads them.
+
+/**
+ * A single period's attendance status.
+ *
+ * "none" is etlab's "n-a" - a period with no class scheduled, which is neither
+ * a miss nor a presence. "od" (on duty), "dutyleave" and "duty" are credited:
+ * the class happened and the student was excused, so they never count against
+ * attendance. Distinct from "absent", which is the only status that does.
+ */
+export type AttendanceStatus =
+  | "present" | "absent" | "none" | "holiday"
+  | "dutyleave" | "leave" | "od" | "duty";
+
+export interface DaywisePeriod {
+  status: AttendanceStatus;
+  /** Subject code + name, or null for an empty / holiday period. */
+  subject: string | null;
+}
+
+/** One day: its label (`1st`, `2nd`, ...) and its period-by-period statuses. */
+export interface DaywiseDay {
+  label: string;
+  periods: DaywisePeriod[];
+}
+
+export type DaywiseAttendance = DaywiseDay[];
+
+export interface TimetablePeriod {
+  /** Subject as printed, or null for an empty slot. */
+  subject: string | null;
+  /** Teacher(s), or null when the cell names none (e.g. an elective). */
+  teacher: string | null;
+}
+
+/** One weekday row of the timetable. */
+export interface TimetableDay {
+  day: string;
+  periods: TimetablePeriod[];
+}
+
+/** One entry from the "Changes in timetable" grid. */
+export interface TimetableSubstitution {
+  date: string;
+  period: string;
+  teacher: string;
+  inPlaceOf: string;
+}
+
+export interface Timetable {
+  grid: TimetableDay[];
+  substitutions: TimetableSubstitution[];
 }

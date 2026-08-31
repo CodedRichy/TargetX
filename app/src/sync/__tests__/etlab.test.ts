@@ -50,7 +50,7 @@ const graded = (code: string, grade: string): Academics => ({
 describe("history from a portal sync", () => {
   it("adds up a registered total when the curriculum priced every course", () => {
     expect(academicsToState(academics(LISTED)).history["S1"]).toEqual(
-      { sgpa: 7.5, creditsRegistered: 15, creditsEarned: 12 });
+      { sgpa: 7.5, creditsRegistered: 15, creditsEarned: 12, source: "etlab", conflict: null });
   });
 
   it("leaves the total unknown when any course was priced by inference", () => {

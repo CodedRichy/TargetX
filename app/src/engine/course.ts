@@ -2,7 +2,10 @@ import { inferCredits, lookupCourse } from "./catalogue";
 import { DEFAULT_TYPE } from "./constants";
 import { defaultTargets } from "./targets";
 import type { Targets } from "./targets";
-import type { Course, SemesterHistory, TypeKey } from "./types";
+import type { Change } from "./changes";
+import type {
+  Course, DaywiseAttendance, SemesterHistory, Timetable, TypeKey,
+} from "./types";
 
 /**
  * A fresh row. Mark fields start as "" rather than 0 so an untouched course
@@ -18,6 +21,27 @@ export function blankCourse(
     attendance: "", attended: "", held: "", dl: "",
     ese: "", target: "B+", cie_override: "", portal_grade: null,
   };
+}
+
+/**
+ * What to call a course in front of a student.
+ *
+ * The NAME wins. A code is the university's key, not the subject: a student
+ * reading "24 classes in a row in GAMAT401 buys 1 mark" has to go and look up
+ * which class that is, which is the whole of issue #7. The code keeps the one
+ * place it is the thing being handled rather than the thing being named - the
+ * Ledger's code column, where it is edited.
+ *
+ * Falling back to the code matters as much as preferring the name. A row
+ * seeded from a pasted code has no name yet, and "?" would tell the student
+ * less than the code they typed themselves.
+ *
+ * This is a DISPLAY label and nothing keys off it. `summarise` deliberately
+ * does not use it: its lists are pinned in the frozen parity corpus and are
+ * only ever rendered as counts, so the identifier there stays an identifier.
+ */
+export function courseLabel(course: Pick<Course, "code" | "name">): string {
+  return (course.name || "").trim() || (course.code || "").trim() || "?";
 }
 
 /** Seed a row from the catalogue when the code is known, else infer. */
@@ -70,6 +94,26 @@ export interface AppState {
   theme?: string;
   /** ISO timestamp of the last successful portal sync. */
   lastSync?: string;
+  /**
+   * What the most recent sync moved, against the record as it stood before it.
+   *
+   * Written by `applySync` and only ever from the SECOND sync onward - a first
+   * sync has nothing to diff against, and reporting a whole freshly-pulled
+   * record as "changes" would be noise dressed as news. `at` stamps the sync
+   * that produced the list so Home can date it and the student can dismiss a
+   * batch they have read (an empty `items` with a fresh `at` means "synced,
+   * nothing moved", which is itself worth saying). Absent until the second
+   * sync, and after a reset.
+   */
+  changes?: { at: string; items: Change[] };
+  /**
+   * The day-by-day per-period attendance grid, as last synced. A bonus page,
+   * so absent until a sync that could read it - and never cleared to null by a
+   * later sync that could not, so a good grid survives a portal hiccup.
+   */
+  daywiseAttendance?: DaywiseAttendance | null;
+  /** The weekly timetable and its substitutions, as last synced. See above. */
+  timetable?: Timetable | null;
 }
 
 export function defaultState(): AppState {

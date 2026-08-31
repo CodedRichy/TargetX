@@ -1,3 +1,4 @@
+mod creds;
 mod etlab;
 
 use tauri::Manager;
@@ -90,6 +91,10 @@ pub fn run() {
       etlab::etlab_active,
       etlab::etlab_get,
       etlab::etlab_post,
+      creds::cred_save,
+      creds::cred_load,
+      creds::cred_delete,
+      creds::cred_has,
       log_error,
       diagnostics_dir,
     ])

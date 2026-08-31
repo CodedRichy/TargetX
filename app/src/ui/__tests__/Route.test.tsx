@@ -24,11 +24,11 @@ afterEach(cleanup);
 const REACHABLE: SgpaPlan = {
   reachable: true,
   plan: [
-    { code: "CST305", grade: "A", ese: 47, credits: 4, locked: false,
+    { label: "CST305", grade: "A", ese: 47, credits: 4, locked: false,
       eseMax: 60, cieUnknown: false, secured: "A" },
-    { code: "CSL333", grade: "S", ese: 0, credits: 2, locked: false,
+    { label: "CSL333", grade: "S", ese: 0, credits: 2, locked: false,
       eseMax: 0, cieUnknown: false, secured: "S" },
-    { code: "HUN101", grade: "B", ese: 30, credits: 3, locked: true,
+    { label: "HUN101", grade: "B", ese: 30, credits: 3, locked: true,
       eseMax: 60, cieUnknown: false, secured: "B" },
   ],
   sgpa: 8.5, sgpaGuaranteed: 8.5, target: 8, credits: 9, maxSgpa: 9.5,
@@ -38,7 +38,7 @@ const REACHABLE: SgpaPlan = {
 const BOUND: SgpaPlan = {
   reachable: false, conditional: true,
   plan: [
-    { code: "CST301", grade: "B+", ese: 48, credits: 4, locked: false,
+    { label: "CST301", grade: "B+", ese: 48, credits: 4, locked: false,
       eseMax: 60, cieUnknown: true, secured: "B" },
   ],
   bound: ["CST301"],
@@ -49,7 +49,7 @@ const BOUND: SgpaPlan = {
 const UNPRICED: SgpaPlan = {
   reachable: false, conditional: true,
   plan: [
-    { code: "CST303", grade: "S", ese: 59, credits: 4, locked: false,
+    { label: "CST303", grade: "S", ese: 59, credits: 4, locked: false,
       eseMax: 60, cieUnknown: true, secured: "S" },
   ],
   unpriced: ["CSL331"],

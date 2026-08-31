@@ -24,3 +24,4 @@ app/src-tauri/target/
 .vite/
 app/shots/
 app/src-tauri/gen/schemas/
+NEXT_SESSION.md

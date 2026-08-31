@@ -1,6 +1,6 @@
 [package]
 name = "targetx"
-version = "0.1.0"
+version = "0.2.0"
 description = "KTU 2024 academic tracker"
 authors = ["CodedRichy"]
 license = "BUSL-1.1"
@@ -30,3 +30,10 @@ tokio = { version = "1", features = ["rt", "macros"] }
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-fs = "2.5.1"
+
+# Opt-in portal-credential storage (issue #2). Scoped to Windows, where the
+# store is Credential Manager (DPAPI, per-user). The native backend pulls only
+# the Windows API crate, no system service, so the mac/Linux builds are
+# untouched - there `creds.rs` compiles its no-op backend and never links this.
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }

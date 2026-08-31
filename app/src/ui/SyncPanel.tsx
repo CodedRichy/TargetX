@@ -1,8 +1,9 @@
-import { Show, createSignal } from "solid-js";
+import { Show, createSignal, onMount } from "solid-js";
 import { EtlabError, canSync, endSession, fullSync } from "../sync/etlab";
 import type { SyncResult } from "../sync/etlab";
 import { applySync } from "../state/actions";
 import { edit, state } from "../state/store";
+import { canRemember, deleteCreds, loadCreds, saveCreds } from "../state/creds";
 
 /**
  * Portal sign-in and sync.
@@ -35,6 +36,31 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
   const [diagnostic, setDiagnostic] = createSignal("");
   const [copied, setCopied] = createSignal(false);
   const [result, setResult] = createSignal<SyncResult | null>(null);
+  /**
+   * Whether to keep this login in the OS credential vault (issue #2). Default
+   * OFF - remembering a portal password is a choice the student makes, never
+   * one the app makes for them. Only ever offered on the desktop build, where
+   * there is a vault to keep it in.
+   */
+  const [remember, setRemember] = createSignal(false);
+
+  // If a login was saved for the address already on the form, fill both fields
+  // from the vault and show the box ticked, so the core loop - open, sync - is
+  // one press. Best-effort: a vault that will not answer just leaves the form
+  // blank, exactly as before the feature existed.
+  onMount(async () => {
+    if (!canRemember()) return;
+    const base = url().trim();
+    if (!base) return;
+    try {
+      const stored = await loadCreds(base);
+      if (stored) {
+        setUser(stored.username);
+        setPassword(stored.password);
+        setRemember(true);
+      }
+    } catch { /* vault optional; never block the form */ }
+  });
 
   const run = async (event: Event) => {
     event.preventDefault();
@@ -55,6 +81,17 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
       applySync(synced);
       edit((s) => { s.student.college = url().trim(); });
       setResult(synced);
+      // Persist, or forget, only after a sync actually worked - and only if
+      // the student asked. Wrapped so a vault that refuses never turns a
+      // successful sync into a visible failure; the password still lives only
+      // in the signal, about to be dropped in `finally`.
+      if (canRemember()) {
+        const base = url().trim();
+        try {
+          if (remember()) await saveCreds(base, user(), password());
+          else await deleteCreds(base);
+        } catch { /* remembering is a convenience, never a blocker */ }
+      }
     } catch (exc) {
       setError(exc instanceof EtlabError ? exc.message : String(exc));
       if (exc instanceof EtlabError && exc.diagnostic) setDiagnostic(exc.diagnostic);
@@ -155,12 +192,28 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
                    onInput={(e) => setPassword(e.currentTarget.value)} />
           </label>
 
+          {/* Desktop only: a browser build has no vault, so the choice is not
+              offered rather than shown and then failing. Default unchecked. */}
+          <Show when={canRemember()}>
+            <label class="remember">
+              <input type="checkbox" checked={remember()}
+                     onChange={(e) => setRemember(e.currentTarget.checked)} />
+              <span>Remember this login on this device</span>
+            </label>
+          </Show>
+
           <div class="setup-actions">
             <button class="primary" type="submit" disabled={!!busy()}>
               {busy() || "Sync now"}
             </button>
             <Show when={state.lastSync}>
-              <button class="link" type="button" onClick={() => { void endSession(); }}>
+              <button class="link" type="button" onClick={() => {
+                void endSession();
+                // Signing out forgets the saved password too: a student ending
+                // a session does not expect it to stay on the machine.
+                if (canRemember()) { void deleteCreds(url().trim()); setRemember(false); }
+                setPassword("");
+              }}>
                 Sign out
               </button>
             </Show>
@@ -168,9 +221,18 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
         </form>
 
         <p class="fineprint">
-          Your password is used for this one request and is never saved. The
-          session stays inside the app process, not in the page, and TargetX
-          only ever reads — it cannot change anything on the portal.
+          <Show when={canRemember() && remember()} fallback={
+            <>
+              Your password is used for this one request and is never saved. The
+              session stays inside the app process, not in the page, and TargetX
+              only ever reads — it cannot change anything on the portal.
+            </>
+          }>
+            Your password will be kept in Windows Credential Manager, encrypted
+            for your account on this device — never in TargetX's backup, never
+            in a log, never off this machine. Untick the box, or sign out, to
+            forget it. TargetX only ever reads the portal; it cannot change it.
+          </Show>
         </p>
 
         <Show when={error()}>
