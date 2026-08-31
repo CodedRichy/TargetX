@@ -76,9 +76,25 @@ function csrfToken(html: string): string | null {
   return input?.getAttribute("value") ?? null;
 }
 
-/** A page still showing a password box has not authenticated anyone. */
-function looksLoggedIn(html: string): boolean {
-  return !parseHtml(html).querySelector('input[type="password"]');
+/**
+ * A login attempt that landed back on the login page was rejected.
+ *
+ * KTU's login form posts to ITSELF (`action=""`), so a bad login re-renders
+ * `login.htm` at the same URL with an "Invalid username or password" alert,
+ * while a good one 302s to the dashboard. The landed URL after redirects is the
+ * honest tell.
+ *
+ * It replaces an earlier "is there a password box on the page" check, which was
+ * a false negative: the KTU dashboard carries its OWN change-password field, so
+ * a genuinely signed-in student rendered a password input and every correct
+ * login was reported as rejected. The URL cannot lie about where it landed.
+ */
+export function landedOnLoginPage(url: string): boolean {
+  try {
+    return new URL(url, KTU_BASE).pathname.toLowerCase().endsWith("/login.htm");
+  } catch {
+    return /login\.htm/i.test(url);
+  }
 }
 
 // --- login -----------------------------------------------------------------
@@ -109,10 +125,10 @@ export async function loginKtu(username: string, password: string): Promise<void
   if (response.status >= 400) {
     throw new KtuError(`KTU login returned HTTP ${response.status}.`);
   }
-  // A bounced login re-renders the login page, password box and all, at the
-  // same URL; a good one has been redirected to the dashboard by the time the
-  // transport returns. The password box is the reliable tell either way.
-  if (!looksLoggedIn(response.body)) {
+  // A bounced login re-renders the login page at the same URL; a good one has
+  // been redirected to the dashboard by the time the transport returns. Where
+  // the redirect chain LANDED is the reliable tell - see landedOnLoginPage.
+  if (landedOnLoginPage(response.url)) {
     throw new KtuError("KTU login rejected. Check the register number and password.");
   }
 }

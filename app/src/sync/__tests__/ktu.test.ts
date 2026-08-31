@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { parseCardTable, toCanonicalText } from "../ktu";
+import { landedOnLoginPage, parseCardTable, toCanonicalText } from "../ktu";
 import { parseGradeCard } from "../gradecard";
 
 /**
@@ -62,6 +62,26 @@ describe("parseCardTable", () => {
 
   it("returns null when the page carries no grade-card table", () => {
     expect(parseCardTable(NO_CARD_HTML)).toBeNull();
+  });
+});
+
+describe("landedOnLoginPage (the login verdict)", () => {
+  // The bug this guards: the KTU dashboard carries its own change-password
+  // field, so the old "is there a password box" check reported every SUCCESSFUL
+  // login as rejected. The landed URL is what tells them apart.
+  it("treats a landing back on login.htm as a rejected login", () => {
+    expect(landedOnLoginPage("https://app.ktu.edu.in/login.htm")).toBe(true);
+    // A bounce that carries an error query is still the login page.
+    expect(landedOnLoginPage("https://app.ktu.edu.in/login.htm?error=1")).toBe(true);
+  });
+
+  it("treats a landing on the dashboard as a signed-in login", () => {
+    expect(landedOnLoginPage("https://app.ktu.edu.in/eu/alt/dashboard.htm")).toBe(false);
+  });
+
+  it("resolves a relative landed path against the KTU base", () => {
+    expect(landedOnLoginPage("/login.htm")).toBe(true);
+    expect(landedOnLoginPage("/eu/alt/dashboard.htm")).toBe(false);
   });
 });
 
