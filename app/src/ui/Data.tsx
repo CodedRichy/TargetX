@@ -28,10 +28,7 @@ export function Data() {
       <div class="screen-head">
         <div>
           <h2>Data</h2>
-          <p class="lede">
-            Bring marks in, take a backup out. All local — no account,
-            nothing uploaded.
-          </p>
+          <p class="lede">All local — no account, nothing uploaded.</p>
         </div>
         <Show when={state.lastSync}>
           <span class="fineprint num">
@@ -40,22 +37,38 @@ export function Data() {
         </Show>
       </div>
 
+      {/* Two groups, not one flat wall. Everything that pulls marks in sits
+          together; the rarer app-and-data operations sit apart, so the screen
+          reads as two short shelves rather than seven parallel forms. Each card
+          shows one action at rest - the paste boxes and the KTU login are
+          folded into `<details>` and open only when asked for. */}
+      <h3 class="group-head">Bring your marks in</h3>
       <div class="cards">
         <section class="card">
-          <h3>Portal sync</h3>
-          <Show when={canSync()} fallback={
-            <p class="lede">
-              Needs the desktop app — a browser cannot hold a portal session.
-              Paste import works everywhere.
-            </p>
-          }>
-            <SyncPanel compact />
-          </Show>
+          <h3>College portal</h3>
+          <p class="lede">
+            Sign in to pull your attendance and series marks — the weekly sync.
+          </p>
+          <details class="more">
+            <summary>Sign in to sync</summary>
+            <Show when={canSync()} fallback={
+              <p class="fineprint">
+                Needs the desktop app — a browser cannot hold a portal session.
+                Paste import works everywhere.
+              </p>
+            }>
+              <SyncPanel compact />
+            </Show>
+          </details>
         </section>
 
         <PasteImport />
         <GradeCardImport />
         <PortalCheck />
+      </div>
+
+      <h3 class="group-head">This app &amp; your data</h3>
+      <div class="cards">
         <Catalogue />
         <Backup />
         <About />
@@ -93,35 +106,37 @@ function PasteImport() {
     <section class="card">
       <h3>Paste from your portal</h3>
       <p class="lede">
-        Copy the table off your portal page and paste it. Matched by course
-        code and merged into {state.activeSemester}; the half you do not paste
-        is left alone.
+        No sign-in: copy the table off your portal and drop it into {state.activeSemester}.
       </p>
 
-      {/* Which of the two is selected was carried by `.on` - a colour - and
-          by nothing else. `aria-pressed` says the same thing in the tree, and
-          the group is named so the pair reads as a choice rather than as two
-          loose buttons. */}
-      <div class="seg" role="group" aria-label="What you are pasting">
-        <button classList={{ on: mode() === "attendance" }}
-                aria-pressed={mode() === "attendance"}
-                onClick={() => setMode("attendance")}>Attendance</button>
-        <button classList={{ on: mode() === "marks" }}
-                aria-pressed={mode() === "marks"}
-                onClick={() => setMode("marks")}>Series marks</button>
-      </div>
+      <details class="more">
+        <summary>Paste a table</summary>
 
-      <textarea class="paste num" rows="4" value={text()}
-                aria-label="Rows copied from your portal"
-                placeholder={mode() === "attendance"
-                  ? "PCCST501  Computer Networks  41  48  85.4%"
-                  : "PCCST501  Computer Networks  38  31  8"}
-                onInput={(e) => setText(e.currentTarget.value)} />
+        {/* Which of the two is selected was carried by `.on` - a colour - and
+            by nothing else. `aria-pressed` says the same thing in the tree, and
+            the group is named so the pair reads as a choice rather than as two
+            loose buttons. */}
+        <div class="seg" role="group" aria-label="What you are pasting">
+          <button classList={{ on: mode() === "attendance" }}
+                  aria-pressed={mode() === "attendance"}
+                  onClick={() => setMode("attendance")}>Attendance</button>
+          <button classList={{ on: mode() === "marks" }}
+                  aria-pressed={mode() === "marks"}
+                  onClick={() => setMode("marks")}>Series marks</button>
+        </div>
 
-      <div class="setup-actions">
-        <button class="primary" disabled={!text().trim()} onClick={run}>Import</button>
-        <Show when={note()}><span class="fineprint">{note()}</span></Show>
-      </div>
+        <textarea class="paste num" rows="4" value={text()}
+                  aria-label="Rows copied from your portal"
+                  placeholder={mode() === "attendance"
+                    ? "PCCST501  Computer Networks  41  48  85.4%"
+                    : "PCCST501  Computer Networks  38  31  8"}
+                  onInput={(e) => setText(e.currentTarget.value)} />
+
+        <div class="setup-actions">
+          <button class="primary" disabled={!text().trim()} onClick={run}>Import</button>
+          <Show when={note()}><span class="fineprint">{note()}</span></Show>
+        </div>
+      </details>
 
       <Show when={refused().length > 0}>
         <div class="notice warn" role="status">
@@ -247,53 +262,23 @@ function GradeCardImport() {
     <section class="card">
       <h3>KTU grade card</h3>
       <p class="lede">
-        Open your grade card from the KTU results portal and drop the PDF in, or
-        paste the table. Grades, credits and the printed SGPA of every semester
-        on it are read at once - this is the fastest way to fill in your past.
+        Your official results — grades, credits and printed SGPA for every
+        published semester, read at once.
       </p>
 
-      <textarea class="paste num" rows="3" value={text()}
-                aria-label="Grade card text"
-                placeholder="PCCST501  Computer Networks  4  A+&#10;SGPA: 8.42"
-                onInput={(e) => setText(e.currentTarget.value)} />
-
-      <div class="setup-actions wrap">
-        <button class="primary" disabled={!text().trim() || busy()}
-                onClick={() => ingest(text())}>Import pasted card</button>
-        <button class="ghost" disabled={busy()} onClick={() => fileInput?.click()}>
-          {busy() ? "Reading…" : "Open PDF or text file"}
-        </button>
-        <input type="file" accept=".pdf,.txt,.html,.htm" hidden
-               ref={fileInput} onChange={openFile} />
-      </div>
-
-      <Show when={note()}><p class="fineprint">{note()}</p></Show>
-
-      <Show when={warn().length > 0}>
-        <div class="notice warn">
-          <strong>{warn().join(", ")} did not reconcile.</strong> The SGPA
-          recomputed from the rows TargetX read disagrees with the one printed on
-          your card, which means a row or a credit was misread. The import stands
-          — your published SGPA is what counts - but check those semesters on the
-          History screen before trusting a projection built on them.
-        </div>
-      </Show>
-
-      {/* Live fetch. The same card, a third way in: rather than opening the KTU
-          portal and downloading a PDF, sign in once and pull every published
-          card at source. It feeds the exact same import path, so a fetched card
-          outranks an etlab scrape and flags a disagreement the same way. */}
-      <div class="ktu-live">
+      {/* The live fetch is the best path - the university's own record, whole -
+          so it leads, but stays folded until asked for so the login is out of
+          sight at rest. It feeds the same import path as a paste, so a fetched
+          card outranks an etlab scrape and flags a disagreement the same way. */}
+      <details class="more">
+        <summary>Fetch live from KTU{canSyncKtu() ? "" : " (desktop app)"}</summary>
         <Show when={canSyncKtu()} fallback={
           <p class="fineprint">
-            Or fetch your cards straight from the KTU portal — that needs the
-            desktop app.
+            Signing in to KTU needs the desktop app. In a browser, paste or open
+            a PDF below.
           </p>
         }>
           <form onSubmit={runKtu} class="ktu-form">
-            <p class="fineprint">
-              Or pull them straight from the KTU results portal — no download:
-            </p>
             <label>
               KTU register number
               <input class="field-input" value={kuser()} placeholder="e.g. ABC24CS001"
@@ -337,7 +322,36 @@ function GradeCardImport() {
             </Show>
           </form>
         </Show>
-      </div>
+      </details>
+
+      <details class="more">
+        <summary>Paste a card, or open a PDF</summary>
+        <textarea class="paste num" rows="3" value={text()}
+                  aria-label="Grade card text"
+                  placeholder="PCCST501  Computer Networks  4  A+&#10;SGPA: 8.42"
+                  onInput={(e) => setText(e.currentTarget.value)} />
+        <div class="setup-actions wrap">
+          <button class="primary" disabled={!text().trim() || busy()}
+                  onClick={() => ingest(text())}>Import pasted card</button>
+          <button class="ghost" disabled={busy()} onClick={() => fileInput?.click()}>
+            {busy() ? "Reading…" : "Open PDF or text file"}
+          </button>
+          <input type="file" accept=".pdf,.txt,.html,.htm" hidden
+                 ref={fileInput} onChange={openFile} />
+        </div>
+      </details>
+
+      <Show when={note()}><p class="fineprint">{note()}</p></Show>
+
+      <Show when={warn().length > 0}>
+        <div class="notice warn">
+          <strong>{warn().join(", ")} did not reconcile.</strong> The SGPA
+          recomputed from the rows TargetX read disagrees with the one printed on
+          your card, which means a row or a credit was misread. The import stands
+          — your published SGPA is what counts - but check those semesters on the
+          History screen before trusting a projection built on them.
+        </div>
+      </Show>
     </section>
   );
 }
@@ -407,9 +421,7 @@ function PortalCheck() {
     <section class="card">
       <h3>Will sync work at my college?</h3>
       <p class="lede">
-        Find out without signing in to anything. Open your portal's academics
-        page in a browser, save it (Ctrl+S), and drop the file in here. TargetX
-        reads it exactly as a sync would and tells you what it found.
+        No sign-in: save your academics page (Ctrl+S) and drop it in to find out.
       </p>
 
       <div class="setup-actions wrap">
@@ -470,8 +482,7 @@ function Catalogue() {
     <section class="card">
       <h3>Course catalogue</h3>
       <p class="lede">
-        Credits and mark patterns come from KTU's published curriculum, which is
-        revised between batches. Updates without reinstalling.
+        Credits and mark patterns from KTU's curriculum. Updates without reinstalling.
       </p>
       <div class="setup-actions">
         <button class="primary" disabled={busy()} onClick={run}>

@@ -360,10 +360,38 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
 .sync-form { display: grid; gap: var(--s4); margin-top: var(--s5); max-width: 42ch; }
 .sync-done h3 { font-size: var(--text-xl); margin: 0 0 var(--s3); }
 
-/* The live KTU fetch is a third way into the same grade-card card, set below a
-   hairline so it reads as an alternative to paste/PDF, not a separate feature. */
-.ktu-live { margin-top: var(--s4); padding-top: var(--s4); border-top: 1px solid var(--hairline); }
 .ktu-form { display: grid; gap: var(--s3); max-width: 42ch; }
+
+/* A small shelf label above each cluster of Data cards, so the screen reads as
+   two short groups - "bring marks in", "the app" - rather than one flat wall. */
+.group-head {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-dim);
+  margin: var(--s6) 0 var(--s3);
+}
+.group-head:first-of-type { margin-top: var(--s2); }
+
+/* A folded secondary action inside a card: the paste boxes and the KTU login.
+   Closed by default so a card shows one thing at rest; the summary is a quiet
+   text affordance with its own +/– marker, not another button competing with
+   the card's primary action. */
+.more > summary {
+  cursor: pointer;
+  color: var(--brand);
+  font-size: var(--text-sm);
+  list-style: none;
+  padding: var(--s1) 0;
+  width: fit-content;
+}
+.more > summary::-webkit-details-marker { display: none; }
+.more > summary::before { content: "+ "; }
+.more[open] > summary::before { content: "– "; }
+.more[open] > summary { margin-bottom: var(--s2); }
+.more + .more { margin-top: var(--s1); }
+.more > *:not(summary) { margin-top: var(--s3); }
 
 /* --- data cards ------------------------------------------------------------ */
 
