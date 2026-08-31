@@ -7,6 +7,8 @@ import {
 import type { ChangeSide, Course, PresetCourse, RequiredEse } from "../engine";
 import type { SyncResult } from "../sync/etlab";
 import type { GradeCard } from "../sync/gradecard";
+import { parseGradeCard } from "../sync/gradecard";
+import { endKtuSession, fetchKtuGradeCard } from "../sync/ktu";
 import { edit, migrateHistory, state } from "./store";
 
 /**
@@ -269,6 +271,33 @@ export function applyGradeCard(card: GradeCard): CardOutcome {
   });
 
   return { semesters: Object.keys(card.semesters).length, courses, mismatched };
+}
+
+/** What a live KTU sync did: the card outcome plus which semesters it pulled. */
+export interface KtuOutcome extends CardOutcome { fetched: string[] }
+
+/**
+ * Pull grade cards live from the KTU result portal and apply them.
+ *
+ * The live path funnels into the exact paste-import path on purpose: the fetched
+ * text is parsed by `parseGradeCard` and written by `applyGradeCard`, so the
+ * university's own cards land as `source: "gradecard"` - outranking an etlab
+ * scrape for the same semester and recording the scrape as a conflict when they
+ * disagree, which is the whole of issue #5. Because it IS the paste path, the
+ * printed-vs-recomputed SGPA check and the merge-by-code that preserves
+ * attendance and series marks apply unchanged.
+ *
+ * The session is always torn down afterwards so the cookie jar never outlives
+ * the sync, on failure as well as success.
+ */
+export async function syncKtu(username: string, password: string): Promise<KtuOutcome> {
+  try {
+    const { text, semesters } = await fetchKtuGradeCard(username, password);
+    const card = parseGradeCard(text);
+    return { ...applyGradeCard(card), fetched: semesters };
+  } finally {
+    await endKtuSession().catch(() => {});
+  }
 }
 
 // --- catalogue -------------------------------------------------------------

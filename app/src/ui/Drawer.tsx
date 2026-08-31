@@ -1,6 +1,6 @@
 import { For, Show, createSignal } from "solid-js";
-import { goalRequirement, overall, rows, summary, trend } from "../state/store";
-import { AttendanceScatter, GoalGauge, TrendChart } from "./charts";
+import { goalRequirement, rows, summary } from "../state/store";
+import { AttendanceScatter, GoalGauge } from "./charts";
 import { TargetsTab } from "./Targets";
 
 /**
@@ -105,11 +105,11 @@ export function Drawer() {
           are on the Targets tab — side by side, because they are different numbers.
         </p>
 
-        <div class="chart-block">
-          <h4>SGPA trend</h4>
-          <TrendChart data={trend()} cgpa={overall().cgpa} />
-        </div>
-
+        {/* The SGPA-trend chart lived here too, a third copy of the one on Home
+            and History. On a per-semester screen the useful reading is not the
+            whole-record trend - it is what THIS semester is costing in
+            attendance, below. Trend stays on Home and History where the whole
+            record is the subject. */}
         <div class="chart-block">
           <h4>Attendance vs internals</h4>
           <AttendanceScatter points={scatter()} />
