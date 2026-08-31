@@ -178,8 +178,31 @@ function parseTimetableCell(cell: string): TimetablePeriod {
   if (!lines.length) return { subject: null, teacher: null };
   return {
     subject: lines[0]!,
-    teacher: lines.length > 1 ? lines.slice(1).join(", ") : null,
+    teacher: joinTeachers(lines.slice(1)),
   };
+}
+
+/**
+ * Join the teacher line(s) of a cell into one clean string, or null.
+ *
+ * etlab's own data is dirty here in two ways seen on the live portal, and both
+ * showed on screen verbatim before this: a teacher line arrives with a trailing
+ * comma ("Ms. JISHA JAMES,"), so a plain `join(", ")` produced a double comma
+ * ("JAMES,, Ms. ..."); and an honorific is sometimes glued onto the preceding
+ * word with no space ("MENTORING HOURMs. JISHA JAMES"). Strip the stray
+ * separators per line, then re-space a glued honorific. Nothing here invents a
+ * name - it only undoes etlab's own run-together punctuation.
+ */
+function joinTeachers(lines: string[]): string | null {
+  const parts = lines
+    .map((l) => l.replace(/^[\s,;]+|[\s,;]+$/g, ""))
+    .filter(Boolean);
+  if (!parts.length) return null;
+  return parts.join(", ")
+    // A word run straight into an honorific: "HOURMs." -> "HOUR Ms."
+    .replace(/([^\s])((?:Mrs?|Ms|Dr|Prof|Smt|Sri)\.)/g, "$1 $2")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 /**

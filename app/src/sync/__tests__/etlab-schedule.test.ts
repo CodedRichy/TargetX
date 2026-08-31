@@ -181,6 +181,28 @@ describe("parseTimetable", () => {
     });
   });
 
+  it("cleans a run-together, trailing-comma teacher cell from the live portal", () => {
+    // Verbatim shape of the cell that rendered "MENT - MENTORING HOURMs. JISHA
+    // JAMES,, Ms. SREEDEVI R PRASAD" on screen: a category tag, then a subject
+    // glued to an honorific, then a teacher line with a trailing comma, then a
+    // second teacher.
+    const html = `
+      <table class="items table table-bordered">
+        <thead><tr><th>Day</th><th>Period 1</th></tr></thead>
+        <tbody><tr>
+          <td class="span2">Wednesday<br><small>03 Sep 2026</small></td>
+          <td class="TA">TA<br/>MENT - MENTORING HOURMs. JISHA JAMES,<br/>Ms. SREEDEVI R PRASAD</td>
+        </tr></tbody>
+      </table>`;
+    const period = parseTimetable(html).grid[0]!.periods[0]!;
+    expect(period.subject).toBe("TA");
+    // No double comma, and the glued honorific is re-spaced.
+    expect(period.teacher).toBe(
+      "MENT - MENTORING HOUR Ms. JISHA JAMES, Ms. SREEDEVI R PRASAD");
+    expect(period.teacher).not.toContain(",,");
+    expect(period.teacher).not.toContain("HOURMs");
+  });
+
   it("returns no substitutions for a 'No changes' grid", () => {
     const parsed = parseTimetable(TIMETABLE_NO_CHANGES);
     expect(parsed.grid).toHaveLength(1);
