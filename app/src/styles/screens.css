@@ -360,6 +360,11 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
 .sync-form { display: grid; gap: var(--s4); margin-top: var(--s5); max-width: 42ch; }
 .sync-done h3 { font-size: var(--text-xl); margin: 0 0 var(--s3); }
 
+/* The live KTU fetch is a third way into the same grade-card card, set below a
+   hairline so it reads as an alternative to paste/PDF, not a separate feature. */
+.ktu-live { margin-top: var(--s4); padding-top: var(--s4); border-top: 1px solid var(--hairline); }
+.ktu-form { display: grid; gap: var(--s3); max-width: 42ch; }
+
 /* --- data cards ------------------------------------------------------------ */
 
 /* Three columns rather than as-many-as-fit. Data is a screen of five rare

@@ -1,14 +1,19 @@
-import { For, Show, createResource, createSignal } from "solid-js";
+import { For, Show, createResource, createSignal, onMount } from "solid-js";
 import { catalogueVersion } from "../engine";
 import {
   applyGradeCard, download, exportJson, importJson, importPaste, reportText,
-  resetEverything, updateCatalogue,
+  resetEverything, syncKtu, updateCatalogue,
 } from "../state/actions";
 import { rows, state, summary } from "../state/store";
 import { logDir } from "../state/diagnostics";
 import { canSync, describeAcademics, parseAcademics } from "../sync/etlab";
 import { parseGradeCard, pdfToText } from "../sync/gradecard";
+import { KtuError, canSyncKtu } from "../sync/ktu";
+import { canRemember, deleteCreds, loadCreds, saveCreds } from "../state/creds";
 import { SyncPanel } from "./SyncPanel";
+
+/** The credential-vault key for the KTU result portal, distinct from any etlab base. */
+const KTU_CRED_KEY = "https://app.ktu.edu.in";
 
 /**
  * Data: everything that moves information in or out.
@@ -153,6 +158,54 @@ function GradeCardImport() {
   const [busy, setBusy] = createSignal(false);
   let fileInput: HTMLInputElement | undefined;
 
+  // Live fetch from the KTU results portal. Separate credential state from the
+  // etlab SyncPanel: this is a different portal with a different login, kept
+  // under its own vault key. Same security posture - the password lives in a
+  // signal for one fetch and is dropped in `finally`, the session cookie stays
+  // in the Rust process, and remembering is opt-in and desktop-only.
+  const [kuser, setKuser] = createSignal("");
+  const [kpass, setKpass] = createSignal("");
+  const [kremember, setKremember] = createSignal(false);
+  const [kbusy, setKbusy] = createSignal(false);
+  const [kerror, setKerror] = createSignal("");
+
+  onMount(async () => {
+    if (!canRemember()) return;
+    try {
+      const stored = await loadCreds(KTU_CRED_KEY);
+      if (stored) { setKuser(stored.username); setKpass(stored.password); setKremember(true); }
+    } catch { /* vault optional; never block the form */ }
+  });
+
+  const runKtu = async (event: Event) => {
+    event.preventDefault();
+    setKerror(""); setNote(""); setWarn([]);
+    if (!canSyncKtu()) {
+      setKerror("KTU sync needs the desktop app. In a browser, paste or drop the card instead.");
+      return;
+    }
+    try {
+      setKbusy(true);
+      const outcome = await syncKtu(kuser().trim(), kpass());
+      setWarn(outcome.mismatched);
+      setNote(`Fetched ${outcome.fetched.join(", ")} from KTU — `
+        + `${outcome.courses} subject${outcome.courses === 1 ? "" : "s"} across `
+        + `${outcome.semesters} semester${outcome.semesters === 1 ? "" : "s"}.`);
+      // Persist or forget only after a fetch that worked, and only if asked.
+      if (canRemember()) {
+        try {
+          if (kremember()) await saveCreds(KTU_CRED_KEY, kuser().trim(), kpass());
+          else await deleteCreds(KTU_CRED_KEY);
+        } catch { /* remembering is a convenience, never a blocker */ }
+      }
+    } catch (exc) {
+      setKerror(exc instanceof KtuError ? exc.message : String(exc));
+    } finally {
+      setKbusy(false);
+      setKpass("");
+    }
+  };
+
   const ingest = (raw: string) => {
     const card = parseGradeCard(raw);
     const names = Object.keys(card.semesters);
@@ -225,6 +278,66 @@ function GradeCardImport() {
           History screen before trusting a projection built on them.
         </div>
       </Show>
+
+      {/* Live fetch. The same card, a third way in: rather than opening the KTU
+          portal and downloading a PDF, sign in once and pull every published
+          card at source. It feeds the exact same import path, so a fetched card
+          outranks an etlab scrape and flags a disagreement the same way. */}
+      <div class="ktu-live">
+        <Show when={canSyncKtu()} fallback={
+          <p class="fineprint">
+            Or fetch your cards straight from the KTU portal — that needs the
+            desktop app.
+          </p>
+        }>
+          <form onSubmit={runKtu} class="ktu-form">
+            <p class="fineprint">
+              Or pull them straight from the KTU results portal — no download:
+            </p>
+            <label>
+              KTU register number
+              <input class="field-input" value={kuser()} placeholder="e.g. ABC24CS001"
+                     autocomplete="username"
+                     onInput={(e) => setKuser(e.currentTarget.value)} />
+            </label>
+            <label>
+              KTU password
+              <input class="field-input" type="password" value={kpass()}
+                     autocomplete="current-password"
+                     onInput={(e) => setKpass(e.currentTarget.value)} />
+            </label>
+
+            <Show when={canRemember()}>
+              <label class="remember">
+                <input type="checkbox" checked={kremember()}
+                       onChange={(e) => setKremember(e.currentTarget.checked)} />
+                <span>Remember this login on this device</span>
+              </label>
+            </Show>
+
+            <div class="setup-actions">
+              <button class="primary" type="submit" disabled={kbusy() || !kuser().trim()}>
+                {kbusy() ? "Fetching…" : "Fetch from KTU"}
+              </button>
+            </div>
+
+            <p class="fineprint">
+              <Show when={canRemember() && kremember()} fallback={
+                <>The KTU portal is read once for this fetch; the password is
+                  never saved and the session stays inside the app.</>
+              }>
+                Kept in Windows Credential Manager for your account on this
+                device — never in a backup, a log, or off this machine. Untick to
+                forget it.
+              </Show>
+            </p>
+
+            <Show when={kerror()}>
+              <div class="notice bad"><strong>KTU sync failed.</strong> {kerror()}</div>
+            </Show>
+          </form>
+        </Show>
+      </div>
     </section>
   );
 }

@@ -48,19 +48,6 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   regulations. Enough of them and this stops being a maybe.
 
 
-- **Signing in to KTU for a marks cross-check.** The public KTU site is behind
-  a captcha, and defeating that to log in is off the table for good - a tool
-  that does it teaches every student to hand credentials to something that
-  bypasses the university's own gate. But the student results portal is a
-  different door: a plain sign-in, no captcha and no one-time password, the
-  same shape as the college portal TargetX already reads. That reopens one
-  narrow thing worth doing. Your college portal's marks can be wrong; your KTU
-  grade card is the university's own record. Reading the card lets TargetX
-  check the two against each other and, where they disagree, trust KTU over the
-  portal every time - attendance still comes from the college, because KTU does
-  not publish it. Only if it can be done without weakening the promise that
-  your credentials never leave your machine.
-
 ## [0.2.0] - 2026-08-31
 
 ### Added
@@ -87,6 +74,23 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   backup, never in a log, never off your machine. Untick it, or sign out, to
   forget it. If you do not tick it, nothing changes: the password is used for
   the one sign-in and dropped.
+
+- **Your grades, straight from KTU.** Sign in to the KTU results portal from the
+  Data screen and TargetX pulls every published semester's grade card at source
+  — no opening the portal, no downloading a PDF. Because it is the university's
+  own document, a fetched card outranks your college portal: where the two name
+  a different SGPA, the portal's figure is shown as the disagreement, not the
+  answer. The login has the same promise as portal sync — the password is used
+  for the one fetch and dropped unless you ask to keep it, and the session never
+  leaves the app. Your KTU password is different from your college portal's, so
+  it is remembered separately.
+
+- **Your attendance, day by day — and your timetable.** Below the can-you-miss
+  screen, the attendance page now shows the real thing the portal has on record:
+  every period, coloured by whether you were present, absent, or excused, so a
+  bad week reads as a red streak before you count anything. Underneath it, your
+  weekly timetable and any changes the college published for the week. Both come
+  from the college portal on a sync; nothing here is typed.
 
 ### Changed
 

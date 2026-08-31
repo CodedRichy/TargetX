@@ -1,5 +1,6 @@
 mod creds;
 mod etlab;
+mod ktu;
 
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
@@ -85,12 +86,18 @@ pub fn run() {
     // fault were the ones being watched by someone who could already see it.
     .plugin(log_plugin())
     .manage(etlab::Etlab::default())
+    .manage(ktu::Ktu::default())
     .invoke_handler(tauri::generate_handler![
       etlab::etlab_start,
       etlab::etlab_reset,
       etlab::etlab_active,
       etlab::etlab_get,
       etlab::etlab_post,
+      ktu::ktu_start,
+      ktu::ktu_reset,
+      ktu::ktu_active,
+      ktu::ktu_get,
+      ktu::ktu_post,
       creds::cred_save,
       creds::cred_load,
       creds::cred_delete,
