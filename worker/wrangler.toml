@@ -8,7 +8,7 @@ compatibility_flags = ["nodejs_compat"]
 # is reproducible from the repo. The Gemini key is NOT here; it is set with
 # `wrangler secret put GEMINI_KEY` and never touches version control.
 [vars]
-CLERK_ISSUER = "https://REPLACE-ME.clerk.accounts.dev"
+CLERK_ISSUER = "https://prompt-elf-6362.clerk.accounts.dev"
 
 [[durable_objects.bindings]]
 name = "QUOTA"
