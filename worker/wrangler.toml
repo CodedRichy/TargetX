@@ -17,3 +17,11 @@ class_name = "Quota"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Quota"]
+
+# The router's question log. Content only - no `sub`, no token, no course codes;
+# see src/log.ts for why identity and content are kept apart. The binding is
+# optional in the Worker, so removing this block degrades to no logging rather
+# than to a broken endpoint.
+[[analytics_engine_datasets]]
+binding = "ASK_LOG"
+dataset = "targetx_ask_log"

@@ -1,0 +1,11 @@
+# Local development only. Wrangler reads this when you run `npm run dev`.
+#
+# NEVER commit this file - it is gitignored, and the committed copy is this
+# .example. For the DEPLOYED worker the key is not a file at all:
+#
+#   npx wrangler secret put GEMINI_KEY
+#
+# which prompts, stores the value encrypted at Cloudflare, and never writes it
+# to disk. The key must not go anywhere near app/.env: Vite inlines every
+# VITE_* value into the shipped bundle, so it would ship inside the installer.
+GEMINI_KEY=

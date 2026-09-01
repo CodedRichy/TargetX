@@ -22,6 +22,7 @@ import { verify } from "./clerk";
 import { claim } from "./limit";
 import { route } from "./gemini";
 import { parseAction, parseAskRequest } from "./schema";
+import { logAsk, outcomeOf } from "./log";
 
 export { Quota } from "./limit";
 
@@ -29,6 +30,12 @@ interface Env {
   GEMINI_KEY: string;
   CLERK_ISSUER: string;
   QUOTA: DurableObjectNamespace;
+  /**
+   * Optional. A deployment without the dataset bound still answers questions;
+   * see `logAsk`. Analytics Engine is not on every plan, and losing the log is
+   * a worse outcome than losing the feature only if the feature still works.
+   */
+  ASK_LOG?: AnalyticsEngineDataset;
 }
 
 /** No credentials, no cookies - the client sends a bearer token by hand. */
@@ -43,7 +50,7 @@ function json(body: unknown, status = 200, extra: Record<string, string> = {}) {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
     if (request.method !== "POST") return json({ error: "method" }, 405);
 
@@ -80,10 +87,21 @@ export default {
     // worth more here than a slow success.
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), 8000);
+    const started = Date.now();
+    // Logged on every path below, including the failures. The set of questions
+    // that reach this Worker at all is the set the app could not answer by
+    // itself, which is the only evidence there is about what to teach it next.
+    const record = (outcome: Parameters<typeof logAsk>[1]["outcome"]) =>
+      ctx.waitUntil(logAsk(env.ASK_LOG, {
+        outcome, question: ask.question,
+        subjectCount: ask.subjects.length,
+        latencyMs: Date.now() - started,
+      }));
 
     try {
       const raw = await route(ask, env.GEMINI_KEY, abort.signal);
       const action = parseAction(raw, new Set(ask.subjects.map((s) => s.code)));
+      record(outcomeOf(action));
 
       // The model returned something outside its own schema. That is not an
       // action the app is allowed to act on, and it is not an error the student
@@ -96,7 +114,10 @@ export default {
     } catch {
       // Nothing about the upstream failure is echoed back. The error text could
       // carry a URL, a key fragment or a project id, and none of that is the
-      // student's business or safe to leak.
+      // student's business or safe to leak. It IS recorded, because a run of
+      // upstream errors is the difference between "nobody asked" and "everybody
+      // asked and got nothing".
+      record("upstream_error");
       return json({ error: "upstream" }, 502);
     } finally {
       clearTimeout(timer);
