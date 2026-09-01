@@ -16,6 +16,7 @@ import { Ledger } from "./Ledger";
 import { Setup } from "./Setup";
 import { Mark } from "./Mark";
 import { Palette, usePaletteShortcut } from "./Palette";
+import { Popover } from "./Popover";
 import { runLaunchCheck, saveFindings } from "../state/launch";
 import { autoRefresh, refreshAll, refreshFailures, refreshing } from "../state/autosync";
 import type { SourceResult } from "../state/autosync";
@@ -343,35 +344,7 @@ export function Bell(props: { findings: Finding[] }) {
    * being ignored. Dismissing means "I have read this", not "this is fixed".
    */
   const [hidden, setHidden] = createSignal<string[]>([]);
-  let wrap: HTMLDivElement | undefined;
-
-  /*
-   * Close when the click lands outside, decided by geometry rather than by
-   * propagation.
-   *
-   * The propagation version did not work and could not: Solid delegates every
-   * `onClick` to `document`, and this listener is on `document` too.
-   * `stopPropagation` does not stop other listeners already bound to the SAME
-   * node - only `stopImmediatePropagation` does, and only for handlers
-   * registered after it. So the button's own toggle opened the popover and
-   * this handler closed it again in the same click, and the bell looked dead.
-   *
-   * Asking whether the click was inside the wrapper is independent of both
-   * listener order and the framework's delegation strategy.
-   *
-   * It listens for pointerdown rather than click, and that is not incidental.
-   * A click on a row's dismiss button removes that row, so by the time a click
-   * listener on `document` ran, the node it was handed had already been
-   * detached from the tree and `contains` answered false for something that
-   * was plainly inside the popover - which closed it on every dismissal.
-   * pointerdown fires before any handler has had the chance to mutate anything.
-   */
-  const onDocDown = (e: Event) => {
-    if (wrap && e.target instanceof Node && wrap.contains(e.target)) return;
-    setOpen(false);
-  };
-  onMount(() => document.addEventListener("pointerdown", onDocDown));
-  onCleanup(() => document.removeEventListener("pointerdown", onDocDown));
+  let anchor: HTMLButtonElement | undefined;
 
   const live = () => props.findings.filter((f) => !hidden().includes(f.title));
 
@@ -403,8 +376,8 @@ export function Bell(props: { findings: Finding[] }) {
   };
 
   return (
-    <div class="pop-wrap" ref={wrap}>
-      <button class="iconbtn bell" onClick={() => setOpen((o) => !o)}
+    <>
+      <button ref={anchor} class="iconbtn bell" onClick={() => setOpen((o) => !o)}
               aria-expanded={open()}
               aria-label={items().length === 0
                 ? "Notifications. Nothing needs attention."
@@ -420,8 +393,9 @@ export function Bell(props: { findings: Finding[] }) {
         </Show>
       </button>
 
-      <Show when={open()}>
-        <div class="pop" role="dialog" aria-label="Notifications">
+      <Popover open={open()} onClose={() => setOpen(false)}
+               label="Notifications" anchor={() => anchor}>
+        <div>
           <div class="pop-head">
             <p class="pop-title">Needs attention</p>
             <Show when={items().length > 1}>
@@ -454,8 +428,8 @@ export function Bell(props: { findings: Finding[] }) {
             )}</For>
           </Show>
         </div>
-      </Show>
-    </div>
+      </Popover>
+    </>
   );
 }
 
@@ -475,20 +449,11 @@ export function Bell(props: { findings: Finding[] }) {
 function Profile() {
   const [open, setOpen] = createSignal(false);
   const cgpa = () => (overall().credits > 0 ? overall().cgpa.toFixed(2) : null);
-  let wrap: HTMLDivElement | undefined;
-
-  /* Same containment test as the bell, on pointerdown for the same two reasons
-     - see the note there. */
-  const onDocDown = (e: Event) => {
-    if (wrap && e.target instanceof Node && wrap.contains(e.target)) return;
-    setOpen(false);
-  };
-  onMount(() => document.addEventListener("pointerdown", onDocDown));
-  onCleanup(() => document.removeEventListener("pointerdown", onDocDown));
+  let anchor: HTMLButtonElement | undefined;
 
   return (
-    <div class="pop-wrap" ref={wrap}>
-      <button class="profile" onClick={() => setOpen((o) => !o)}
+    <>
+      <button ref={anchor} class="profile" onClick={() => setOpen((o) => !o)}
               aria-expanded={open()} aria-label="Account">
         <span class="avatar" aria-hidden="true">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
@@ -505,8 +470,9 @@ function Profile() {
         </span>
       </button>
 
-      <Show when={open()}>
-        <div class="pop" role="dialog" aria-label="Account">
+      <Popover open={open()} onClose={() => setOpen(false)}
+               label="Account" anchor={() => anchor}>
+        <div>
           <div class="pop-row">
             <span>Appearance</span>
             <ThemeButton />
@@ -567,8 +533,8 @@ function Profile() {
             </button>
           </div>
         </div>
-      </Show>
-    </div>
+      </Popover>
+    </>
   );
 }
 

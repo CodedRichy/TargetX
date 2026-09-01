@@ -12,6 +12,12 @@
  * because the bug lived entirely in how two listeners on one node interleave.
  * A test that invoked the click handler directly would have passed against the
  * broken build.
+ *
+ * The panels are queried on `document` rather than on the render container:
+ * they are rendered through a Portal into `document.body`, out of the header,
+ * because the header carries a backdrop-filter and WebView2 clips a filtered
+ * element's descendants to its own box - which painted them and then clipped
+ * them away in the shipped app while every test passed.
  */
 import { cleanup, render } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -61,10 +67,10 @@ describe.each([
   it("opens on click and stays open", () => {
     const { container } = render(() => <App />);
     const trigger = container.querySelector(selector)!;
-    expect(container.querySelector(".pop")).toBeNull();
+    expect(document.querySelector(".pop")).toBeNull();
 
     click(trigger);
-    const pop = container.querySelector(".pop")!;
+    const pop = document.querySelector(".pop")!;
     expect(pop).not.toBeNull();
     expect(pop.getAttribute("aria-label")).toBe(label);
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
@@ -73,19 +79,19 @@ describe.each([
   it("closes on a click outside it", () => {
     const { container } = render(() => <App />);
     click(container.querySelector(selector)!);
-    expect(container.querySelector(".pop")).not.toBeNull();
+    expect(document.querySelector(".pop")).not.toBeNull();
 
     click(document.body);
-    expect(container.querySelector(".pop")).toBeNull();
+    expect(document.querySelector(".pop")).toBeNull();
   });
 
   it("stays open when the click lands inside it", () => {
     const { container } = render(() => <App />);
     click(container.querySelector(selector)!);
-    const pop = container.querySelector(".pop")!;
+    const pop = document.querySelector(".pop")!;
 
     click(pop);
-    expect(container.querySelector(".pop")).not.toBeNull();
+    expect(document.querySelector(".pop")).not.toBeNull();
   });
 });
 
@@ -121,43 +127,44 @@ describe("dismissing notifications", () => {
   };
 
   it("shows every finding", () => {
-    expect(openBell().querySelectorAll(".pop-item").length).toBe(3);
+    openBell();
+    expect(document.querySelectorAll(".pop-item").length).toBe(3);
   });
 
   it("removes the row that was dismissed and leaves the others", () => {
     const container = openBell();
-    click(container.querySelectorAll(".pop-x")[1]!);
+    click(document.querySelectorAll(".pop-x")[1]!);
 
-    const titles = [...container.querySelectorAll(".pop-item strong")]
+    const titles = [...document.querySelectorAll(".pop-item strong")]
       .map((n) => n.textContent);
     expect(titles).toEqual(["1 subject below the floor", "S3 does not reconcile"]);
   });
 
   it("keeps the popover open after a dismissal", () => {
     const container = openBell();
-    click(container.querySelector(".pop-x")!);
-    expect(container.querySelector(".pop")).not.toBeNull();
+    click(document.querySelector(".pop-x")!);
+    expect(document.querySelector(".pop")).not.toBeNull();
   });
 
   it("counts the badge down as rows go", () => {
     const container = openBell();
     expect(container.querySelector(".bell-badge")!.textContent).toBe("3");
 
-    click(container.querySelector(".pop-x")!);
+    click(document.querySelector(".pop-x")!);
     expect(container.querySelector(".bell-badge")!.textContent).toBe("2");
   });
 
   it("clears everything at once, and closes", () => {
     const container = openBell();
-    click(container.querySelector(".pop-head .link")!);
+    click(document.querySelector(".pop-head .link")!);
 
-    expect(container.querySelector(".pop")).toBeNull();
+    expect(document.querySelector(".pop")).toBeNull();
     expect(container.querySelector(".bell-badge")).toBeNull();
   });
 
   it("offers no bulk control for a single finding", () => {
     const { container } = render(() => <Bell findings={[FINDINGS[0]!]} />);
     click(container.querySelector("button.bell")!);
-    expect(container.querySelector(".pop-head .link")).toBeNull();
+    expect(document.querySelector(".pop-head .link")).toBeNull();
   });
 });

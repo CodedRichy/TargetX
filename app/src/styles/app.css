@@ -768,10 +768,12 @@ tr.row:hover .del { opacity: 1; }
 
 /* --- popovers -------------------------------------------------------------- */
 
+/* Positioned by the Popover component, in viewport coordinates, because it is
+   rendered into document.body rather than beside its trigger - see the note in
+   Popover.tsx for the WebView2 clipping bug that forces this. Fixed rather
+   than absolute for the same reason: there is no positioned ancestor left. */
 .pop {
-  position: absolute;
-  inset-block-start: calc(100% + var(--s2));
-  inset-inline-end: 0;
+  position: fixed;
   z-index: 30;
   inline-size: 22rem;
   max-block-size: 60vh;
@@ -781,7 +783,6 @@ tr.row:hover .del { opacity: 1; }
   border: 1px solid var(--hairline-strong);
   border-radius: var(--radius-card);
 }
-.pop-wrap { position: relative; display: flex; align-items: center; flex: none; }
 .pop-title {
   color: var(--text-faint);
   font-size: var(--text-xs);
