@@ -1,7 +1,9 @@
 import {
   ATTENDANCE_MARK_BANDS, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN, DL_CAP_PCT,
 } from "./constants";
-import type { AttendanceBand, AttendancePlan, Course, MarkInput } from "./types";
+import type {
+  AbsenceCost, AttendanceBand, AttendancePlan, Course, MarkInput,
+} from "./types";
 import { ceil, clamp, floor, round, toFloat, toOptionalFloat } from "./util";
 
 /** CIE marks earned by attendance alone, per R 7.5.ii. */
@@ -207,4 +209,93 @@ export function effectiveAttendance(
   if (plan !== null) return plan.current;
   const stated = toOptionalFloat(course.attendance);
   return stated === null ? null : clamp(stated, 0, 100);
+}
+
+/**
+ * What the next absence actually costs.
+ *
+ * The question this app exists to answer, and the one every other system
+ * refuses: not "am I above 75%" but "if I skip tomorrow, what does it take from
+ * me". A student at 86% is told by every portal that they are fine. Missing two
+ * classes puts them at 84% and costs a CIE mark under R 7.5.ii, and nothing
+ * anywhere tells them that until the mark is gone.
+ *
+ * Composition, not new arithmetic: the percentage after `n` more absences is
+ * the same effective figure the rest of the engine uses, recomputed with the
+ * classes added to `held` and none of them attended, and the marks on each side
+ * come from `attendanceMarks`. There is deliberately no second opinion here
+ * about what a percentage is worth.
+ *
+ * Duty leave is NOT re-credited against the larger denominator. `creditDutyLeave`
+ * caps DL at a fraction of held, so a bigger `held` could mathematically allow
+ * more DL to count - but the student is not acquiring new duty leave by missing
+ * a class, and letting the cap rise here would report a skip as cheaper than it
+ * is. The credited figure is held at today's value.
+ *
+ * Returns null when the portal gave no raw counts. A percentage alone cannot
+ * answer this: without `held` there is no denominator to move.
+ */
+export function absenceCost(
+  attendedIn: MarkInput, heldIn: MarkInput, dutyLeave: MarkInput = 0,
+  skips: number = 1,
+  maxMarks: number = ATTENDANCE_MARK_MAX,
+  floorPct: number = ATTENDANCE_MIN,
+  dlCapPct: number = DL_CAP_PCT,
+): AbsenceCost | null {
+  const attended = toOptionalFloat(attendedIn);
+  const held = toOptionalFloat(heldIn);
+  if (attended === null || held === null || held <= 0) return null;
+  const n = Math.max(0, Math.floor(skips));
+
+  const { credited } = creditDutyLeave(held, dutyLeave, dlCapPct);
+  const pctAt = (extra: number) => {
+    const denominator = held + extra;
+    if (denominator <= 0) return 0;
+    return round((Math.min(attended + credited, denominator) / denominator) * 100, 2);
+  };
+
+  const before = pctAt(0);
+  const after = pctAt(n);
+  const marksBefore = attendanceMarks(before, maxMarks) ?? 0;
+  const marksAfter = attendanceMarks(after, maxMarks) ?? 0;
+
+  return {
+    skips: n,
+    before, after,
+    marksBefore, marksAfter,
+    marksLost: round(Math.max(0, marksBefore - marksAfter), 2),
+    eligibleBefore: before >= floorPct,
+    eligibleAfter: after >= floorPct,
+  };
+}
+
+/**
+ * The largest number of absences that costs nothing.
+ *
+ * Distinct from `AttendancePlan.skip`, which solves for eligibility alone and
+ * so answers "before I am barred from the exam". This solves for the marks: the
+ * last skip that leaves the CIE attendance mark untouched. For most students
+ * the two are far apart, and the smaller one is the one that binds first.
+ *
+ * Bounded rather than closed-form because the band table is a list of steps,
+ * not a formula, and a loop over it cannot disagree with `attendanceMarks` the
+ * way a re-derivation could. `held` is the bound: skipping every remaining
+ * class is the most anyone can do.
+ */
+export function freeSkips(
+  attendedIn: MarkInput, heldIn: MarkInput, dutyLeave: MarkInput = 0,
+  maxMarks: number = ATTENDANCE_MARK_MAX,
+  dlCapPct: number = DL_CAP_PCT,
+): number | null {
+  const first = absenceCost(attendedIn, heldIn, dutyLeave, 0, maxMarks, ATTENDANCE_MIN, dlCapPct);
+  if (first === null) return null;
+  const held = toFloat(heldIn);
+  let n = 0;
+  while (n < held) {
+    const next = absenceCost(attendedIn, heldIn, dutyLeave, n + 1, maxMarks,
+                             ATTENDANCE_MIN, dlCapPct);
+    if (next === null || next.marksAfter < first.marksBefore) break;
+    n += 1;
+  }
+  return n;
 }

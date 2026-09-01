@@ -108,6 +108,29 @@ export interface AttendanceBand {
   atPct: number | null;
 }
 
+/**
+ * What missing `skips` more classes would do to one course.
+ *
+ * Both sides are carried rather than only the difference, because the sentence
+ * a student needs is "86% and 4 marks becomes 84% and 3", not "you lose 1". A
+ * bare delta is the kind of figure that cannot show its working.
+ */
+export interface AbsenceCost {
+  /** How many further absences this priced. */
+  skips: number;
+  /** Effective attendance now, and after those absences. */
+  before: number;
+  after: number;
+  /** CIE marks earned by attendance, on each side (R 7.5.ii). */
+  marksBefore: number;
+  marksAfter: number;
+  /** Never negative: missing a class cannot earn a mark. */
+  marksLost: number;
+  /** Whether the course clears the eligibility floor, on each side. */
+  eligibleBefore: boolean;
+  eligibleAfter: boolean;
+}
+
 export interface Evaluation {
   cie: number;
   cieMax: number;
