@@ -914,10 +914,14 @@ tr.row:hover .del { opacity: 1; }
 
 /* --- actions inside a popover ---------------------------------------------
  *
- * `.link primary` was reused here from the launch banner, where `.launch-notice
- * .link.primary` scopes it back to a link. Unscoped it matches `button.primary`
- * as well, so the sign-in control rendered as a solid swatch with link metrics
- * and wrapped "Sign in" onto two lines inside it.
+ * `.link primary` was reused here from the launch banner. Unscoped it matches
+ * `button.primary` as well, so the sign-in control rendered as a solid swatch
+ * with link metrics and wrapped "Sign in" onto two lines inside it.
+ *
+ * The banner's copy was scoped rather than renamed at the time, which fixed the
+ * resting colour and left `button.primary:hover` painting a mint slab behind
+ * mint text. It is `link offer` there now, and no `primary` is worn by anything
+ * that is not a filled button.
  */
 .pop-row > span { flex: 1 1 auto; min-inline-size: 0; }
 

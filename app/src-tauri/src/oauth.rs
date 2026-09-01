@@ -729,6 +729,6 @@ mod tests {
     #[test]
     fn a_callback_with_neither_code_nor_error_is_not_a_result() {
         let q = parse_query("/favicon.ico");
-        assert!(q.get("code").is_none() && q.get("error").is_none());
+        assert!(!q.contains_key("code") && !q.contains_key("error"));
     }
 }

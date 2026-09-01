@@ -32,6 +32,18 @@ describe("what it says before anything is clicked", () => {
     expect(screen.getByText(/TargetX 0\.2\.0 is available/)).toBeTruthy();
   });
 
+  it("does not wear `primary`, which is a filled button's class", () => {
+    // The offer is a link with a lifted colour. Wearing `primary` as well made
+    // it match `button.primary` too, and the scoped colour override left
+    // `button.primary:hover` painting --brand-bright behind --brand text -
+    // measured at 1.3:1, so the label vanished under the pointer. A stylesheet
+    // cannot assert this; the class list is the thing that was wrong.
+    const { container } = render(() => <UpdateNotice update={offer()} onDismiss={() => {}} />);
+    const install = screen.getByText("Install and restart");
+    expect(install.classList.contains("primary")).toBe(false);
+    expect(container.querySelector("button.primary")).toBeNull();
+  });
+
   it("can always be refused", () => {
     const onDismiss = vi.fn();
     render(() => <UpdateNotice update={offer()} onDismiss={onDismiss} />);
@@ -97,5 +109,34 @@ describe("when the install fails", () => {
     expect(container.textContent).toContain("That update could not be installed");
     expect(screen.getByText("Install and restart")).toBeTruthy();
     expect(screen.getByText("Not now")).toBeTruthy();
+  });
+
+  it("says WHY, in the page rather than in a tooltip", async () => {
+    // "disk full" and "network unreachable" are different instructions to the
+    // student, and the reason lived in a `title` - which is to say nowhere for
+    // anyone not hovering, and nowhere at all on a touch screen.
+    const update = offer({ install: vi.fn(async () => { throw new Error("disk full"); }) });
+    const { container } = render(() => <UpdateNotice update={update} onDismiss={() => {}} />);
+    fireEvent.click(screen.getByText("Install and restart"));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(container.textContent).toContain("disk full");
+    // And that the current build is still usable, which is the question the
+    // sentence above raises and did not answer.
+    expect(container.textContent).toContain("keep using this version");
+  });
+
+  it("keeps the failure out of the offer's row", async () => {
+    // Both banners are capped at 66ch, so as flex siblings in a wrapping row
+    // they fitted side by side on a 1280px window and the failure appeared 600px
+    // to the right of the button that had just failed, reading as an unrelated
+    // notice. The container stacks; this pins that it still does.
+    const update = offer({ install: vi.fn(async () => { throw new Error("nope"); }) });
+    const { container } = render(() => <UpdateNotice update={update} onDismiss={() => {}} />);
+    fireEvent.click(screen.getByText("Install and restart"));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(container.querySelector(".launch-notice")!.classList.contains("stack")).toBe(true);
+    expect(container.querySelector(".install-failed")).toBeTruthy();
   });
 });

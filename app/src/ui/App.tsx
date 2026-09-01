@@ -206,7 +206,7 @@ export function UpdateNotice(props: { update: Available; onDismiss: () => void }
     // `role="status"` (polite, atomic) rather than `alert`: an update is
     // never why anyone opened the app, so it waits for a pause rather than
     // cutting across what is being read.
-    <div class="launch-notice" role="status">
+    <div class="launch-notice stack" role="status">
       <div class="notice" title={props.update.notes ?? undefined}>
         <strong>TargetX {props.update.version} is available</strong>
         <Show when={!installing()} fallback={
@@ -236,7 +236,15 @@ export function UpdateNotice(props: { update: Available; onDismiss: () => void }
             </span>
           </span>
         }>
-          <button class="link primary" onClick={install}>Install and restart</button>
+          {/* `offer`, not `primary`. `class="link primary"` also matched every
+              `button.primary` rule, and while the scoped colour override hid
+              that at rest, `button.primary:hover` still painted --brand-bright
+              behind --brand text: measured at 1.3:1, which is the label
+              disappearing under the pointer on the one button that ships a
+              marks fix. The same collision had already been found once, on the
+              popover sign-in - so the class is renamed rather than out-specified
+              again. */}
+          <button class="link offer" onClick={install}>Install and restart</button>
         </Show>
         {/* Inside the notice, not beside it. `.launch-notice` stretches its
             children so several findings share a row, which pushed a lone
@@ -246,10 +254,19 @@ export function UpdateNotice(props: { update: Available; onDismiss: () => void }
           <button class="link" onClick={props.onDismiss}>Not now</button>
         </Show>
       </div>
+      {/* Takes a row of its own rather than sharing one. As a flex sibling it
+          landed beside the offer, which on a wide window put "could not be
+          installed" some 600px from the button that had just failed - far
+          enough to read as a second, unrelated banner. And the reason was in a
+          `title`, which is to say invisible: the whole point of saying an
+          install failed is to say what to do about it, and "disk full" and
+          "network unreachable" are different instructions. */}
       <Show when={failed()}>
         {(why) => (
-          <div class="notice warn" title={why()}>
+          <div class="notice warn install-failed">
             <strong>That update could not be installed</strong>
+            <span class="dim">{why()}</span>
+            <span class="dim">You can keep using this version.</span>
           </div>
         )}
       </Show>

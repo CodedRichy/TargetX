@@ -883,7 +883,16 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
    lives on the screen the button goes to, and a paragraph here pushed the
    whole app down the page. */
 .launch-notice .notice {
-  align-items: baseline;
+  /* Centred, not baseline-aligned. Baseline is the better reading of a row of
+     text, and it makes the banner's height depend on what is IN it: buttons and
+     a progress bar report different baselines, so pressing Install resized the
+     banner - and it holds a grid row above the whole app, so everything below
+     moved at the exact moment the student was watching to see if the click had
+     registered. Centring, plus matching the progress box to the button box,
+     takes that from 15.1px to 3.3px. Measured, not assumed - and the residual
+     is left rather than papered over with a fixed height, which would clip the
+     failure row when its reason wraps on a narrow window. */
+  align-items: center;
   display: flex;
   flex: 1 1 24rem;
   gap: var(--s3);
@@ -897,9 +906,16 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
    and "Not now" came back as the identical computed colour in both themes, so
    dimming the refusal further was never going to separate them - the offer had
    to be lifted instead. --brand rather than --text because it is the colour of
-   the bar that fills when the offer is taken. */
-.launch-notice .link.primary { color: var(--brand); }
-.launch-notice .link.primary:hover { color: var(--brand); text-decoration-thickness: 2px; }
+   the bar that fills when the offer is taken.
+
+   `offer` rather than `primary`, which is not cosmetic. The class was
+   `link primary`, so it matched `button.primary` too; this rule overrode the
+   colour and stopped there, leaving `button.primary:hover` free to paint
+   --brand-bright behind --brand text - 1.3:1, the label gone under the
+   pointer. Renaming ends the collision instead of winning the next round of
+   it. */
+.launch-notice .link.offer { color: var(--brand); }
+.launch-notice .link.offer:hover { color: var(--brand); text-decoration-thickness: 2px; }
 
 /* Download progress on the update prompt.
    A bar rather than a spinner because the one thing a student wants to know
@@ -911,6 +927,20 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   flex: 1 1 10rem;
   gap: var(--s3);
   min-inline-size: 8rem;
+  /* Matches the box the two buttons it replaces occupied - their padding and
+     their transparent 1px border. Measured without it: the banner went from
+     71.3px to 56.2px the instant Install was pressed, and since it holds a
+     grid row above the whole app, everything below jumped 15.1px up at the
+     exact moment the student was watching to see whether the click
+     registered. */
+  border-block: 1px solid transparent;
+  padding-block: var(--s2);
+  /* The notice aligns its children on their baselines, which is right for text
+     and wrong for this: a track and a percentage inside a nested flex box
+     report a baseline lower than the buttons they replace, and the banner grew
+     another 9.5px to accommodate it. Centred, the box occupies the buttons'
+     row exactly. */
+  align-self: center;
 }
 .update-track {
   background: var(--hairline-strong);
@@ -929,7 +959,36 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   transform-origin: left center;
   transition: transform var(--med) var(--ease);
 }
-.launch-notice > button.link { margin-left: auto; }
+/* The update banner stacks; the launch findings do not.
+   Those findings are independent one-liners and reading well side by side is
+   the reason `.launch-notice` is a wrapping row at all. The update banner is
+   one statement and its consequence, and as a row the failure landed level
+   with the offer and some 600px to its right - far enough to read as an
+   unrelated banner about something else.
+
+   Neither `flex-basis: 100%` nor `inline-size: 100%` breaks that line, which
+   is worth writing down: `.notice` carries `max-width: 66ch`, so both banners
+   measure 563.5px and two of them plus the gap still fit inside 1168px. There
+   is no width to give an item that makes a row of two wrap when each is capped
+   at under half of it. The direction is the thing to change. */
+/* `stretch`, so both rows take the same width and `.notice`'s own 66ch measure
+   is what caps them. Under `flex-start` each row shrank to its own content, and
+   the progress bar - sized `1 1 10rem` - lost 9.5px of height to a narrower
+   box, putting the jump back that the padding above had just removed. */
+.launch-notice.stack { flex-direction: column; align-items: stretch; }
+/* `flex: 1 1 24rem` names no axis, so turning the container on its side turned
+   a 24rem-wide banner into a 24rem-TALL one - a 400px empty box. Anything sized
+   for a row has to be un-sized when the row becomes a column. */
+.launch-notice.stack > .notice { flex: none; }
+/* The reason, not just that there was one. Kept beside the sentence it
+   explains, at the smaller size, and allowed to break inside a word because an
+   install failure quotes paths and URLs that have nowhere else to wrap. */
+.launch-notice .install-failed { flex-wrap: wrap; }
+.launch-notice .install-failed .dim {
+  font-size: var(--text-xs);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
 
 @media (max-width: 900px) {
   .launch-notice { padding: var(--s4) var(--s5) 0; }

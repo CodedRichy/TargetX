@@ -48,6 +48,65 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   regulations. Enough of them and this stops being a maybe.
 
 
+## [0.3.1] - 2026-09-02
+
+### Fixed
+
+- **The question box now actually reaches its router.** In 0.3.0 it was built
+  without one. Asking still worked - attendance, what a subject needs, what
+  tomorrow costs, and what the words mean are all worked out on your own
+  machine and never needed a network - but a phrasing it did not recognise had
+  nowhere to go, and signing in was not offered at all. Both are present in
+  this build. Nothing about your marks changed either way, and nothing you were
+  shown was wrong; a feature was simply missing from the installer.
+
+- **Links out of the app work.** "Report a problem", including the one offered
+  after a sync fails, and the privacy statement. All three did nothing when
+  clicked. If a sync had broken for you and you tried to report it, that is
+  why.
+
+- **The update banner itself.** "Install and restart" turned into a solid
+  block the colour of its own text when the pointer was over it, so the label
+  disappeared at the moment of clicking it. Pressing it then moved the whole
+  app up the page. And if the install failed, the reason was in a tooltip -
+  invisible unless hovered - while the message announcing it sat off to the
+  right of the window, far enough from the button to read as being about
+  something else. It now says what went wrong, in words, under the offer.
+
+- **The timetable's Wednesday no longer sits on top of the first period.**
+
+- **The download page names the installer you were actually given** in its
+  checksum command, instead of a filename from an older release.
+
+## [0.3.0] - 2026-09-01
+
+### Added
+
+- **Ask in plain words.** Press `Ctrl K` and ask: *"can I skip tomorrow?"*,
+  *"what do I need to pass CN?"*, *"what is condonation?"*. Answers appear in
+  the box rather than sending you to a screen to work it out. Every figure is
+  computed on this machine by the same engine as the rest of the app, so the
+  numbers are the ones you already see elsewhere - the assistant is not
+  allowed to state a figure of its own.
+
+  Signing in is optional and unlocks only the case where a phrasing cannot be
+  matched locally. Your marks, attendance and CGPA are never sent anywhere.
+  (Shipped incomplete in 0.3.0 - see 0.3.1.)
+
+### Fixed
+
+- **Home no longer shows a confirmed score of 0.00 before anything is graded.**
+  A semester with every internal in and no exam sat displayed `0.00` under
+  "Confirmed", with "Every subject has been assessed" beneath it - a zero that
+  read as a result and an all-clear that read as reassurance. It is now a dash
+  and a sentence saying nothing is graded yet. No calculation changed; what was
+  wrong was presenting an average over nothing as though it were a mark.
+
+- **Two ways History could lose a published result.** Clearing the SGPA field
+  deleted the row outright, and editing a semester discarded the fact that its
+  figure came from a KTU grade card - so a later sync could overwrite the
+  university's own number with the portal's.
+
 ## [0.2.0] - 2026-08-31
 
 ### Added
