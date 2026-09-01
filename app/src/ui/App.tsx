@@ -5,6 +5,7 @@ import {
   targets,
 } from "../state/store";
 import { VIEWS, needsSetup, setView, view } from "../state/nav";
+import { ASSISTANT } from "../state/answers";
 import { appearance, setTheme, startTheme, theme } from "../state/theme";
 import { Data } from "./Data";
 import { WindowChrome } from "./WindowChrome";
@@ -830,14 +831,19 @@ export function App() {
 
           {/* Search sits in the header rather than inside a view because it is
               not a view: it crosses all of them. Labelled with its shortcut so
-              the keyboard route is discoverable without a tour. */}
+              the keyboard route is discoverable without a tour.
+
+              It names Tex, because this control and the palette it grows into
+              are now visibly one object - and an object that said "Ask
+              anything" at one size and "Ask Tex" at the other was telling the
+              student it was two. */}
           <button class="ask" onClick={() => setPaletteOpen(true)}
-                  aria-label="Ask about your subjects, marks and attendance. Press Control K.">
+                  aria-label={`Ask ${ASSISTANT} about your subjects, marks and attendance. Press Control K.`}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"
                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
               <circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" />
             </svg>
-            <span>Ask anything — how many classes can I miss?</span>
+            <span>Ask {ASSISTANT} — how many classes can I miss?</span>
             <span class="kbd" aria-hidden="true">Ctrl K</span>
           </button>
 

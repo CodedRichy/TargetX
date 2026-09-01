@@ -7,6 +7,7 @@ import { askConfigured, askRemote } from "../state/ask";
 import { ASSISTANT, answerFor, defineFor, detectTopic } from "../state/answers";
 import type { Topic } from "../state/answers";
 import { authBusy, authConfigured, signIn, signedIn } from "../state/auth";
+import { morph } from "./morph";
 
 /**
  * The command palette.
@@ -120,6 +121,19 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
   const [remote, setRemote] = createSignal<string | null>(null);
   let input: HTMLInputElement | undefined;
   let inflight: AbortController | undefined;
+  let shell: HTMLDivElement | undefined;
+  let scrim: HTMLDivElement | undefined;
+
+  /**
+   * Mounted, which is not the same as open.
+   *
+   * The palette has to outlive `props.open` by the length of the shrink, or
+   * there is nothing left on screen to animate back into the pill. `alive` is
+   * a plain variable rather than a second signal because the effect below both
+   * reads and writes this state, and a signal would make that a loop.
+   */
+  const [mounted, setMounted] = createSignal(props.open);
+  let alive = props.open;
 
   /**
    * The answer, when the question is one the engine can answer outright.
@@ -228,6 +242,43 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
     if (props.open) { setQuery(""); setCursor(0); queueMicrotask(() => input?.focus()); }
   });
 
+  /**
+   * Grow on open, shrink on close, and only then unmount.
+   *
+   * The header pill is hidden for as long as the palette stands in for it -
+   * the two are one object, and showing both would give the morph something
+   * to visibly separate from. It comes back at the end of the shrink, not the
+   * start of it.
+   */
+  createEffect(() => {
+    if (props.open) {
+      alive = true;
+      setMounted(true);
+      document.documentElement.dataset.palette = "open";
+      // After the element exists and has a box to measure.
+      queueMicrotask(() => {
+        if (shell && scrim) morph(shell, scrim, "in");
+      });
+      return;
+    }
+    if (!alive) return;
+    alive = false;
+
+    const gone = () => {
+      setMounted(false);
+      delete document.documentElement.dataset.palette;
+    };
+    const out = shell && scrim ? morph(shell, scrim, "out") : null;
+    // No animation to wait for is not a failure - it is every case where the
+    // pill is off screen, motion is off, or this is a test. Unmount now.
+    if (!out) { gone(); return; }
+    out.finished.then(gone, gone);
+  });
+
+  // A palette torn down mid-shrink would leave the header pill invisible for
+  // the rest of the session.
+  onCleanup(() => { delete document.documentElement.dataset.palette; });
+
   // A request whose palette has closed has nobody left to answer.
   onCleanup(() => inflight?.abort());
 
@@ -312,9 +363,9 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
   };
 
   return (
-    <Show when={props.open}>
-      <div class="palette-scrim" onClick={props.onClose}>
-        <div class="palette" role="dialog" aria-modal="true" aria-label="Search"
+    <Show when={mounted()}>
+      <div ref={scrim} class="palette-scrim" onClick={props.onClose}>
+        <div ref={shell} class="palette" role="dialog" aria-modal="true" aria-label="Search"
              onClick={(e) => e.stopPropagation()}>
           <input ref={input} class="palette-input" value={query()}
                  placeholder={`Ask ${ASSISTANT} — how many classes can I miss in ML?`}

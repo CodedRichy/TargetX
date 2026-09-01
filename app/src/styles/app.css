@@ -863,6 +863,13 @@ tr.row:hover .del { opacity: 1; }
 .ask:hover { background: var(--surface-2); color: var(--text); }
 .ask:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
+/* While the palette is open it IS this control, grown. Two copies on screen
+   would give the morph something to visibly separate from, which is the exact
+   impression the morph exists to remove. Opacity, not display: the box has to
+   keep its size, because the palette measures it to know where to shrink back
+   to - and a hidden element has no rect. */
+:root[data-palette="open"] .ask { opacity: 0; }
+
 .ask > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ask svg { flex: none; opacity: 0.7; }
 /* Hard to the far end, so the shortcut reads as the field's affordance rather
