@@ -43,8 +43,9 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// How long the browser half of the flow may take before we give the port back.
@@ -170,7 +171,7 @@ height:100vh;background:#f7f6f2;color:#1c1b19}p{margin:.4em}</style>\
 /// before the browser is opened - and a receiver that yields the callback when
 /// the browser arrives. The thread ends after one request either way, so an
 /// abandoned sign-in leaks a thread for at most `BROWSER_TIMEOUT`.
-fn listen_once() -> Result<(u16, Receiver<Callback>), String> {
+fn listen_once() -> Result<(u16, Receiver<Callback>, Arc<AtomicBool>), String> {
     // First free candidate wins. Bound to 127.0.0.1 and never 0.0.0.0: this
     // accepts an authorization code, and it has no business being reachable
     // from the campus network the machine is sitting on.
@@ -185,6 +186,8 @@ fn listen_once() -> Result<(u16, Receiver<Callback>), String> {
         })?;
     let port = listener.local_addr().map_err(|e| e.to_string())?.port();
     let (tx, rx) = mpsc::channel();
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let flag = Arc::clone(&cancelled);
 
     std::thread::spawn(move || {
         // `incoming` blocks; one iteration is all this listener is for. A
@@ -192,6 +195,14 @@ fn listen_once() -> Result<(u16, Receiver<Callback>), String> {
         // single accept, so anything without a `code` or `error` is ignored and
         // the loop waits for the real callback.
         for stream in listener.incoming() {
+            // A sign-in that was abandoned and started again wakes this thread
+            // by connecting to the port; the flag is how it tells the difference
+            // between that and a browser arriving. Without it an abandoned
+            // attempt held its port for the full five-minute timeout, and four
+            // retries in five minutes exhausted every candidate.
+            if flag.load(Ordering::SeqCst) {
+                break;
+            }
             let Ok(mut stream) = stream else { continue };
 
             let mut line = String::new();
@@ -230,12 +241,14 @@ fn listen_once() -> Result<(u16, Receiver<Callback>), String> {
         }
     });
 
-    Ok((port, rx))
+    Ok((port, rx, cancelled))
 }
 
 // --- pending flow state -----------------------------------------------------
 
 struct Pending {
+    port: u16,
+    cancelled: Arc<AtomicBool>,
     verifier: String,
     state: String,
     redirect_uri: String,
@@ -293,7 +306,7 @@ pub async fn oauth_begin(
     // that does not carry the state this process generated is not ours.
     let state = random_urlsafe(24);
 
-    let (port, rx) = listen_once()?;
+    let (port, rx, cancelled) = listen_once()?;
     let redirect_uri = format!("http://127.0.0.1:{port}/callback");
 
     let authorize_url = format!(
@@ -307,7 +320,16 @@ pub async fn oauth_begin(
         urlencode(&challenge),
     );
 
-    *oauth.pending.lock().map_err(|_| "sign-in state was poisoned")? = Some(Pending {
+    let mut slot = oauth.pending.lock().map_err(|_| "sign-in state was poisoned")?;
+    // Pressing Sign in again abandons the previous attempt. Releasing its port
+    // here rather than letting it time out is what keeps a run of failed
+    // attempts from walking through every candidate port.
+    if let Some(previous) = slot.take() {
+        release(&previous);
+    }
+    *slot = Some(Pending {
+        port,
+        cancelled,
         verifier,
         state,
         redirect_uri,
@@ -341,8 +363,12 @@ pub async fn oauth_finish(oauth: tauri::State<'_, Oauth>) -> Result<Session, Str
     // The channel recv blocks a thread; doing it on the async runtime's worker
     // would stall every other command for up to five minutes.
     let callback = tokio::task::spawn_blocking(move || {
-        pending.rx.recv_timeout(BROWSER_TIMEOUT).map(|cb| (cb, pending.verifier,
-            pending.state, pending.redirect_uri, pending.token_endpoint, pending.client_id))
+        let outcome = pending.rx.recv_timeout(BROWSER_TIMEOUT);
+        // Whatever happened - a browser, a timeout, a disconnect - this attempt
+        // is over and its port goes back.
+        release(&pending);
+        outcome.map(|cb| (cb, pending.verifier, pending.state, pending.redirect_uri,
+                          pending.token_endpoint, pending.client_id))
     })
     .await
     .map_err(|e| e.to_string())?;
@@ -459,6 +485,17 @@ pub fn oauth_has_account() -> bool {
 }
 
 // --- helpers ----------------------------------------------------------------
+
+/// Release a pending attempt's loopback port.
+///
+/// Setting the flag alone is not enough: the listener thread is parked inside a
+/// blocking `accept`, and nothing wakes it until a connection arrives. So one
+/// is made, to itself, purely to let the loop come round and see the flag. The
+/// connection is dropped immediately and carries no request.
+fn release(pending: &Pending) {
+    pending.cancelled.store(true, Ordering::SeqCst);
+    let _ = std::net::TcpStream::connect(("127.0.0.1", pending.port));
+}
 
 /// Hand a URL to the operating system's default browser.
 ///
