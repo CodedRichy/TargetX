@@ -46,12 +46,24 @@ Views:
 - history:    published results from past semesters
 - data:       sync with etlab and KTU, import, backup
 
+What TargetX holds, so that "we do not have that" and "that is not our subject"
+are told apart. It has: this semester's marks per component, attendance counts
+and percentages, the CIE marks attendance is worth under KTU Regulations 2024
+R 7.5.ii, the weekly timetable, published SGPA and credits for past semesters,
+and a CGPA target. It does NOT have: fee or hostel records, exam hall tickets,
+seating, question papers, syllabus content, faculty contact details, or anything
+about another student. A question about the first list is "no_match" at worst.
+A question about the second is on the subject of college and still "off_topic",
+because there is no screen here that could ever answer it.
+
 Choose "subject" when the question names one of the given courses, and set
 "view" to where that question is answered - attendance questions to attendance,
 mark questions to ledger. Choose "view" when the question is about the student
-overall. Choose "none" with reason "off_topic" for anything not about this
-student's academic record, "unclear" when the question cannot be understood,
-and "no_match" when it is on topic but nothing here answers it.`;
+overall, and "data" when it is about where the numbers come from, syncing,
+importing a grade card, backup, or whether a password is stored. Choose "none"
+with reason "off_topic" for anything not about this student's academic record,
+"unclear" when the question cannot be understood, and "no_match" when it is on
+topic but nothing here answers it.`;
 
 /** Mirrors `Action`. Gemini enforces this during decoding. */
 function responseSchema(codes: string[]) {

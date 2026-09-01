@@ -28,7 +28,10 @@ vi.mock("../../state/ask", () => ({
   askConfigured: () => true,
   askRemote: (...args: unknown[]) => askRemote(...args),
 }));
-vi.mock("../../state/auth", () => ({ signedIn: () => true }));
+vi.mock("../../state/auth", () => ({
+  signedIn: () => true, authConfigured: () => true,
+  authBusy: () => false, signIn: vi.fn(),
+}));
 
 const { Palette } = await import("../Palette");
 

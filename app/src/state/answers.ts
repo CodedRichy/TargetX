@@ -2,6 +2,21 @@ import { absenceCost, courseLabel, freeSkips, requiredEseCell } from "../engine"
 import type { Course, Evaluation } from "../engine";
 import { goalPlan, goalRequirement, overall, rows, state, summary, targets } from "./store";
 import type { View } from "./nav";
+import { lookupCapability, lookupTerm } from "./glossary";
+
+/**
+ * What the assistant is called.
+ *
+ * It needed a name because it now says things rather than only opening screens,
+ * and an answer that appears with no attribution reads as the app asserting a
+ * fact rather than as something having worked it out.
+ *
+ * Tex is already inside TargetX, which is why it does not need explaining, and
+ * it is one syllable so it fits a button label without being shortened again.
+ * Every user-facing use of the name reads this constant - renaming it is a one
+ * line change, and no string anywhere spells it out.
+ */
+export const ASSISTANT = "Tex";
 
 /**
  * Answers, computed here, said in the box.
@@ -35,6 +50,15 @@ export type Topic = (typeof TOPICS)[number];
 export interface Answer {
   /** The sentence. Every figure in it came from the engine. */
   headline: string;
+  /**
+   * True when this is a definition rather than a figure about this student.
+   *
+   * Rendered differently because it is a different KIND of claim: a definition
+   * is the regulation, and a figure is this student's record. Presenting them
+   * identically would let "condonation is available down to 60%" read as
+   * something computed about them.
+   */
+  isDefinition?: boolean;
   /** Supporting lines, one per subject where the question spans several. */
   lines: string[];
   /** Where to go for the full working. The answer is not a substitute for it. */
@@ -304,6 +328,25 @@ export function answerFor(topic: Topic, code?: string): Answer | null {
  * Only fires on an unambiguous phrase. Anything it is not sure about falls
  * through to the router, which is allowed to be slower and is allowed to say no.
  */
+/**
+ * A definition, when the question is asking what a word means.
+ *
+ * Tried BEFORE the topic detector and works with an empty record, because "what
+ * is CIE" has the same answer for a student who has synced nothing. It is also
+ * what stops the misfires: "what is condonation" used to match the eligibility
+ * topic and reply with the student's own miss budget.
+ */
+export function defineFor(query: string): Answer | null {
+  // A definition first, then a fact about the app. Definitions are the
+  // narrower test, so trying them first means "what is CIE" is never mistaken
+  // for a question about the product.
+  const term = lookupTerm(query) ?? lookupCapability(query);
+  if (!term) return null;
+  return {
+    headline: term.name, lines: [term.body], view: "ledger", isDefinition: true,
+  };
+}
+
 export function detectTopic(query: string): Topic | null {
   const q = ` ${query.toLowerCase().replace(/[^a-z0-9 ]+/g, " ")} `;
   const has = (...words: string[]) => words.some((w) => q.includes(` ${w} `));

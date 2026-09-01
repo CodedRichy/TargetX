@@ -4,9 +4,9 @@ import { rows } from "../state/store";
 import { VIEWS, setView } from "../state/nav";
 import type { View } from "../state/nav";
 import { askConfigured, askRemote } from "../state/ask";
-import { answerFor, detectTopic } from "../state/answers";
+import { ASSISTANT, answerFor, defineFor, detectTopic } from "../state/answers";
 import type { Topic } from "../state/answers";
-import { signedIn } from "../state/auth";
+import { authBusy, authConfigured, signIn, signedIn } from "../state/auth";
 
 /**
  * The command palette.
@@ -132,6 +132,12 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
   const answer = createMemo(() => {
     const q = query().trim();
     if (q === "") return null;
+    // Definitions first, and they work with an empty record: "what is CIE" has
+    // the same answer for a student who has synced nothing. This is also what
+    // stops the misfires - "what is condonation" used to match the eligibility
+    // topic and reply with the student's own miss budget.
+    const defined = defineFor(q);
+    if (defined) return defined;
     const topic = detectTopic(q);
     if (topic === null) return null;
     // A subject named in the question narrows the answer to it; otherwise the
@@ -311,14 +317,21 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
         <div class="palette" role="dialog" aria-modal="true" aria-label="Search"
              onClick={(e) => e.stopPropagation()}>
           <input ref={input} class="palette-input" value={query()}
-                 placeholder="Ask anything — how many classes can I miss in ML?"
+                 placeholder={`Ask ${ASSISTANT} — how many classes can I miss in ML?`}
                  aria-label="Search subjects and views"
                  onInput={(e) => setQuery(e.currentTarget.value)}
                  onKeyDown={onKey} />
 
           <Show when={answer()}>
             {(said) => (
-              <div class="palette-answer">
+              <div class="palette-answer" classList={{ definition: said().isDefinition }}>
+                {/* Attributed, because an answer with no author reads as the
+                    app asserting a fact rather than as something that was
+                    worked out - and the two deserve different trust. */}
+                <p class="palette-answer-who">
+                  {said().isDefinition ? `${ASSISTANT} · from the KTU regulations`
+                                       : `${ASSISTANT} · from your own record`}
+                </p>
                 <p class="palette-answer-head">{said().headline}</p>
                 <Show when={said().lines.length > 0}>
                   <ul class="palette-answer-lines">
@@ -326,10 +339,12 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
                   </ul>
                 </Show>
                 {/* The answer is not a substitute for the working. */}
-                <button class="link" onClick={() => {
-                  setView(said().view);
-                  props.onClose();
-                }}>See the full breakdown</button>
+                <Show when={!said().isDefinition}>
+                  <button class="link" onClick={() => {
+                    setView(said().view);
+                    props.onClose();
+                  }}>See the full breakdown</button>
+                </Show>
               </div>
             )}
           </Show>
@@ -343,13 +358,29 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
                 <Show when={remote()} fallback={
                   <>
                     <p>Nothing here matches “{query().trim()}”.</p>
-                    {/* The offer is only made when it can be honoured. Telling
-                        a signed-out student to press Enter and then refusing
-                        them is worse than not offering. */}
-                    <Show when={askConfigured() && signedIn()}>
-                      <p class="fineprint">
-                        {asking() ? "Working it out…" : "Press Enter to ask."}
-                      </p>
+                    {/* Signed out, this said nothing at all - so a student who
+                        had just been shown that the box answers questions hit
+                        the one question it could not answer and was told
+                        nothing about why, or what to do. The nudge belongs
+                        exactly here: at the moment the assistant would have
+                        been used, not as a banner over a box that mostly works
+                        without an account. */}
+                    <Show when={askConfigured()}>
+                      <Show when={signedIn()} fallback={
+                        <Show when={authConfigured()}>
+                          <p class="fineprint">
+                            <button class="link" disabled={authBusy()}
+                                    onClick={() => { void signIn(); }}>
+                              {authBusy() ? "Opening your browser…" : `Sign in to ask ${ASSISTANT}`}
+                            </button>
+                            {" "}— everything else in TargetX works without an account.
+                          </p>
+                        </Show>
+                      }>
+                        <p class="fineprint">
+                          {asking() ? "Working it out…" : `Press Enter to ask ${ASSISTANT}.`}
+                        </p>
+                      </Show>
                     </Show>
                   </>
                 }>

@@ -1063,3 +1063,15 @@ tr.row:hover .del { opacity: 1; }
   color: var(--text-faint);
   white-space: nowrap;
 }
+
+/* Who is answering, and on what authority. A definition is the regulation; a
+   figure is this student's record. Same block, different ground, so the two
+   kinds of claim are never mistaken for each other. */
+.palette-answer-who {
+  margin: 0 0 var(--s2);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.palette-answer.definition { background: var(--surface-2); }
