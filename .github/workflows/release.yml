@@ -223,6 +223,38 @@ jobs:
           fi
           echo "signed:"; echo "$found"
 
+      # The same class of failure as the one above, and it has already happened:
+      # v0.3.0 shipped with no question box and no sign-in, because this
+      # workflow set no VITE_* values and `app/.env` is gitignored. Vite inlines
+      # those at BUILD time, so an unset one becomes an empty string, the
+      # feature disappears, the build stays green and nothing anywhere says so.
+      # Worse, the half that runs locally still worked, so nobody would have
+      # reported it as broken - they would simply never have found the rest.
+      #
+      # Checked against `app/dist` rather than the installer: Tauri embeds the
+      # frontend compressed, so grepping the binary finds nothing either way and
+      # would pass whatever happened. Verified as a fact rather than inferred
+      # from the variables being set, because "the variable exists" and "the
+      # value reached the bundle" are different claims.
+      - name: The question box must actually be in the bundle
+        shell: bash
+        run: |
+          fail=0
+          for name in VITE_ASK_ENDPOINT VITE_CLERK_ISSUER VITE_CLERK_CLIENT_ID; do
+            value=$(printenv "$name" || true)
+            if [ -z "$value" ]; then
+              echo "::error::$name is empty. Set it as a repository variable."
+              fail=1
+              continue
+            fi
+            if ! grep -rqaF -- "$value" app/dist/; then
+              echo "::error::$name is set but is not in app/dist - this build ships without it."
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || exit 1
+          echo "the question box and sign-in are in this bundle"
+
       # Until there is a code-signing certificate, Windows tells every student
       # the publisher is unknown and a college IT department has nothing to
       # check the download against. A checksum is not a substitute for a
