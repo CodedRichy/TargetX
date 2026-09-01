@@ -15,78 +15,11 @@ import { Home } from "./Home";
 import { Ledger } from "./Ledger";
 import { Setup } from "./Setup";
 import { Mark } from "./Mark";
+import { Palette, usePaletteShortcut } from "./Palette";
 import { runLaunchCheck, saveFindings } from "../state/launch";
 import type { Finding } from "../state/launch";
 import { checkForUpdate } from "../sync/update";
 import type { Available } from "../sync/update";
-
-/**
- * Header KPIs.
- *
- * Confirmed and projected sit side by side and are never merged. One blended
- * number would be the most flattering thing to show and the least honest — the
- * student could not tell which half is real.
- */
-function Kpis() {
-  // With nothing entered every rollup is 0.00, which reads as a student who
-  // scored zero rather than one who has not started. Dashes say the second
-  // thing, which is this app's whole discipline applied to its own header.
-  const started = () => summary().credits > 0 || overall().credits > 0;
-  const dash = "–";
-
-  return (
-    <Show when={started()} fallback={
-      <div class="kpis" data-tauri-drag-region>
-        <div class="kpi">
-          <span class="kpi-label">CGPA</span>
-          <span class="kpi-value num dim">{dash}</span>
-          <span class="kpi-note">nothing recorded yet</span>
-        </div>
-      </div>
-    }>
-      <div class="kpis" data-tauri-drag-region>
-        {/* A live semester makes the header "started", but a CGPA needs a
-            COMPLETED one. Without that guard a first year saw 0.00 beside
-            their real projection, which reads as a failed year rather than as
-            a year that has not finished. */}
-        <div class="kpi">
-          <span class="kpi-label">CGPA</span>
-          <Show when={overall().credits > 0} fallback={
-            <>
-              <span class="kpi-value num dim">{dash}</span>
-              <span class="kpi-note">no completed semester yet</span>
-            </>
-          }>
-            <span class="kpi-value num">{overall().cgpa.toFixed(2)}</span>
-            <span class="kpi-note num">{overall().percent.toFixed(1)}% · {overall().credits} cr</span>
-          </Show>
-        </div>
-        <Show when={view() === "ledger"}>
-        <div class="kpi">
-          <span class="kpi-label">Confirmed</span>
-          <span class="kpi-value num dim">{summary().sgpaConfirmed.toFixed(2)}</span>
-          <span class="kpi-note num">{summary().creditsConfirmed} of {summary().credits} cr</span>
-        </div>
-        <div class="kpi">
-          <span class="kpi-label">Projected</span>
-          <span class="kpi-value num">{summary().sgpaProjected.toFixed(2)}</span>
-          <span class="kpi-note">
-            <Show when={summary().pending > 0 || summary().unsettled > 0}
-                  fallback={<>all subjects assessed</>}>
-              {[
-                summary().pending > 0 ? `${summary().pending} not yet assessed` : null,
-                summary().unsettled > 0
-                  ? `${summary().unsettled} internal${summary().unsettled === 1 ? "" : "s"} not settled`
-                  : null,
-              ].filter(Boolean).join(" · ")}
-            </Show>
-          </span>
-        </div>
-        </Show>
-      </div>
-    </Show>
-  );
-}
 
 /**
  * The goal line.
@@ -319,7 +252,8 @@ export function UpdateNotice(props: { update: Available; onDismiss: () => void }
 /**
  * A save that is not landing.
  *
- * Sits outside `LaunchNotice` and has no dismiss of its own, on purpose.
+ * Has no dismiss of its own, and stays a banner rather than moving into the
+ * notification bell, on purpose.
  * Everything in that banner reports on something already written down, so
  * closing it costs nothing; this reports that what is on the screen is NOT
  * being written down, and the student needs it in front of them until they
@@ -345,24 +279,131 @@ export function SaveNotice() {
   );
 }
 
-function LaunchNotice(props: { findings: Finding[]; onDismiss: () => void }) {
+/**
+ * Everything asking for your attention, in one place.
+ *
+ * These findings used to be a banner across the top of the app. The banner was
+ * honest and it was also the first thing between a student and their marks on
+ * every single launch, saying the same thing every time until it was dismissed.
+ * A count on a bell states the same fact without spending a row of the screen
+ * on it, and the two urgent classes stay where they were: a save that is not
+ * landing keeps its banner, because that one reports the app is losing data,
+ * and Home keeps its "Needs attention" card, because that is a place a student
+ * goes to look rather than a thing that interrupts them.
+ */
+function Bell(props: { findings: Finding[]; onGo: () => void }) {
+  const [open, setOpen] = createSignal(false);
+  const count = () => props.findings.length;
+
+  // A popover that outlives a click elsewhere is a popover the student has to
+  // dismiss twice.
+  const onDocClick = () => setOpen(false);
+  onMount(() => document.addEventListener("click", onDocClick));
+  onCleanup(() => document.removeEventListener("click", onDocClick));
+
   return (
-    <Show when={props.findings.length > 0}>
-      {/* Appears about half a second after launch, with nobody having done
-          anything to summon it. Without a live region a screen reader user is
-          simply not told their data did not reconcile. */}
-      <div class="launch-notice" role="status">
-        <For each={props.findings}>{(f) => (
-          <div class={`notice ${f.severity === "warn" ? "warn" : ""}`} title={f.detail}>
-            <strong>{f.title}</strong>
-            <button class="link" onClick={() => { setView(f.goto); props.onDismiss(); }}>
-              {f.action}
+    <div class="pop-wrap" onClick={(e) => e.stopPropagation()}>
+      <button class="bell" onClick={() => setOpen((o) => !o)}
+              aria-expanded={open()}
+              aria-label={count() === 0
+                ? "Notifications. Nothing needs attention."
+                : `Notifications. ${count()} need attention.`}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+             stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+             stroke-linejoin="round">
+          <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+        </svg>
+        <Show when={count() > 0}>
+          <span class="bell-badge num" aria-hidden="true">{count()}</span>
+        </Show>
+      </button>
+
+      <Show when={open()}>
+        <div class="pop" role="dialog" aria-label="Notifications">
+          <p class="pop-title">Needs attention</p>
+          <Show when={count() > 0} fallback={
+            <p class="pop-empty">Nothing to look at. Your data reconciled.</p>
+          }>
+            <For each={props.findings}>{(f) => (
+              <div class="pop-item">
+                <strong>{f.title}</strong>
+                <span class="dim">{f.detail}</span>
+                <button class="link" onClick={() => {
+                  setView(f.goto); setOpen(false); props.onGo();
+                }}>{f.action}</button>
+              </div>
+            )}</For>
+          </Show>
+        </div>
+      </Show>
+    </div>
+  );
+}
+
+/**
+ * Account.
+ *
+ * The CGPA lives here rather than in its own header block: it is the one number
+ * that describes the student rather than a semester, and reading it beside
+ * their name is where the eye already goes.
+ *
+ * Sign-in is NOT wired yet. The button says so in plain words instead of
+ * opening a dialog that cannot finish, because an account control that fails
+ * silently is worse than one that is honest about not existing. Nothing in the
+ * app requires an account today - every figure on every screen is computed on
+ * this machine from data this machine fetched.
+ */
+function Profile() {
+  const [open, setOpen] = createSignal(false);
+  const cgpa = () => (overall().credits > 0 ? overall().cgpa.toFixed(2) : null);
+
+  const onDocClick = () => setOpen(false);
+  onMount(() => document.addEventListener("click", onDocClick));
+  onCleanup(() => document.removeEventListener("click", onDocClick));
+
+  return (
+    <div class="pop-wrap" onClick={(e) => e.stopPropagation()}>
+      <button class="profile" onClick={() => setOpen((o) => !o)}
+              aria-expanded={open()} aria-label="Account">
+        <span class="avatar" aria-hidden="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+            <circle cx="12" cy="8" r="3.6" />
+            <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+          </svg>
+        </span>
+        <span class="profile-lines">
+          <span class="profile-name">{state.activeSemester ?? "Student"}</span>
+          <span class="profile-sub">
+            {cgpa() === null ? "no CGPA yet" : `CGPA ${cgpa()}`}
+          </span>
+        </span>
+      </button>
+
+      <Show when={open()}>
+        <div class="pop" role="dialog" aria-label="Account">
+          <div class="pop-row">
+            <span>Appearance</span>
+            <ThemeButton />
+          </div>
+          <div class="pop-row">
+            <span>
+              <strong>Not signed in</strong>
+              <br />
+              <span class="dim">Sign-in is not built yet. Everything you see is
+              computed on this machine.</span>
+            </span>
+          </div>
+          <div class="pop-row">
+            <span class="dim">Data</span>
+            <button class="link" onClick={() => { setOpen(false); setView("data"); }}>
+              Sync, import and backup
             </button>
           </div>
-        )}</For>
-        <button class="link" onClick={props.onDismiss}>Dismiss</button>
-      </div>
-    </Show>
+        </div>
+      </Show>
+    </div>
   );
 }
 
@@ -377,10 +418,12 @@ export function App() {
   // flying: the X is travelling to its place in the wordmark.
   // done: the overlay is gone.
   const [phase, setPhase] = createSignal<"boot" | "flying" | "done">("boot");
-  let wordmarkX: HTMLSpanElement | undefined;
+  let homeBtn: HTMLButtonElement | undefined;
   let flyer: HTMLDivElement | undefined;
   const [findings, setFindings] = createSignal<Finding[]>([]);
   const [dismissed, setDismissed] = createSignal(false);
+  const [paletteOpen, setPaletteOpen] = createSignal(false);
+  usePaletteShortcut(() => setPaletteOpen(true));
   const [update, setUpdate] = createSignal<Available | null>(null);
   const [updateDismissed, setUpdateDismissed] = createSignal(false);
 
@@ -447,7 +490,7 @@ export function App() {
     setTimeout(() => {
       setFindings(found);
       setPhase("flying");
-      // The wordmark has to be laid out before it can be measured, and the
+      // The home button has to be laid out before it can be measured, and the
       // overlay has to have painted before it can be animated away from.
       requestAnimationFrame(() => requestAnimationFrame(flyMark));
     }, wait);
@@ -461,20 +504,20 @@ export function App() {
   });
 
   /**
-   * Fly the opening X into the wordmark.
+   * Fly the opening X into the home button.
    *
    * The same drawing in both places, moved rather than swapped: the app does
    * not cut from a splash to a dashboard, it puts its mark where it lives.
    *
    * Measured at the moment it runs rather than hardcoded, because the
-   * wordmark's position depends on the window width and on whether setup is
+   * button's position depends on the window width and on whether setup is
    * showing at all. If there is nothing to fly to - setup is open, or the
    * header has not rendered - it fades instead, which is also what a student
    * who has asked for reduced motion gets.
    */
   const flyMark = () => {
     const node = flyer;
-    const target = wordmarkX?.getBoundingClientRect();
+    const target = homeBtn?.getBoundingClientRect();
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     if (!node || !target || target.width < 1 || reduced) {
@@ -539,16 +582,38 @@ export function App() {
               letter: the X is a drawing, and `Mark` hides itself from the
               accessibility tree unless it is given one - so the only heading
               on the screen announced as "Target". */}
-          <h1 class="wordmark" data-tauri-drag-region>Target<span class="wordmark-x" ref={wordmarkX}
-              classList={{ waiting: phase() !== "done" }}><Mark size="0.78em" title="X" /></span></h1>
+          {/* The wordmark and the home route were two targets in the same
+              corner. They are one now: the mark is the button, and the app is
+              named by the window's own title rather than by a heading that had
+              to be spelled "Target" + a drawing to be announced at all. */}
+          <button class="homebtn" ref={homeBtn} aria-current={view() === "home"}
+                  classList={{ waiting: phase() !== "done" }}
+                  aria-label="Home. Where you stand and what needs doing."
+                  title="Home" onClick={() => setView("home")}>
+            <Mark size="17" />
+          </button>
 
+          {/* Home is not in this row - it is the button to the left. The rest
+              are peers with no order, so they stay a flat row. */}
           <nav class="tabs" aria-label="Views">
-            <For each={VIEWS}>{(v) => (
+            <For each={VIEWS.filter((v) => v.id !== "home")}>{(v) => (
               <button class="tab" aria-current={view() === v.id} title={v.hint}
                       onClick={() => setView(v.id)}>{v.label}</button>
             )}</For>
-            <ThemeButton />
           </nav>
+
+          {/* Search sits in the header rather than inside a view because it is
+              not a view: it crosses all of them. Labelled with its shortcut so
+              the keyboard route is discoverable without a tour. */}
+          <button class="ask" onClick={() => setPaletteOpen(true)}
+                  aria-label="Ask about your subjects, marks and attendance. Press Control K.">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" />
+            </svg>
+            <span>Ask anything — how many classes can I miss?</span>
+            <span class="kbd" aria-hidden="true">Ctrl K</span>
+          </button>
 
           <Show when={view() === "ledger"}>
             <nav class="sems" aria-label="Semester">
@@ -559,12 +624,10 @@ export function App() {
               <button class="sem" title="Add the next semester"
                       aria-label="Add the next semester" onClick={addSemester}>+</button>
             </nav>
-            <span class="kpi-note num" style={{ color: "var(--text-faint)" }}>
-              {activeCourses().length} subjects
-            </span>
           </Show>
 
-          <Kpis />
+          <Bell findings={findings()} onGo={() => setDismissed(true)} />
+          <Profile />
           <WindowChrome />
         </header>
 
@@ -574,9 +637,6 @@ export function App() {
           <Drawer />
         </Show>
         <SaveNotice />
-        <Show when={!dismissed()}>
-          <LaunchNotice findings={findings()} onDismiss={() => setDismissed(true)} />
-        </Show>
         <Show when={!updateDismissed() && update()}>
           {(u) => (
             <UpdateNotice update={u()} onDismiss={() => setUpdateDismissed(true)} />
@@ -587,6 +647,8 @@ export function App() {
         <Show when={view() === "attendance"}><Attendance /></Show>
         <Show when={view() === "history"}><History /></Show>
         <Show when={view() === "data"}><Data /></Show>
+
+        <Palette open={paletteOpen()} onClose={() => setPaletteOpen(false)} />
       </div>
     </Show>
     </>

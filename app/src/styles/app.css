@@ -10,10 +10,13 @@
 .app {
   display: grid;
   grid-template-rows: auto auto auto 1fr;
+  /* The header carries navigation again. One row of five peer views is not
+     enough content to earn a 13rem column of its own, and the rail cost the
+     ledger - the widest thing in the app - that column on every screen. What
+     made the first attempt cluttered was not the tabs, it was the tabs sharing
+     a strip with a wordmark, a semester list and a KPI block; the KPIs now live
+     in the profile block and the strip has room. */
   grid-template-columns: 1fr auto;
-  /* The launch check's findings get their own row directly under the header.
-     Without a named area they fell to the end of the grid, which put a
-     warning about attendance below the table it was warning about. */
   grid-template-areas:
     "head   head"
     "notice notice"
@@ -22,13 +25,45 @@
   height: 100%;
 }
 
+/* --- header pills ---------------------------------------------------------- */
+
+.pill {
+  align-items: center;
+  appearance: none;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: var(--text-sm);
+  gap: var(--s2);
+  padding: var(--s2) var(--s4);
+  transition: background var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease);
+}
+.pill:hover { background: var(--surface-2); color: var(--text); }
+
+/* The search pill is wider than its label so it reads as a field to type in
+   rather than a button that does something. */
+.ask .kbd {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 0 0.35rem;
+}
+
 /* --- header --------------------------------------------------------------- */
 
 .head {
   grid-area: head;
   display: flex;
   align-items: center;
-  gap: var(--s5);
+  gap: var(--s4);
   padding: var(--s3) var(--s5);
   border-bottom: 1px solid var(--hairline);
   /* The one genuinely glass surface in the app: the table scrolls underneath
@@ -85,14 +120,6 @@
    that uses colour to mean something. */
 .winbtn-close:hover { background: var(--danger); color: oklch(0.98 0 0); }
 .winbtn:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
-
-.wordmark {
-  font-size: var(--text-lg);
-  font-weight: 700;
-  letter-spacing: var(--tracking-tight);
-  margin: 0;
-}
-.wordmark span { color: var(--brand); }
 
 .sems { display: flex; gap: 1px; margin-left: var(--s2); }
 
@@ -538,3 +565,298 @@ tr.row:hover .del { opacity: 1; }
    made every sentence a headline. */
 .route-panel .chart-note .num { font-size: var(--text-sm); }
 .route-panel .chart-note strong { color: var(--text); font-weight: 600; }
+
+/* --- command palette -------------------------------------------------------
+ *
+ * A dialog is the right container here for the reason the craft floor allows
+ * one: it needs protected focus. It is a search box that takes over the
+ * keyboard, and anything less than a modal leaves arrow keys fighting the
+ * table underneath.
+ */
+.palette-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  align-items: start;
+  padding-block-start: 12vh;
+  background: oklch(0 0 0 / 0.42);
+  backdrop-filter: blur(2px);
+}
+
+.palette {
+  inline-size: min(38rem, calc(100vw - 2rem));
+  max-block-size: 60vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-card);
+}
+
+.palette-input {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-block-end: 1px solid var(--hairline);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-lg);
+  padding: var(--s4);
+}
+.palette-input:focus { outline: none; }
+.palette-input::placeholder { color: var(--text-faint); }
+
+.palette-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--s2);
+  overflow-y: auto;
+}
+
+.palette-hit {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-lg);
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 4.5rem 1fr auto;
+  gap: var(--s3);
+  align-items: baseline;
+  inline-size: 100%;
+  font: inherit;
+  padding: var(--s2) var(--s3);
+  text-align: start;
+}
+.palette-hit[aria-selected="true"] { background: var(--surface-2); }
+
+.palette-kind {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+.palette-label { color: var(--text); font-weight: 500; }
+.palette-detail { color: var(--text-faint); font-size: var(--text-xs); }
+
+.palette-empty { color: var(--text-faint); margin: 0; padding: var(--s5); }
+
+/* --- header identity, notifications and account ----------------------------
+ *
+ * The header's shape: a home button, the views, then a wide search, then the
+ * two things that are about you rather than about your marks - what needs your
+ * attention, and who you are signed in as.
+ */
+
+/* Home is a button, not a tab. It is the app's own mark, it is where every
+   other view returns to, and giving it the one filled swatch in the header
+   makes the wordmark and the landing route the same target instead of two
+   things competing for the top-left corner. */
+.homebtn {
+  appearance: none;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--brand);
+  color: oklch(0.99 0 0);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  inline-size: 2.1rem;
+  block-size: 2.1rem;
+  flex: none;
+  transition: filter var(--dur-fast) var(--ease);
+}
+.homebtn:hover { filter: brightness(1.12); }
+.homebtn[aria-current="true"] { box-shadow: 0 0 0 3px var(--brand-wash); }
+
+/* The ask box takes ALL the slack, with no cap.
+ *
+ * Both earlier attempts left dead air because something in the strip was
+ * capped: a 30rem maximum, then a 22rem fixed width, and on a 1920px window
+ * every remaining pixel had nowhere to go but into a gap. Exactly one element
+ * here is allowed to be elastic and it is this one, so there is no free space
+ * left to distribute. It is also the largest control in the header on purpose:
+ * this is the box you type a question into, and a question box the size of a
+ * button reads as a button. */
+
+.bell {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-lg);
+  color: var(--text-dim);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  inline-size: 2.1rem;
+  block-size: 2.1rem;
+  position: relative;
+  flex: none;
+}
+.bell:hover { background: var(--surface-2); color: var(--text); }
+
+/* A count, not a dot. "3 things" and "something" are different messages, and
+   the student is deciding whether to stop what they are doing. */
+.bell-badge {
+  position: absolute;
+  inset-block-start: 1px;
+  inset-inline-end: 0;
+  min-inline-size: 1rem;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: oklch(0.99 0 0);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  line-height: 1rem;
+  text-align: center;
+}
+
+.profile {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-lg);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: var(--s3);
+  padding: var(--s1) var(--s2);
+  flex: none;
+  text-align: start;
+}
+.profile:hover { background: var(--surface-2); }
+
+.avatar {
+  display: grid;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--hairline);
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-wide);
+  flex: none;
+}
+
+.profile-lines { display: flex; flex-direction: column; line-height: 1.25; }
+.profile-name { font-size: var(--text-sm); font-weight: 600; }
+/* The CGPA moved here from its own header KPI block. It is an identity fact -
+   it is who you are academically - and it was the largest number in a strip
+   that then had nowhere left to put navigation. */
+.profile-sub {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+/* --- popovers -------------------------------------------------------------- */
+
+.pop {
+  position: absolute;
+  inset-block-start: calc(100% + var(--s2));
+  inset-inline-end: 0;
+  z-index: 30;
+  inline-size: 22rem;
+  max-block-size: 60vh;
+  overflow-y: auto;
+  padding: var(--s3);
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-card);
+}
+.pop-wrap { position: relative; display: flex; align-items: center; flex: none; }
+.pop-title {
+  color: var(--text-faint);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-wide);
+  margin: 0 0 var(--s2);
+  padding-inline: var(--s2);
+  text-transform: uppercase;
+}
+.pop-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s2);
+  border-radius: var(--radius-lg);
+}
+.pop-item + .pop-item { border-block-start: 1px solid var(--hairline); }
+.pop-item strong { font-size: var(--text-sm); font-weight: 600; }
+.pop-item .dim { color: var(--text-faint); font-size: var(--text-xs); }
+.pop-empty { color: var(--text-faint); font-size: var(--text-sm); margin: 0; padding: var(--s2); }
+.pop-row {
+  align-items: center;
+  display: flex;
+  gap: var(--s3);
+  justify-content: space-between;
+  padding: var(--s2);
+}
+.pop-row + .pop-row { border-block-start: 1px solid var(--hairline); }
+
+/* The mark is drawn in brand colours, which is right everywhere except on top
+   of a brand-filled square, where it disappeared into its own background. On
+   the home button it is repainted in the button's foreground - keeping the
+   asymmetry that stops an X reading as a close button, but expressed as two
+   opacities of white rather than two greens. */
+.homebtn svg line { stroke: currentColor; }
+.homebtn svg line:first-of-type { stroke: oklch(1 0 0 / 0.5); }
+
+/* The label goes hard to the start behind its magnifier and the shortcut hard
+   to the end. Centring the pair made the widest control in the header read as
+   a title rather than as a field. */
+
+/* --- the ask box ----------------------------------------------------------
+ *
+ * NOT a `.pill`. It was one, and `.pill` is defined twice in this file - once
+ * for this header and once for the status chips ("3 short of 75%") - so the
+ * chip rule won on source order and quietly handed a search field a chip's
+ * centred text. A control you type into and a badge you read have nothing in
+ * common but a rounded end; sharing a class name was the whole bug.
+ */
+.ask {
+  align-items: center;
+  appearance: none;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  color: var(--text-dim);
+  cursor: text;
+  display: flex;
+  font: inherit;
+  font-size: var(--text-sm);
+  gap: var(--s3);
+  justify-content: flex-start;
+  padding: var(--s2) var(--s4);
+  text-align: start;
+
+  /* Elastic, capped, and centred by its own auto margins. The cap stops it
+     becoming a 900px bar on a wide monitor; the auto margins mean the pixels
+     the cap gives back are split evenly on both sides instead of pooling into
+     one dead gap beside the bell, which is what every earlier version did. */
+  flex: 1 1 auto;
+  min-inline-size: 12rem;
+  max-inline-size: 34rem;
+  margin-inline: auto;
+  transition: background var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease);
+}
+.ask:hover { background: var(--surface-2); color: var(--text); }
+.ask:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.ask > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask svg { flex: none; opacity: 0.7; }
+/* Hard to the far end, so the shortcut reads as the field's affordance rather
+   than as the last two words of the placeholder sentence. */
+.ask .kbd { margin-inline-start: auto; flex: none; }
