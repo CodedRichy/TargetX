@@ -1100,3 +1100,20 @@ a.link:hover { text-decoration-thickness: 2px; }
   min-inline-size: 280px;
 }
 .goal-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
+
+/* The per-row remove control on History.
+   Named `remove-go` rather than `danger`: `button.danger` is a filled
+   destructive button with its own background, and `class="link danger"` would
+   match both rules - the collision that once painted a sign-in control as a
+   bare swatch. Colour alone carries the difference here, so the confirmation
+   also states what is being discarded in words beside it. */
+.row-remove { text-align: right; white-space: nowrap; }
+.confirm-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s3);
+  justify-content: flex-end;
+}
+.confirm-inline .fineprint { color: var(--text-dim); }
+button.link.remove-go { color: var(--danger); }
+button.link.remove-go:hover { color: var(--danger); font-weight: 600; }

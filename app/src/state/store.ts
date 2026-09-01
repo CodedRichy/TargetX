@@ -5,7 +5,7 @@ import {
   attendanceTargetGap, cgpaFromSemesters, checkAttendanceTarget, checkGpaTarget,
   courseFromCode, defaultState, evaluate, historyCredits, horizonToGraduation,
   normaliseTargets, planForSgpa, reconcileSgpaTarget, requiredSgpaForCgpa,
-  sgpaTargetFor, statusFor, summarise, toFloat, toOptionalFloat,
+  sameSgpa, sgpaTargetFor, statusFor, summarise, toFloat, toOptionalFloat,
 } from "../engine";
 import type { Course, HistorySource, MarkInput, SemesterHistory, Targets } from "../engine";
 import type { AppState, Semester } from "../engine/course";
@@ -394,11 +394,33 @@ export function setHistory(name: string, sgpa: number, creditsRegistered: number
     // `mergeHistory` instead would let a stored grade card discard the credits
     // the student just typed, which is the opposite of the screen's job.
     const prev = s.history[name];
+    // Whether the SGPA itself moved decides the provenance, and only that.
+    //
+    // Editing the credits box leaves the figure the card published, so the
+    // record is still the card's - it keeps `gradecard` and outranks a portal
+    // scrape on the next sync, which is the screen's job.
+    //
+    // Typing over the SGPA is a different act. The number is no longer the one
+    // the university published, and leaving `source: "gradecard"` on it would
+    // have the app claim a grade card said something it never said - and hold
+    // that claim at rank 3, where a later real fetch of the correct figure ties
+    // with it and can silently lose. A hand-typed figure is `manual`, rank 2:
+    // still trusted over a scrape, because it was deliberate, and correctly
+    // beaten by the card it replaced if that card is fetched again.
+    const changed = prev !== undefined && !sameSgpa(prev.sgpa, sgpa);
+    // The displaced figure is not discarded. `conflict` exists to hold a value
+    // from another source that disagrees with the stored one, which is exactly
+    // what the card's number now is - so the row goes on showing "the KTU grade
+    // card said 8.42" and the student can put it back.
+    const displaced = changed && prev.source !== "manual"
+      ? { source: prev.source, sgpa: prev.sgpa }
+      : prev?.conflict ?? null;
+
     s.history[name] = {
       sgpa, creditsRegistered,
       creditsEarned: prev?.creditsEarned ?? null,
-      source: prev?.source ?? "manual",
-      conflict: prev?.conflict ?? null,
+      source: changed ? "manual" : prev?.source ?? "manual",
+      conflict: displaced,
     };
   });
 }
