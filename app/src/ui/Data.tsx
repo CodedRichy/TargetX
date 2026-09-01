@@ -9,11 +9,10 @@ import { logDir } from "../state/diagnostics";
 import { canSync, describeAcademics, parseAcademics } from "../sync/etlab";
 import { parseGradeCard, pdfToText } from "../sync/gradecard";
 import { KtuError, canSyncKtu } from "../sync/ktu";
-import { canRemember, deleteCreds, loadCreds, saveCreds } from "../state/creds";
+import { KTU_CRED_KEY, canRemember, deleteCreds, loadCreds, saveCreds } from "../state/creds";
 import { SyncPanel } from "./SyncPanel";
 
 /** The credential-vault key for the KTU result portal, distinct from any etlab base. */
-const KTU_CRED_KEY = "https://app.ktu.edu.in";
 
 /**
  * Data: everything that moves information in or out.

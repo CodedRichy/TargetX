@@ -17,7 +17,8 @@ import { Setup } from "./Setup";
 import { Mark } from "./Mark";
 import { Palette, usePaletteShortcut } from "./Palette";
 import { runLaunchCheck, saveFindings } from "../state/launch";
-import { autoSync, autoSyncError, autoSyncing } from "../state/autosync";
+import { autoRefresh, refreshAll, refreshFailures, refreshing } from "../state/autosync";
+import type { SourceResult } from "../state/autosync";
 import type { Finding } from "../state/launch";
 import { checkForUpdate } from "../sync/update";
 import type { Available } from "../sync/update";
@@ -292,6 +293,42 @@ export function SaveNotice() {
  * and Home keeps its "Needs attention" card, because that is a place a student
  * goes to look rather than a thing that interrupts them.
  */
+/**
+ * Refresh both portals, by hand.
+ *
+ * The manual sync used to be two separate forms on the Data screen - one per
+ * portal - and a student who wanted current numbers had to know that there were
+ * two, find both, and run them in turn. Attendance and published results are
+ * one question to the person asking it.
+ *
+ * This honours none of the automatic run's throttling. The student pressed the
+ * button; declining to make the request because one ran twenty minutes ago
+ * would be the app arguing with them about what they just asked for.
+ *
+ * It needs both logins in the vault to do anything, and says so rather than
+ * spinning and reporting success over a portal it never contacted - see the
+ * per-source rows in the bell, which is where the outcome lands.
+ */
+function RefreshButton() {
+  const label = () => (refreshing() ? "Refreshing both portals…" : "Refresh from etlab and KTU");
+
+  return (
+    <button class="iconbtn refresh" onClick={() => { void refreshAll(); }}
+            disabled={refreshing()} title={label()} aria-label={label()}>
+      {/* Spun by CSS while a refresh is in flight, which is the one honest
+          thing an indeterminate control can do: this crosses two networks and
+          there is no percentage to report. */}
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+           class={refreshing() ? "spin" : undefined}
+           stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+           stroke-linejoin="round">
+        <path d="M20.5 12a8.5 8.5 0 1 1-2.5-6" />
+        <path d="M20.5 4.5V10H15" />
+      </svg>
+    </button>
+  );
+}
+
 export function Bell(props: { findings: Finding[] }) {
   const [open, setOpen] = createSignal(false);
   /**
@@ -336,25 +373,25 @@ export function Bell(props: { findings: Finding[] }) {
   const live = () => props.findings.filter((f) => !hidden().includes(f.title));
 
   /**
-   * A failed background sync is a notification, not an error dialog.
+   * A failed refresh is a notification, not an error dialog.
    *
-   * It is given the same shape as a launch finding so the list has one kind of
-   * row rather than two, and it routes to Data, which is the screen that can
-   * actually do something about it.
+   * One row per portal that failed, never a merged "sync failed": etlab and KTU
+   * are different servers with different logins, and a student whose KTU fetch
+   * broke while attendance came through fine needs to know that attendance is
+   * current. Shaped as a launch finding so the list has one kind of row rather
+   * than two, and routed to Data, which is the screen that can act on it.
    */
-  const syncFailure = (): Finding | null => {
-    const why = autoSyncError();
-    if (why === null || hidden().includes(SYNC_FAIL)) return null;
-    return {
-      kind: "sync", title: SYNC_FAIL, detail: why, severity: "warn",
-      goto: "data", action: "Open Data",
-    };
-  };
+  const syncFailures = (): Finding[] =>
+    refreshFailures()
+      .map((r: SourceResult) => ({
+        kind: "sync" as const, severity: "warn" as const,
+        title: `${r.source === "ktu" ? "KTU" : "etlab"} did not refresh`,
+        detail: r.detail ?? "The portal did not answer.",
+        goto: "data" as const, action: "Open Data",
+      }))
+      .filter((f) => !hidden().includes(f.title));
 
-  const items = (): Finding[] => {
-    const f = syncFailure();
-    return f ? [f, ...live()] : live();
-  };
+  const items = (): Finding[] => [...syncFailures(), ...live()];
 
   const dismiss = (title: string) => setHidden((h) => [...h, title]);
   const dismissAll = () => {
@@ -364,7 +401,7 @@ export function Bell(props: { findings: Finding[] }) {
 
   return (
     <div class="pop-wrap" ref={wrap}>
-      <button class="bell" onClick={() => setOpen((o) => !o)}
+      <button class="iconbtn bell" onClick={() => setOpen((o) => !o)}
               aria-expanded={open()}
               aria-label={items().length === 0
                 ? "Notifications. Nothing needs attention."
@@ -391,8 +428,8 @@ export function Bell(props: { findings: Finding[] }) {
 
           <Show when={items().length > 0} fallback={
             <p class="pop-empty">
-              <Show when={autoSyncing()} fallback="Nothing to look at. Your data reconciled.">
-                Checking the portal…
+              <Show when={refreshing()} fallback="Nothing to look at. Your data reconciled.">
+                Checking both portals…
               </Show>
             </p>
           }>
@@ -418,9 +455,6 @@ export function Bell(props: { findings: Finding[] }) {
     </div>
   );
 }
-
-/** The one synthetic finding's title, used as its dismissal key. */
-const SYNC_FAIL = "That automatic sync did not land";
 
 /**
  * Account.
@@ -593,7 +627,7 @@ export function App() {
     // has already put their login in the OS vault - see `autoSync`, which owns
     // every precondition. Fire-and-forget and deliberately last: it crosses the
     // network to a college server, and nothing on screen may wait on it.
-    setTimeout(() => { void autoSync(); }, 1200);
+    setTimeout(() => { void autoRefresh(); }, 1200);
   });
 
   /**
@@ -719,6 +753,7 @@ export function App() {
             </nav>
           </Show>
 
+          <RefreshButton />
           <Bell findings={findings()} />
           <Profile />
           <WindowChrome />

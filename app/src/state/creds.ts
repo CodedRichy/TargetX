@@ -21,6 +21,16 @@ export interface StoredCreds {
 
 export const canRemember = (): boolean => canSync();
 
+/**
+ * The vault key the KTU results portal's login is kept under.
+ *
+ * A constant here rather than a literal in the one screen that used it, because
+ * two callers now read it - the Data screen's form and the background refresh -
+ * and a second copy of this string that drifted by one character would fail as
+ * "no saved login", silently, forever.
+ */
+export const KTU_CRED_KEY = "https://app.ktu.edu.in";
+
 /** Save a portal login to the OS vault. Rejects if the store is unavailable. */
 export const saveCreds = (base: string, username: string, password: string): Promise<void> =>
   invoke<void>("cred_save", { base, username, password });

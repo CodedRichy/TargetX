@@ -328,3 +328,16 @@ button:active:not(:disabled) { transform: translateY(1px); }
   animation: crawl 1.1s var(--ease) infinite;
   transform-origin: center;
 }
+
+/* The refresh glyph, turning while two networks are being waited on. There is
+   no percentage to report here, and a bar that fakes one would be lying about
+   knowing how far along it is. */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 900ms linear infinite; transform-origin: 50% 50%; }
+
+/* Reduced motion gets a pulse rather than a freeze: something must still say
+   "working", and a stationary icon on a disabled button says "broken". */
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation: pulse-dim 1.4s var(--ease) infinite; }
+  @keyframes pulse-dim { 50% { opacity: 0.35; } }
+}

@@ -683,7 +683,10 @@ tr.row:hover .del { opacity: 1; }
  * this is the box you type a question into, and a question box the size of a
  * button reads as a button. */
 
-.bell {
+/* Every square glyph button in the header - refresh, notifications - is one
+   drawing. They sit side by side and any difference between them would read as
+   meaning something. */
+.iconbtn {
   appearance: none;
   background: transparent;
   border: 0;
@@ -697,7 +700,11 @@ tr.row:hover .del { opacity: 1; }
   position: relative;
   flex: none;
 }
-.bell:hover { background: var(--surface-2); color: var(--text); }
+.iconbtn:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.iconbtn:disabled { cursor: default; }
+/* Not dimmed while it works. A control that fades the moment it is pressed
+   reads as having failed, and this one is doing exactly what was asked. */
+.refresh:disabled { color: var(--text-dim); }
 
 /* A count, not a dot. "3 things" and "something" are different messages, and
    the student is deciding whether to stop what they are doing. */
