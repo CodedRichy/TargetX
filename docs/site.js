@@ -222,6 +222,15 @@
       button.textContent = "Download " + version;
       heroBtn.href = mine.url;
       document.getElementById("hero-dl-meta").textContent = "· " + version;
+      /* The verification command names the file the visitor was actually
+         offered. It used to be typed out against a specific installer, which
+         went stale the release after it was written and told people to hash a
+         filename that no longer existed - on the one instruction whose whole
+         purpose is that it can be checked. */
+      var hash = document.getElementById("dl-hash");
+      if (hash && mine.name) {
+        hash.textContent = "Get-FileHash .\\" + mine.name + " -Algorithm SHA256";
+      }
     } else {
       document.getElementById("dl-for").textContent = "Latest release";
       document.getElementById("dl-what").textContent = version;

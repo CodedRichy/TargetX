@@ -48,7 +48,6 @@
   "applicationCategory": "EducationalApplication",
   "applicationSubCategory": "Academic tracker",
   "operatingSystem": "Windows, macOS, Linux",
-  "softwareVersion": "0.1.0",
   "url": "https://codedrichy.github.io/TargetX/",
   "downloadUrl": "https://github.com/CodedRichy/TargetX/releases/latest",
   "screenshot": "https://codedrichy.github.io/TargetX/home.png",
@@ -344,7 +343,7 @@
           <code>SHA256SUMS-&lt;platform&gt;.txt</code> beside the installers, so
           you can check that what you downloaded is what was built. In
           PowerShell:
-          <code class="cmd">Get-FileHash .\TargetX_0.1.0_x64-setup.exe -Algorithm SHA256</code>
+          <code class="cmd" id="dl-hash">Get-FileHash .\TargetX_&lt;version&gt;_x64-setup.exe -Algorithm SHA256</code>
           A certificate is on the list. A checksum proves the file did not
           change in transit, not who built it — it is not a substitute, and this
           page will say so until one is bought.

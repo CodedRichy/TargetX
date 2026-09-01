@@ -166,3 +166,23 @@ oracle gave. `engine/__tests__/core.test.ts` is where those live.
 - [ ] The grade-card tests are written from row shapes, not from a real card's
       text. They caught the six defects that were there, which is the point —
       but a real card is still the thing that has never been run through it.
+
+---
+
+## Queued for 0.3.1
+
+**A "check for updates" button.** The updater runs a few seconds after launch
+and never again in that session, so a student who leaves the app open, or whose
+network was down at the one moment it asked, has no way to ask again short of
+restarting. `app/src/sync/update.ts` already has everything the button needs -
+it is a manual trigger for a check that is otherwise silent by design, plus the
+three states it can end in (offered / already current / could not reach GitHub).
+The last of those is the one that matters: the automatic check fails silently on
+purpose, because being offline is not an error a student needs to see, but a
+check the student ASKED for has to say what happened or the button reads as
+broken.
+
+Note that a draft release is invisible to it. `releases/latest` excludes drafts,
+so until a release is published the button will correctly report that the
+installed build is current - see the warning at the top of
+`.github/workflows/release.yml`.
