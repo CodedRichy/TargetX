@@ -260,7 +260,9 @@ export function Home() {
       <Show when={started()} fallback={<EmptyHome />}>
         <div class="bento">
 
-          <section class="tile hero">
+          {/* The one promoted surface on Home. Standing is what the screen is
+              for; everything else on it explains or qualifies this number. */}
+          <section class="tile hero promoted">
             <div class="tile-head">
               <h3>Standing</h3>
               {/* Registered credits are the denominator - except where a

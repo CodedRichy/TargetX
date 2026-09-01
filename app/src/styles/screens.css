@@ -411,19 +411,57 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   align-items: start;
 }
 
-.card {
+/* --- the container surface -------------------------------------------------
+ *
+ * ONE treatment, shared. `.card` and `.tile` used to declare the same six
+ * properties independently - same gradient border-box, same `--surface-1`, same
+ * transparent 1px border - and differed only in radius and padding. Two names
+ * for one drawing meant a change to "the card" silently missed half the app,
+ * and it made every screen look like every other screen for no authored reason.
+ *
+ * The border is a gradient, not a colour: brightest at the top-left and faded
+ * by the bottom, so a container reads as a raised pane catching light rather
+ * than a rectangle with an outline.
+ *
+ * `isolation` makes each container its own stacking context so the pointer
+ * light `::before` (motion.css) can sit at z-index -1 - above the surface,
+ * below the content, clipped to the corners. `relative` anchors it.
+ */
+.card,
+.tile {
   background:
     linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
     linear-gradient(155deg, var(--edge-hi), var(--edge-mid) 42%, var(--edge-lo)) border-box;
   border: 1px solid transparent;
-  border-radius: var(--radius-lg);
-  padding: var(--s4);
-  /* Stacking context for the pointer-light `::before` (motion.css): `relative`
-     anchors it, `isolation` lets its z-index -1 sit above the card's surface
-     and below its content. Same setup the `.tile` carries. */
+  border-radius: var(--radius-card);
   position: relative;
   isolation: isolate;
 }
+
+/* The second ground, and the whole point of having a ramp.
+ *
+ * `--surface-2` existed in the tokens from the start while `--surface-1` was
+ * left carrying every content container in the app, so no screen had a visible
+ * first thing - hierarchy fell entirely on type size, and Home was spending
+ * four numeric focal points at one elevation. This is the promotion: at most
+ * ONE per screen, on the element that is genuinely the subject.
+ *
+ * Note what it does NOT do, because the ramp is not monotonic across themes.
+ * In the dark, `--surface-2` (0.245) sits above `--surface-1` (0.195) and the
+ * promoted container reads as raised. On paper there is no headroom - the
+ * ground is 0.955 and `--surface-1` is already 0.99 - so `--surface-2` (0.925)
+ * sits BELOW the ground and the same container reads as a heavier, weightier
+ * panel instead. Both separate the subject from its siblings, which is the
+ * job; only the direction differs, and claiming "raised" in both would be a
+ * comment that contradicts the pixels in one of them. */
+.card.promoted,
+.tile.promoted {
+  background:
+    linear-gradient(var(--surface-2), var(--surface-2)) padding-box,
+    linear-gradient(155deg, var(--edge-hi), var(--edge-mid) 42%, var(--edge-lo)) border-box;
+}
+
+.card { padding: var(--s4); }
 .card h3 {
   font-size: var(--text-lg);
   font-weight: 600;
@@ -585,26 +623,12 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   align-items: start;
 }
 
+/* Layout only. The surface itself is the shared `.card, .tile` rule above. */
 .tile {
-  /* The border is a gradient, not a colour: a hairline that is brightest at
-     the top-left and fades away by the bottom, so the card reads as a raised
-     pane catching light rather than as a rectangle with an outline. Two
-     backgrounds, one clipped to the padding box and one to the border box,
-     is the only way to put a gradient in a border without a pseudo-element. */
-  background:
-    linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
-    linear-gradient(155deg, var(--edge-hi), var(--edge-mid) 42%, var(--edge-lo)) border-box;
-  border: 1px solid transparent;
-  border-radius: 14px;
   display: flex;
   flex-direction: column;
   gap: var(--s3);
   padding: var(--s5);
-  /* `isolation` makes the tile its own stacking context so the pointer-light
-     `::before` (motion.css) can sit at z-index -1: above the tile's surface,
-     below its content, clipped to the rounded corners. `relative` anchors it. */
-  position: relative;
-  isolation: isolate;
 }
 
 /* The two cards allowed to occupy two columns: standing is the question the

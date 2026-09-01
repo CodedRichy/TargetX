@@ -106,6 +106,11 @@
 
   --radius: 3px;
   --radius-lg: 6px;
+  /* The container radius. One value, because `.card` at 6px and `.tile` at a
+     hard-coded 14px put three different corners on Home at once (tile, card,
+     notice) for no reason a reader could name. Containers are the largest
+     shapes on any screen and the most obvious place an inconsistency shows. */
+  --radius-card: 12px;
 
   /* Motion stays short and eased-out. A status app that animates for a third
      of a second feels like it is thinking, and this one already knows. */
@@ -165,10 +170,16 @@
   --danger-wash: oklch(0.50 0.20 25 / 0.09);
 
   /* On paper the lit edge is a shadow, not a highlight: light comes from the
-     same direction, but a white rim on a white card is invisible. */
-  --edge-hi: oklch(0.30 0.01 68 / 0.14);
-  --edge-mid: oklch(0.30 0.01 68 / 0.06);
-  --edge-lo: oklch(0.30 0.01 68 / 0.03);
+     same direction, but a white rim on a white card is invisible.
+     Strengthened after a screenshot pass: at 0.14/0.06/0.03 the card edge was
+     effectively invisible against the cream ground, so in light mode the
+     containers stopped reading as containers at all - dark mode separated them
+     and light mode did not. The ground/card lightness gap is small here by
+     design (0.955 vs 0.99), which leaves the edge doing more work on paper
+     than it does in the dark, not less. */
+  --edge-hi: oklch(0.30 0.01 68 / 0.24);
+  --edge-mid: oklch(0.30 0.01 68 / 0.11);
+  --edge-lo: oklch(0.30 0.01 68 / 0.05);
   --glass: oklch(0.955 0.008 68 / 0.74);
 }
 
