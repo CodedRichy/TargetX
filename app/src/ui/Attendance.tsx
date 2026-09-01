@@ -1,5 +1,8 @@
 import { For, Show, createMemo } from "solid-js";
-import { ATTENDANCE_MIN, courseLabel } from "../engine";
+import {
+  ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN,
+  attendanceMarks, courseLabel, daywiseBySubject, toOptionalFloat,
+} from "../engine";
 import type {
   AttendancePlan, AttendanceStatus, DaywiseDay, TimetableDay,
 } from "../engine";
@@ -21,23 +24,23 @@ import { setView } from "../state/nav";
  * tell.
  */
 
-/**
- * Missable / recoverable classes drawn as a strip.
- *
- * The count in words is the load-bearing fact; the strip is a glance. Capped so
- * a subject with forty classes of room does not draw a hundred-pixel ribbon -
- * the headline number stays exact and the overflow is stated in words. The
- * strip itself is `aria-hidden`, because the same number is announced in the
- * heading beside it and a screen reader counting pips would only repeat it.
- */
-const MAX_PIPS = 30;
-
 /** A subject's attendance standing, ready to render. */
 interface Line {
   index: number;
   /** The subject as the student knows it. See `courseLabel`. */
   label: string;
   plan: AttendancePlan | null;
+  /**
+   * The counts every other figure on the card is derived from.
+   *
+   * They were only ever reachable as editable inputs inside one expanded
+   * Ledger row, so this screen stated a percentage and a miss budget and never
+   * showed the two numbers behind them - an app whose whole position is that
+   * it never states a number it cannot show its working for, not showing the
+   * working for its loudest number.
+   */
+  attended: number | null;
+  held: number | null;
 }
 
 export function Attendance() {
@@ -46,6 +49,8 @@ export function Attendance() {
       index: row.index,
       label: courseLabel(row.course),
       plan: row.ev.plan,
+      attended: toOptionalFloat(row.course.attended),
+      held: toOptionalFloat(row.course.held),
     })));
 
   return (
@@ -55,8 +60,9 @@ export function Attendance() {
           <h2>How many classes can you miss?</h2>
           <p class="lede">
             {state.activeSemester} · the room you have above the {ATTENDANCE_MIN}%
-            eligibility line, per subject. A full strip is a class you can still
-            skip; an empty one is a class you owe.
+            eligibility line, per subject. The meter marks both lines that
+            matter: {ATTENDANCE_MIN}% to sit the exam, and{" "}
+            {ATTENDANCE_FULL_MARKS_PCT}% to stop losing internal marks.
           </p>
         </div>
       </div>
@@ -78,6 +84,7 @@ export function Attendance() {
         </div>
       </Show>
 
+      <BySubjectSection />
       <CalendarSection />
       <TimetableSection />
     </div>
@@ -94,15 +101,25 @@ export function Attendance() {
  * spelled-out status for the cell's tooltip, so the meaning colour carries is
  * also available to a pointer and a screen reader, not colour alone.
  */
-const STATUS_META: Record<AttendanceStatus, { cls: string; word: string }> = {
-  present:   { cls: "present",  word: "Present" },
-  absent:    { cls: "absent",   word: "Absent" },
-  od:        { cls: "credited", word: "On duty" },
-  dutyleave: { cls: "credited", word: "Duty leave" },
-  duty:      { cls: "credited", word: "Duty" },
-  leave:     { cls: "leave",    word: "Leave" },
-  holiday:   { cls: "holiday",  word: "Holiday" },
-  none:      { cls: "none",     word: "No class" },
+/**
+ * `glyph` is what keeps this grid readable without colour.
+ *
+ * The blocks were empty divs distinguished only by hue, and the three that
+ * matter are close in lightness on both themes - dark --good L0.76, --warn
+ * L0.80, --danger L0.73 - so under a red-green deficiency they collapse into
+ * three identical squares. The shape carries the meaning; the colour reinforces
+ * it. The Ledger already solved this two files away and the pattern was simply
+ * not applied here.
+ */
+const STATUS_META: Record<AttendanceStatus, { cls: string; word: string; glyph: string }> = {
+  present:   { cls: "present",  word: "Present",    glyph: "·" },
+  absent:    { cls: "absent",   word: "Absent",     glyph: "×" },
+  od:        { cls: "credited", word: "On duty",    glyph: "~" },
+  dutyleave: { cls: "credited", word: "Duty leave", glyph: "~" },
+  duty:      { cls: "credited", word: "Duty",       glyph: "~" },
+  leave:     { cls: "leave",    word: "Leave",      glyph: "~" },
+  holiday:   { cls: "holiday",  word: "Holiday",    glyph: "" },
+  none:      { cls: "none",     word: "No class",   glyph: "" },
 };
 
 /**
@@ -114,6 +131,110 @@ const STATUS_META: Record<AttendanceStatus, { cls: string; word: string }> = {
  * the page was never synced the whole thing is one quiet line, never an empty
  * grid pretending the student has perfect attendance.
  */
+/**
+ * The day-by-day record, rolled up per subject and checked against the counts
+ * the portal published.
+ *
+ * Two independent figures for the same fact: what the period log says happened,
+ * and what the subject page says the totals are. They should agree. When they
+ * do not, one of them is wrong and the student is the only person who can say
+ * which - so the app states the disagreement rather than silently preferring
+ * the number it happens to store.
+ *
+ * Subjects are matched from the portal's printed period string back to the
+ * student's own courses; anything that matches nothing is left out rather than
+ * shown under a name they would not recognise.
+ */
+function BySubjectSection() {
+  const counted = createMemo(() => {
+    const log = daywiseBySubject(state.daywiseAttendance ?? []);
+    if (log.size === 0) return [];
+    return rows().map((row) => {
+      const code = (row.course.code ?? "").trim().toLowerCase();
+      const name = courseLabel(row.course).trim().toLowerCase();
+      let found: { attended: number; held: number } | null = null;
+      for (const [printed, tally] of log) {
+        const key = printed.toLowerCase();
+        if ((code !== "" && key.includes(code)) || (name !== "" && key.includes(name))) {
+          found = tally;
+          break;
+        }
+      }
+      return {
+        label: courseLabel(row.course),
+        logged: found,
+        storedAttended: toOptionalFloat(row.course.attended),
+        storedHeld: toOptionalFloat(row.course.held),
+      };
+    }).filter((r) => r.logged !== null);
+  });
+
+  return (
+    <Show when={counted().length > 0}>
+      <section class="schedule-section" aria-labelledby="bysub-heading">
+        <div class="schedule-head">
+          <div>
+            <h3 id="bysub-heading">Counted from the day-by-day record</h3>
+            <p class="schedule-sub">
+              What the period log adds up to, per subject, beside the totals the
+              portal published. They should agree — where they do not, one of
+              them is wrong.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid-frame">
+          <table class="grid-table">
+            <thead>
+              <tr>
+                <th class="grid-label" scope="col">Subject</th>
+                <th scope="col">From the log</th>
+                <th scope="col">Portal total</th>
+                <th class="left" scope="col">Agreement</th>
+              </tr>
+            </thead>
+            <tbody>
+              <For each={counted()}>
+                {(r) => {
+                  const logged = r.logged!;
+                  const agrees = () =>
+                    r.storedAttended !== null && r.storedHeld !== null
+                    && logged.attended === r.storedAttended
+                    && logged.held === r.storedHeld;
+                  const known = () =>
+                    r.storedAttended !== null && r.storedHeld !== null;
+                  return (
+                    <tr>
+                      <th class="grid-label left" scope="row">{r.label}</th>
+                      <td class="num">{logged.attended}/{logged.held}</td>
+                      <td class="num">
+                        {known() ? `${r.storedAttended}/${r.storedHeld}` : "–"}
+                      </td>
+                      <td class="left">
+                        <Show when={known()} fallback={
+                          <span class="dim">no published total to compare</span>
+                        }>
+                          <Show when={agrees()} fallback={
+                            <span class="pill shortage">
+                              log says {logged.held - (r.storedHeld ?? 0) > 0 ? "more" : "fewer"} classes
+                            </span>
+                          }>
+                            <span class="pill safe">matches</span>
+                          </Show>
+                        </Show>
+                      </td>
+                    </tr>
+                  );
+                }}
+              </For>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </Show>
+  );
+}
+
 function CalendarSection() {
   const days = createMemo<DaywiseDay[]>(() => state.daywiseAttendance ?? []);
   // Every day has the same number of periods after parsing, but a defensive max
@@ -138,12 +259,15 @@ function CalendarSection() {
       <Show when={days().length > 0} fallback={
         <p class="schedule-empty">Sync to see your day-by-day attendance.</p>
       }>
-        <div class="cal-legend" aria-hidden="true">
-          <span><i class="cal-swatch present" />Present</span>
-          <span><i class="cal-swatch absent" />Absent</span>
-          <span><i class="cal-swatch credited" />Credited (on duty / duty leave)</span>
-          <span><i class="cal-swatch leave" />Leave</span>
-          <span><i class="cal-swatch holiday" />Holiday / no class</span>
+        {/* Not aria-hidden. It was, which meant the only explanation of what
+            the grid's colours mean was hidden from the readers least able to
+            infer it from the colours. */}
+        <div class="cal-legend">
+          <span><i class="cal-swatch present" aria-hidden="true" />Present</span>
+          <span><i class="cal-swatch absent" aria-hidden="true" />Absent</span>
+          <span><i class="cal-swatch credited" aria-hidden="true" />Credited (on duty / duty leave)</span>
+          <span><i class="cal-swatch leave" aria-hidden="true" />Leave</span>
+          <span><i class="cal-swatch holiday" aria-hidden="true" />Holiday / no class</span>
         </div>
 
         <div class="grid-frame">
@@ -176,7 +300,14 @@ function CalendarSection() {
                           };
                           return (
                             <td class="cal-cell">
-                              <div class={`cal-block ${meta().cls}`} title={title()} />
+                              {/* `title` is hover-only: unreachable by keyboard,
+                                  unreliable on a td for screen readers, and
+                                  invisible on touch. It stays for the pointer,
+                                  and the status is also stated in text. */}
+                              <div class={`cal-block ${meta().cls}`} title={title()}>
+                                <span aria-hidden="true">{meta().glyph}</span>
+                                <span class="sr-only">{title()}</span>
+                              </div>
                             </td>
                           );
                         }}
@@ -288,17 +419,63 @@ function TimetableSection() {
 }
 
 /** One subject: its standing, the headline number, and the strip. */
+/**
+ * Where a percentage stands against KTU's two attendance lines, drawn once.
+ *
+ * The two lines are the point. `ATTENDANCE_MIN` (75) is eligibility - below it
+ * the exam cannot be sat - and `ATTENDANCE_FULL_MARKS_PCT` (85) is where R
+ * 7.5.ii finally pays all five internal marks. The band between them is the
+ * figure this whole app exists to surface: a student sitting at 78% is
+ * "fine" by the only number their college quotes them, and is losing internal
+ * marks every week for it.
+ *
+ * Rendered as one `role="img"` with a written label rather than as bare divs,
+ * because the meter carries a fact and a screen reader must get the fact, not
+ * a decorative strip. Nothing here computes a figure: `current` arrives from
+ * the engine, and where it is unknown the caller does not render a meter.
+ */
+function ThresholdMeter(props: { current: number }) {
+  const pct = () => Math.max(0, Math.min(100, props.current));
+  const tone = () => (
+    pct() >= ATTENDANCE_FULL_MARKS_PCT ? "" :
+    pct() >= ATTENDANCE_MIN ? " warn" : " bad"
+  );
+  /** What R 7.5.ii pays at this percentage. Engine-computed, never guessed. */
+  const earned = () => attendanceMarks(pct()) ?? 0;
+  const label = () =>
+    `Attendance ${pct().toFixed(0)}%. Eligibility line ${ATTENDANCE_MIN}%. `
+    + `Full internal marks from ${ATTENDANCE_FULL_MARKS_PCT}%. `
+    + `Currently earning ${earned()} of ${ATTENDANCE_MARK_MAX} attendance marks.`;
+
+  return (
+    <div class="meter">
+      <div class="meter-track" role="img" aria-label={label()}>
+        {/* The bleed zone: eligible, but not earning full marks. */}
+        <span class="meter-band" style={{
+          left: `${ATTENDANCE_MIN}%`,
+          width: `${ATTENDANCE_FULL_MARKS_PCT - ATTENDANCE_MIN}%`,
+        }} />
+        <span class={`meter-fill${tone()}`} style={{ "inline-size": `${pct()}%` }} />
+        <span class="meter-mark" style={{ left: `${ATTENDANCE_MIN}%` }} />
+        <span class="meter-mark strong" style={{ left: `${ATTENDANCE_FULL_MARKS_PCT}%` }} />
+      </div>
+      {/* The right end prices the position in the unit that actually moves the
+          student's grade. Repeating the 85% constant on every card said the
+          same thing seven times on one screen; what differs per subject - and
+          what no other calculator shows - is how many of the five R 7.5.ii
+          marks this attendance is currently earning. */}
+      <div class="meter-ends">
+        <span class="num">{pct().toFixed(0)}%</span>
+        <span>
+          <strong class="num">{earned()}</strong> of {ATTENDANCE_MARK_MAX} marks
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function SubjectCard(props: { line: Line }) {
   const plan = () => props.line.plan;
-
-  // How many pips the strip draws, and whether the true count overran the cap.
-  const budget = () => {
-    const p = plan();
-    if (p === null) return 0;
-    return p.state === "surplus" ? p.skip : (p.attend ?? 0);
-  };
-  const shown = () => Math.min(budget(), MAX_PIPS);
-  const overflow = () => Math.max(0, budget() - MAX_PIPS);
 
   return (
     <article class="card att-card">
@@ -309,6 +486,21 @@ function SubjectCard(props: { line: Line }) {
         </Show>
       </div>
 
+      {/* The working for the percentage beside it. Deliberately does NOT repeat
+          the percentage - it is one line up, and saying it twice would make the
+          counts read as a second opinion rather than as the source. */}
+      <Show when={props.line.attended !== null && props.line.held !== null}>
+        <p class="att-counts num">
+          {props.line.attended} of {props.line.held} attended
+          <Show when={(plan()?.dlCredited ?? 0) > 0}>
+            {" · "}{plan()!.dlCredited} duty leave credited
+          </Show>
+          <Show when={(plan()?.dlWasted ?? 0) > 0}>
+            {" · "}<span class="dim">{plan()!.dlWasted} over the cap</span>
+          </Show>
+        </p>
+      </Show>
+
       <Show when={plan()} fallback={
         <p class="tile-verdict dim">
           No attended and held classes on record for this subject, so there is no
@@ -316,8 +508,8 @@ function SubjectCard(props: { line: Line }) {
         </p>
       }>
         {(p) => (
-          <Show when={p().state === "surplus"} fallback={
-            <>
+          <>
+            <Show when={p().state === "surplus"} fallback={
               <div class="hero-number tight">
                 <Show when={p().attend !== null} fallback={
                   <span class="huge num dim">–</span>
@@ -328,13 +520,20 @@ function SubjectCard(props: { line: Line }) {
                   </span>
                 </Show>
               </div>
-              <Show when={shown() > 0}>
-                <div class="att-pips" aria-hidden="true">
-                  <For each={Array.from({ length: shown() })}>
-                    {() => <span class="att-pip recover"></span>}
-                  </For>
-                </div>
-              </Show>
+            }>
+              <div class="hero-number tight">
+                <span class="huge num">{p().skip}</span>
+                <span class="hero-unit">
+                  more class{p().skip === 1 ? "" : "es"} you can miss
+                </span>
+              </div>
+            </Show>
+
+            {/* One glyph, both lines, every state - replacing the two pip
+                strips that differed only by hue. */}
+            <ThresholdMeter current={p().current} />
+
+            <Show when={p().state === "surplus"} fallback={
               <p class="tile-verdict bad">
                 <Show when={p().attend !== null} fallback={
                   <>At {p().current.toFixed(0)}% there is no way back above{" "}
@@ -345,31 +544,13 @@ function SubjectCard(props: { line: Line }) {
                   <strong class="num">{p().attend}</strong> without missing one to get back.
                 </Show>
               </p>
-            </>
-          }>
-            <div class="hero-number tight">
-              <span class="huge num">{p().skip}</span>
-              <span class="hero-unit">
-                more class{p().skip === 1 ? "" : "es"} you can miss
-              </span>
-            </div>
-            <Show when={shown() > 0} fallback={
-              <p class="fineprint">No room to spare — the next miss drops you under {ATTENDANCE_MIN}%.</p>
             }>
-              <div class="att-pips" aria-hidden="true">
-                <For each={Array.from({ length: shown() })}>
-                  {() => <span class="att-pip miss"></span>}
-                </For>
-              </div>
-              <Show when={overflow() > 0}>
-                <p class="fineprint">+{overflow()} more not shown</p>
-              </Show>
+              <p class="tile-verdict">
+                At <strong class="num">{p().current.toFixed(0)}%</strong>. Miss more than{" "}
+                <strong class="num">{p().skip}</strong> and you drop below {ATTENDANCE_MIN}%.
+              </p>
             </Show>
-            <p class="tile-verdict">
-              At <strong class="num">{p().current.toFixed(0)}%</strong>. Miss more than{" "}
-              <strong class="num">{p().skip}</strong> and you drop below {ATTENDANCE_MIN}%.
-            </p>
-          </Show>
+          </>
         )}
       </Show>
     </article>

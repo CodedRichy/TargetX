@@ -22,7 +22,7 @@ type Stage = "welcome" | "data" | "goal";
 
 const STAGES: Array<{ id: Stage; label: string }> = [
   { id: "welcome", label: "Start" },
-  { id: "data", label: "Your subjects" },
+  { id: "data", label: "Your marks" },
   { id: "goal", label: "Your goal" },
 ];
 
@@ -133,7 +133,7 @@ function DataStep(props: { onBack: () => void; onNext: () => void }) {
         </p>
 
         <div class="routes">
-          <button class="route" onClick={() => setRoute("sync")}>
+          <button class="route recommended" onClick={() => setRoute("sync")}>
             <span class="route-tag">Recommended</span>
             <strong>Sign in to your college portal</strong>
             <span>
@@ -143,7 +143,7 @@ function DataStep(props: { onBack: () => void; onNext: () => void }) {
             </span>
           </button>
 
-          <button class="route" onClick={() => setRoute("preset")}>
+          <button class="route alt" onClick={() => setRoute("preset")}>
             <strong>Pick from the KTU curriculum</strong>
             <span>
               Choose your branch and semester and tick the subjects you
@@ -152,7 +152,7 @@ function DataStep(props: { onBack: () => void; onNext: () => void }) {
             </span>
           </button>
 
-          <button class="route" onClick={() => { props.onNext(); }}>
+          <button class="route alt" onClick={() => { props.onNext(); }}>
             <strong>Start empty</strong>
             <span>Add subjects one at a time. Nothing is filled in for you.</span>
           </button>

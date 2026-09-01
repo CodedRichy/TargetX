@@ -2,6 +2,7 @@ import { For, Show, createSignal } from "solid-js";
 import { goalRequirement, rows, summary } from "../state/store";
 import { AttendanceScatter, GoalGauge } from "./charts";
 import { TargetsTab } from "./Targets";
+import { TERMS } from "../state/glossary";
 
 /**
  * Column glossary.
@@ -10,19 +11,14 @@ import { TargetsTab } from "./Targets";
  * and the old build hid this behind a modal - so the explanation and the thing
  * being explained were never on screen together. It lives in the drawer now
  * and stays open while the table is read.
+ *
+ * The text comes from `state/glossary`, which is also what the ask box answers
+ * definitions from. It used to be a second copy here with every figure written
+ * out by hand - "85% earns 5, then 4, 3, 2, 1 down to 60%", "at most 10% of
+ * classes held" - in the one panel whose entire job is teaching the rules, with
+ * nothing failing if the regulation moved under it.
  */
-const GLOSSARY: Array<[string, string]> = [
-  ["CIE", "Continuous Internal Evaluation - the marks your college gives during the semester: series exams, assignments, and attendance. Out of 40 for most theory courses."],
-  ["ESE", "End Semester Examination - the university exam at the end. Out of 60 for most theory courses."],
-  ["The 40% rule", "You must score at least 40% of the ESE paper on its own, whatever your CIE is. A brilliant internal cannot buy a pass. Where this is the binding constraint, the required mark is starred."],
-  ["Att mk", "Attendance is worth up to 5 CIE marks under Regulations 2024, R 7.5.ii: 85% earns 5, then 4, 3, 2, 1 down to 60%. This is the part no other KTU calculator shows - being at 76% is not 'fine', it is two marks already gone."],
-  ["Pass / Need", "The ESE mark required to pass, and to reach your target grade. Blank means the course has not been assessed yet, not that you scored zero."],
-  ["SHORTAGE", "Below 75% attendance. Condonation may be possible down to 60%, for at most two semesters, against a fee."],
-  ["DEBARRED", "Below 60%. There is no appeal path under R 6.2."],
-  ["UNREACHABLE", "Even a full ESE paper cannot get this course to a pass. Better to know now."],
-  ["INCOMPLETE", "Published as I or W - withdrawn, or not completed. KTU leaves it out of the SGPA entirely, credits included, until you complete it. It is not a fail and is not scored as one."],
-  ["Duty leave", "Approved absence for NSS, sports, fests or placement drives. It counts as present, but only up to 10% of classes held (R 6.3.ii) - anything beyond that is wasted, and this app says so."],
-];
+
 
 export function Drawer() {
   const [tab, setTab] = createSignal<"analytics" | "targets" | "legend">("analytics");
@@ -63,8 +59,8 @@ export function Drawer() {
       <Show when={tab() === "analytics"} fallback={
         <Show when={tab() === "legend"}>
         <dl>
-          <For each={GLOSSARY}>{([term, text]) => (
-            <><dt>{term}</dt><dd>{text}</dd></>
+          <For each={TERMS}>{(term) => (
+            <><dt>{term.name}</dt><dd>{term.body}</dd></>
           )}</For>
         </dl>
         </Show>

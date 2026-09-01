@@ -1,7 +1,7 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import {
   ATTENDANCE_CONDONE, ATTENDANCE_MIN, COURSE_TYPES, TARGET_CHOICES, TYPE_KEYS,
-  isIncomplete, requiredEseCell, toOptionalFloat,
+  isIncomplete, requiredEseCell, specFor, toOptionalFloat,
 } from "../engine";
 import type {
   AttendanceTargetGap, Course, Evaluation, Letter, RequiredEse, TypeKey,
@@ -560,9 +560,27 @@ export function Ledger() {
                           : ` below the ${ATTENDANCE_MIN.toFixed(0)}% eligibility line`}
                       </span>
                     </Show>
+                    {/* The counts the percentage is computed from. They existed
+                        only as editable inputs inside the expanded row, so the
+                        table stated a percentage on every row and showed the
+                        working for none of them - and a student checking their
+                        own figure had to open seven rows one at a time. */}
+                    <Show when={row.course.attended !== null && row.course.held !== null}>
+                      <span class="att-raw num">
+                        {toOptionalFloat(row.course.attended)}/{toOptionalFloat(row.course.held)}
+                      </span>
+                    </Show>
                   </td>
                   <td class="num" title="CIE marks from attendance">
-                    {show(row.ev.attMarks)}<span style={{ color: "var(--text-faint)" }}>/5</span>
+                    {/* `attMax`, not a literal 5. `CourseSpec.attMax` exists so
+                        it can vary by course type, and constants.ts explicitly
+                        instructs the next maintainer to spell out per-type
+                        values - on that day a hardcoded 5 here would print
+                        "4/5" for a course the engine scores out of 8. */}
+                    {show(row.ev.attMarks)}
+                    <span style={{ color: "var(--text-faint)" }}>
+                      /{specFor(row.course.type).attMax}
+                    </span>
                   </td>
                   <td>
                     <Cell value={row.course.ese}

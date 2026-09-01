@@ -66,6 +66,33 @@ jobs:
           fi
           echo "parity.json unchanged since 9b2bdc2"
 
+  # The Worker is deployed separately and was outside CI entirely, which meant
+  # `parseAction` - the last of the three topic restrictions, and the only one
+  # that runs on code we control rather than on a remote service's behaviour -
+  # had nothing checking it on any push.
+  worker:
+    name: worker types and tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+
+      - run: npm ci
+        working-directory: worker
+
+      - name: Typecheck
+        run: npm run typecheck
+        working-directory: worker
+
+      - name: Tests
+        run: npm test
+        working-directory: worker
+
   rust:
     name: rust
     runs-on: windows-latest

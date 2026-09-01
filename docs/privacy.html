@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TargetX — Privacy</title>
-<meta name="description" content="What TargetX stores, where it stores it, and the three network requests it makes. No account, no server, no telemetry — and every claim names the file it can be checked against.">
+<meta name="description" content="What TargetX stores, where it stores it, and the four network requests it makes. No telemetry, no account needed to use it — and every claim names the file it can be checked against.">
 <meta name="theme-color" content="#1a1512">
 <link rel="canonical" href="https://codedrichy.github.io/TargetX/privacy.html">
 <meta property="og:title" content="TargetX — Privacy">
-<meta property="og:description" content="No account, no server, no telemetry. What TargetX stores, where, and the three network requests it makes — every claim naming the file it can be checked against.">
+<meta property="og:description" content="No telemetry, and no account needed to use it. What TargetX stores, where, and the four network requests it makes — every claim naming the file it can be checked against.">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://codedrichy.github.io/TargetX/privacy.html">
 <meta property="og:site_name" content="TargetX">
@@ -57,10 +57,13 @@
     <a class="back" href="index.html">← TargetX</a>
     <h1>Privacy</h1>
     <p class="doc-lede">
-      TargetX runs entirely on the machine it is installed on. There is
-      <strong>no TargetX account, no TargetX server and no telemetry</strong>.
-      Every claim below can be checked against the source, and where a claim is
-      about code, the file is named — so it can be read rather than believed.
+      TargetX runs on the machine it is installed on. Every figure it shows is
+      computed there, and there is <strong>no telemetry, and no account needed
+      to use any of it</strong>. One optional feature — the question box — has
+      a server behind it and asks you to sign in; it is set out in full below,
+      and it never receives a mark, an attendance figure or a CGPA. Every claim
+      here can be checked against the source, and where a claim is about code,
+      the file is named — so it can be read rather than believed.
     </p>
   </div>
 
@@ -124,8 +127,8 @@
       <p class="mark">What is<b>sent</b></p>
       <div class="doc">
         <p>
-          TargetX makes network requests in exactly three situations, and no
-          others.
+          TargetX makes network requests in exactly four situations, and no
+          others. The fourth happens only if you choose to sign in.
         </p>
         <ol>
           <li>
@@ -148,6 +151,33 @@
             exists.</strong> A request to GitHub’s release feed, carrying no
             information about you beyond what any file download carries.
             <code>app/src/sync/update.ts</code>.
+          </li>
+          <li>
+            <strong>When you sign in and ask a question the app could not
+            answer by itself.</strong> This is the only request that reaches a
+            server of ours, and the only one that needs an account. Most
+            questions never get here: the app answers attendance, marks,
+            standing and the regulations on your own machine, offline, and only
+            a phrasing it does not recognise is forwarded.
+            <br><br>
+            What is sent is <em>your question</em> and the <em>code and title of
+            the subjects you are registered for</em> — the course list, so the
+            question can be matched to a subject. No marks, no attendance, no
+            CGPA, no name, no register number, and no password.
+            <br><br>
+            What comes back is not an answer. It is a destination, drawn from a
+            fixed list: one of five screens, or one of the subjects you sent.
+            Anything outside that list is rejected before the app acts on it, so
+            it cannot state a figure about you even in principle — the reply has
+            no field that could carry one.
+            <code>app/src/state/ask.ts</code>, <code>worker/src/schema.ts</code>.
+            <br><br>
+            The question text is logged, so the app can learn which phrasings it
+            failed to answer. That log holds the question, the outcome, how many
+            subjects were sent and how long it took. It does <strong>not</strong>
+            hold who asked: no account id, no token, and not the course codes
+            themselves. Identity and content are kept apart on purpose.
+            <code>worker/src/log.ts</code>.
           </li>
         </ol>
         <p style="margin-top: var(--s5)">

@@ -135,6 +135,10 @@ export function History() {
                 <th scope="col">Earned</th>
                 <th scope="col">Recomputed</th>
                 <th class="left" scope="col">Cross-check</th>
+                {/* No visible label: the column holds one control per row and
+                    each already names its own semester. A header word here
+                    would be read out before every cell in the table. */}
+                <th scope="col"><span class="sr-only">Remove semester</span></th>
               </tr>
             </thead>
             <tbody>
@@ -229,6 +233,14 @@ function HistoryRow(props: { row: Row }) {
     props.row.published ? String(props.row.published.sgpa) : "");
   const [creditDraft, setCreditDraft] = createSignal(
     props.row.registered === null ? "" : String(props.row.registered));
+  /**
+   * Removal is two presses, and deliberately not a modal.
+   *
+   * The first press turns the control into the confirmation, in the row being
+   * removed, so what is about to be discarded is on screen beside the question
+   * rather than described in a dialog covering it.
+   */
+  const [confirming, setConfirming] = createSignal(false);
 
   const commit = () => {
     const sgpaValue = Number(sgpaDraft().trim());
@@ -238,7 +250,19 @@ function HistoryRow(props: { row: Row }) {
       // store is still a store write, and every write re-runs the memo this
       // table is built from. Tabbing across a row must cost nothing.
       if (!props.row.published) return;
-      edit((s) => { delete s.history[props.row.name]; });
+      // An empty box means "I do not know this", never "destroy the record".
+      //
+      // Clearing it used to delete the entire SemesterHistory - the SGPA, both
+      // credit totals, the source and the recorded conflict - with no
+      // confirmation and no undo, on blur. Select-all, Backspace, Tab was
+      // enough, and the CGPA in the header silently dropped. That is the most
+      // destructive action in the app, and it was the only one with no guard,
+      // while erasing everything two screens away has a two-step confirmation.
+      //
+      // Removing a semester is now a deliberate act with its own control. A
+      // blur just puts back what is stored, so the box cannot be used to
+      // discard a figure the university published.
+      setSgpaDraft(String(props.row.published.sgpa));
       return;
     }
     if (!Number.isFinite(sgpaValue)) return;
@@ -312,6 +336,33 @@ function HistoryRow(props: { row: Row }) {
               <span class="num">{c().sgpa.toFixed(2)}</span>
             </span>
           )}
+        </Show>
+      </td>
+      <td class="row-remove">
+        {/* Only offered where there is something to remove. An empty row has
+            nothing to discard and the control would be a no-op wearing a
+            destructive label. */}
+        <Show when={props.row.published}>
+          <Show when={confirming()} fallback={
+            <button class="link" aria-label={`Remove ${props.row.name} from history`}
+                    onClick={() => setConfirming(true)}>Remove</button>
+          }>
+            <span class="confirm-inline" role="group"
+                  aria-label={`Remove ${props.row.name}?`}>
+              {/* Names the figure being discarded, not just the semester. The
+                  SGPA is the thing that took a semester to earn and the thing
+                  the CGPA above will move without. */}
+              <span class="fineprint">
+                Discard {props.row.name} (
+                <span class="num">{props.row.published!.sgpa.toFixed(2)}</span>)?
+              </span>
+              <button class="link remove-go" onClick={() => {
+                edit((s) => { delete s.history[props.row.name]; });
+                setConfirming(false);
+              }}>Remove</button>
+              <button class="link" onClick={() => setConfirming(false)}>Keep</button>
+            </span>
+          </Show>
         </Show>
       </td>
     </tr>

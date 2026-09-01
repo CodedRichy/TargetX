@@ -19,8 +19,15 @@ export const HISTORY_RANK: Record<HistorySource, number> = {
   etlab: 0,
 };
 
-/** Two SGPAs are "the same" within the precision either source prints. */
-const sameSgpa = (a: number, b: number): boolean => Math.abs(a - b) < 0.005;
+/**
+ * Two SGPAs are "the same" within the precision either source prints.
+ *
+ * Exported because `setHistory` asks the same question when it decides whether
+ * a hand edit changed the figure or only the credits beside it. A second copy
+ * of this tolerance would be a second definition of "the student changed it",
+ * and the two would drift.
+ */
+export const sameSgpa = (a: number, b: number): boolean => Math.abs(a - b) < 0.005;
 
 /**
  * Fold one incoming history figure onto whatever is already stored for that

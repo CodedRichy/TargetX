@@ -1,6 +1,7 @@
 mod creds;
 mod etlab;
 mod ktu;
+mod oauth;
 
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
@@ -80,6 +81,20 @@ pub fn run() {
     // this webview also renders a college portal's HTML, and it has no business
     // being able to reach the rest of the disk.
     .plugin(tauri_plugin_fs::init())
+    // Opening a URL in the student's own browser. Every external link in the
+    // app - the privacy statement, and "Report a problem" on both the Data
+    // screen and a failed sync - was an `<a target="_blank">`, which a webview
+    // does nothing with. The one that mattered was the third: a student whose
+    // sync had just broken was handed a dead link to the issue form.
+    //
+    // The objection to shipping this is real and is written up on
+    // `diagnostics_dir` below: this webview also renders a college portal's
+    // HTML, so handing it the ability to ask the OS to launch things is not
+    // free. It is answered by scope rather than by going without - the
+    // capability allows `opener:allow-open-url` against this project's own
+    // GitHub URLs and nothing else, so a hostile page in this webview can ask
+    // for the issue tracker and cannot ask for anything at all beyond it.
+    .plugin(tauri_plugin_opener::init())
     // Registered unconditionally, and outside `setup`, so that anything which
     // fails during setup is itself logged. It used to be inside a
     // `debug_assertions` check, which meant the only builds that recorded a
@@ -87,6 +102,7 @@ pub fn run() {
     .plugin(log_plugin())
     .manage(etlab::Etlab::default())
     .manage(ktu::Ktu::default())
+    .manage(oauth::Oauth::default())
     .invoke_handler(tauri::generate_handler![
       etlab::etlab_start,
       etlab::etlab_reset,
@@ -102,6 +118,11 @@ pub fn run() {
       creds::cred_load,
       creds::cred_delete,
       creds::cred_has,
+      oauth::oauth_begin,
+      oauth::oauth_finish,
+      oauth::oauth_resume,
+      oauth::oauth_sign_out,
+      oauth::oauth_has_account,
       log_error,
       diagnostics_dir,
     ])

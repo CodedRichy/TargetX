@@ -4,6 +4,7 @@ import type { SyncResult } from "../sync/etlab";
 import { applySync } from "../state/actions";
 import { edit, state } from "../state/store";
 import { canRemember, deleteCreds, loadCreds, saveCreds } from "../state/creds";
+import { openExternal } from "../state/external";
 
 /**
  * Portal sign-in and sync.
@@ -267,7 +268,8 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
                 </button>
                 {" · "}
                 <a href="https://github.com/CodedRichy/TargetX/issues/new?template=bug.yml"
-                   target="_blank" rel="noreferrer">Open an issue</a>
+                   target="_blank" rel="noreferrer"
+                   onClick={(e) => openExternal(e, e.currentTarget.href)}>Open an issue</a>
               </details>
             </Show>
           </div>

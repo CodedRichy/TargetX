@@ -6,7 +6,7 @@ import {
   unconfirmedNames,
 } from "../engine";
 import {
-  dismissChanges, goalRequirement, overall, rows, state, summary, trend,
+  dismissChanges, goalRequirement, overall, rows, setGoal, state, summary, trend,
 } from "../state/store";
 import { setView } from "../state/nav";
 import { GoalGauge, TrendChart } from "./charts";
@@ -59,7 +59,14 @@ export function Home() {
    * four published results sitting in history.
    */
   const onRecord = () => new Set([
-    ...Object.keys(state.semesters),
+    // A semester with no subjects in it is not a semester on record. Setup
+    // creates the current one before anything is in it, so a student who had
+    // just finished onboarding was told "1 semester on record" while looking
+    // at an empty screen - the app opening with a claim it could not support,
+    // which is the one thing it is supposed never to do.
+    ...Object.entries(state.semesters)
+      .filter(([, sem]) => (sem?.courses.length ?? 0) > 0)
+      .map(([name]) => name),
     ...Object.keys(state.history),
   ]).size;
 
@@ -239,17 +246,33 @@ export function Home() {
       <div class="screen-head">
         <div>
           <h2>Where you stand</h2>
-          <p class="lede">
-            {state.activeSemester} · {onRecord()} semester
-            {onRecord() === 1 ? "" : "s"} on record
-          </p>
+          {/* With nothing on record the count is not "0 semesters", it is
+              absent. A zero here is a fact about the record; the student has
+              not made one yet, and the empty state below already says so in
+              words that lead somewhere. */}
+          {/* No lede at all when the record is empty. It said "nothing
+              recorded yet" directly above a card whose heading is "Nothing
+              recorded yet", which is the same sentence twice in one eyeful and
+              makes the screen read as an error rather than as a start. */}
+          <Show when={onRecord() > 0}>
+            <p class="lede">
+              {state.activeSemester} · {onRecord()} semester
+              {onRecord() === 1 ? "" : "s"} on record
+            </p>
+          </Show>
         </div>
+        {/* The header action is for a student who HAS data and wants more of
+            it. With an empty record the card below carries the same call, and
+            two identical primary buttons on one screen is a choice the student
+            has to make between two things that do the same thing. */}
+        <Show when={state.lastSync || onRecord() > 0}>
         <Show when={state.lastSync} fallback={
           <button class="ghost" onClick={() => setView("data")}>Get your marks in</button>
         }>
           <span class="fineprint num">
             Synced {new Date(state.lastSync!).toLocaleDateString()}
           </span>
+        </Show>
         </Show>
       </div>
 
@@ -260,7 +283,9 @@ export function Home() {
       <Show when={started()} fallback={<EmptyHome />}>
         <div class="bento">
 
-          <section class="tile hero">
+          {/* The one promoted surface on Home. Standing is what the screen is
+              for; everything else on it explains or qualifies this number. */}
+          <section class="tile hero promoted">
             <div class="tile-head">
               <h3>Standing</h3>
               {/* Registered credits are the denominator - except where a
@@ -303,7 +328,16 @@ export function Home() {
                   <span class="hero-unit num">CGPA · {overall().percent.toFixed(1)}%</span>
                 </Show>
               </div>
-              <Show when={state.goal?.cgpa != null}>
+              {/* The gauge occupies the right half of a double-width tile. With
+                  no target set it rendered nothing, so the card became one
+                  number and a sentence spread across the widest surface on the
+                  screen - the dead half that made Home feel unfinished.
+
+                  What goes there instead is the action the sentence beside it
+                  is already asking for. Setting a target is the single thing
+                  that changes what every other figure on this screen means, and
+                  it was previously only reachable from a row on another view. */}
+              <Show when={state.goal?.cgpa != null} fallback={<GoalInvite />}>
                 <GoalGauge projected={summary().sgpaProjected}
                            required={need()?.required ?? null}
                            reachable={need()?.possible ?? true}
@@ -469,7 +503,16 @@ export function Home() {
             <div class="split">
               <div>
                 <span class="stat-label">Confirmed</span>
-                <span class="stat num dim">{summary().sgpaConfirmed.toFixed(2)}</span>
+                {/* An average over nothing is not zero, it is absent - and
+                    `sgpa()` returns 0 for an empty register, so printing it
+                    raw put "0.00" under the word Confirmed on the first screen
+                    of a semester where nothing has been graded yet. That is
+                    the one number this app is not allowed to state: it reads
+                    as a score, and there is no working to show behind it. */}
+                <Show when={summary().creditsConfirmed > 0}
+                      fallback={<span class="stat num dim" aria-label="Nothing confirmed yet">—</span>}>
+                  <span class="stat num dim">{summary().sgpaConfirmed.toFixed(2)}</span>
+                </Show>
               </div>
               <div>
                 <span class="stat-label">Projected</span>
@@ -480,8 +523,25 @@ export function Home() {
               <Show when={summary().credits > 0} fallback={
                 <>No subjects in {state.activeSemester} yet.</>
               }>
+              {/* "Every subject has been assessed" is true and, on its own,
+                  is the reassurance this engine exists to withhold. `pending`
+                  and `unsettled` between them miss the ordinary middle of a
+                  semester: every internal in, no exam sat, so nothing is
+                  pending, nothing is unsettled, and Confirmed covers no
+                  credits at all. Assessed is not graded, and the tile has to
+                  say which one it means. */}
               <Show when={summary().pending > 0 || summary().unsettled > 0}
-                    fallback={<>Every subject has been assessed.</>}>
+                    fallback={
+                      <Show when={summary().creditsConfirmed > 0}
+                            fallback={
+                              <>Every subject has been assessed, and none is graded
+                              yet — nothing is confirmed until a result is published.
+                              Projected is what this register reaches if every
+                              subject lands where it is currently heading.</>
+                            }>
+                        <>Every subject has been assessed.</>
+                      </Show>
+                    }>
                 <Show when={summary().pending > 0}>
                   <strong class="num">{summary().pending}</strong> subject
                   {summary().pending === 1 ? "" : "s"} not yet assessed — out of
@@ -581,10 +641,36 @@ function ChangesPanel(props: { at: string; items: Change[] }) {
  * has entered nothing is the same lie the engine refuses to tell about an
  * unassessed subject.
  */
+/**
+ * Set a target, from the card whose meaning depends on it.
+ *
+ * Five values rather than a text field. A student does not arrive with 8.37 in
+ * mind; they arrive wanting "a first" or "above eight", and a number pad asks
+ * them to invent a precision they do not have. The exact figure stays editable
+ * on the Semester view for anyone who does have one.
+ */
+function GoalInvite() {
+  return (
+    <div class="goal-invite">
+      <span class="stat-label">Set a target</span>
+      <div class="goal-chips">
+        <For each={[7, 7.5, 8, 8.5, 9]}>{(value) => (
+          <button class="chip" onClick={() => setGoal(value)}>
+            {value.toFixed(1)}
+          </button>
+        )}</For>
+      </div>
+    </div>
+  );
+}
+
 function EmptyHome() {
   return (
     <div class="tile empty-home">
-      <h3>Nothing recorded yet</h3>
+      {/* "Nothing recorded yet" as a heading describes the app's problem. This
+          describes the student's next move, which is the only thing an empty
+          state is for. */}
+      <h3>Get your marks in</h3>
       <p class="lede">
         TargetX has no marks to work from. The fastest route is your college
         portal — it brings attendance, internals and every past semester in one

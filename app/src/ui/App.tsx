@@ -1,10 +1,11 @@
-import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import {
   activeCourses, addSemester, attendanceGaps, goalRequirement, hydrate, overall,
   selectSemester, semesterNames, setAttendanceTarget, setGoal, state, summary,
   targets,
 } from "../state/store";
 import { VIEWS, needsSetup, setView, view } from "../state/nav";
+import { ASSISTANT } from "../state/answers";
 import { appearance, setTheme, startTheme, theme } from "../state/theme";
 import { Data } from "./Data";
 import { WindowChrome } from "./WindowChrome";
@@ -15,78 +16,18 @@ import { Home } from "./Home";
 import { Ledger } from "./Ledger";
 import { Setup } from "./Setup";
 import { Mark } from "./Mark";
+import { Palette, usePaletteShortcut } from "./Palette";
+import { Popover } from "./Popover";
 import { runLaunchCheck, saveFindings } from "../state/launch";
+import { autoRefresh, refreshAll, refreshFailures, refreshing } from "../state/autosync";
+import type { SourceResult } from "../state/autosync";
+import {
+  authBusy, authConfigured, authError, justSignedIn, resumeAccount, session,
+  signIn, signOut, signedIn,
+} from "../state/auth";
 import type { Finding } from "../state/launch";
 import { checkForUpdate } from "../sync/update";
 import type { Available } from "../sync/update";
-
-/**
- * Header KPIs.
- *
- * Confirmed and projected sit side by side and are never merged. One blended
- * number would be the most flattering thing to show and the least honest — the
- * student could not tell which half is real.
- */
-function Kpis() {
-  // With nothing entered every rollup is 0.00, which reads as a student who
-  // scored zero rather than one who has not started. Dashes say the second
-  // thing, which is this app's whole discipline applied to its own header.
-  const started = () => summary().credits > 0 || overall().credits > 0;
-  const dash = "–";
-
-  return (
-    <Show when={started()} fallback={
-      <div class="kpis" data-tauri-drag-region>
-        <div class="kpi">
-          <span class="kpi-label">CGPA</span>
-          <span class="kpi-value num dim">{dash}</span>
-          <span class="kpi-note">nothing recorded yet</span>
-        </div>
-      </div>
-    }>
-      <div class="kpis" data-tauri-drag-region>
-        {/* A live semester makes the header "started", but a CGPA needs a
-            COMPLETED one. Without that guard a first year saw 0.00 beside
-            their real projection, which reads as a failed year rather than as
-            a year that has not finished. */}
-        <div class="kpi">
-          <span class="kpi-label">CGPA</span>
-          <Show when={overall().credits > 0} fallback={
-            <>
-              <span class="kpi-value num dim">{dash}</span>
-              <span class="kpi-note">no completed semester yet</span>
-            </>
-          }>
-            <span class="kpi-value num">{overall().cgpa.toFixed(2)}</span>
-            <span class="kpi-note num">{overall().percent.toFixed(1)}% · {overall().credits} cr</span>
-          </Show>
-        </div>
-        <Show when={view() === "ledger"}>
-        <div class="kpi">
-          <span class="kpi-label">Confirmed</span>
-          <span class="kpi-value num dim">{summary().sgpaConfirmed.toFixed(2)}</span>
-          <span class="kpi-note num">{summary().creditsConfirmed} of {summary().credits} cr</span>
-        </div>
-        <div class="kpi">
-          <span class="kpi-label">Projected</span>
-          <span class="kpi-value num">{summary().sgpaProjected.toFixed(2)}</span>
-          <span class="kpi-note">
-            <Show when={summary().pending > 0 || summary().unsettled > 0}
-                  fallback={<>all subjects assessed</>}>
-              {[
-                summary().pending > 0 ? `${summary().pending} not yet assessed` : null,
-                summary().unsettled > 0
-                  ? `${summary().unsettled} internal${summary().unsettled === 1 ? "" : "s"} not settled`
-                  : null,
-              ].filter(Boolean).join(" · ")}
-            </Show>
-          </span>
-        </div>
-        </Show>
-      </div>
-    </Show>
-  );
-}
 
 /**
  * The goal line.
@@ -319,7 +260,8 @@ export function UpdateNotice(props: { update: Available; onDismiss: () => void }
 /**
  * A save that is not landing.
  *
- * Sits outside `LaunchNotice` and has no dismiss of its own, on purpose.
+ * Has no dismiss of its own, and stays a banner rather than moving into the
+ * notification bell, on purpose.
  * Everything in that banner reports on something already written down, so
  * closing it costs nothing; this reports that what is on the screen is NOT
  * being written down, and the student needs it in front of them until they
@@ -345,24 +287,338 @@ export function SaveNotice() {
   );
 }
 
-function LaunchNotice(props: { findings: Finding[]; onDismiss: () => void }) {
+/**
+ * Everything asking for your attention, in one place.
+ *
+ * These findings used to be a banner across the top of the app. The banner was
+ * honest and it was also the first thing between a student and their marks on
+ * every single launch, saying the same thing every time until it was dismissed.
+ * A count on a bell states the same fact without spending a row of the screen
+ * on it, and the two urgent classes stay where they were: a save that is not
+ * landing keeps its banner, because that one reports the app is losing data,
+ * and Home keeps its "Needs attention" card, because that is a place a student
+ * goes to look rather than a thing that interrupts them.
+ */
+/**
+ * Refresh both portals, by hand.
+ *
+ * The manual sync used to be two separate forms on the Data screen - one per
+ * portal - and a student who wanted current numbers had to know that there were
+ * two, find both, and run them in turn. Attendance and published results are
+ * one question to the person asking it.
+ *
+ * This honours none of the automatic run's throttling. The student pressed the
+ * button; declining to make the request because one ran twenty minutes ago
+ * would be the app arguing with them about what they just asked for.
+ *
+ * It needs both logins in the vault to do anything, and says so rather than
+ * spinning and reporting success over a portal it never contacted - see the
+ * per-source rows in the bell, which is where the outcome lands.
+ */
+function RefreshButton() {
+  const label = () => (refreshing() ? "Refreshing both portals…" : "Refresh from etlab and KTU");
+
   return (
-    <Show when={props.findings.length > 0}>
-      {/* Appears about half a second after launch, with nobody having done
-          anything to summon it. Without a live region a screen reader user is
-          simply not told their data did not reconcile. */}
-      <div class="launch-notice" role="status">
-        <For each={props.findings}>{(f) => (
-          <div class={`notice ${f.severity === "warn" ? "warn" : ""}`} title={f.detail}>
-            <strong>{f.title}</strong>
-            <button class="link" onClick={() => { setView(f.goto); props.onDismiss(); }}>
-              {f.action}
+    <button class="iconbtn refresh" onClick={() => { void refreshAll(); }}
+            disabled={refreshing()} title={label()} aria-label={label()}>
+      {/* Spun by CSS while a refresh is in flight, which is the one honest
+          thing an indeterminate control can do: this crosses two networks and
+          there is no percentage to report. */}
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+           class={refreshing() ? "spin" : undefined}
+           stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+           stroke-linejoin="round">
+        <path d="M20.5 12a8.5 8.5 0 1 1-2.5-6" />
+        <path d="M20.5 4.5V10H15" />
+      </svg>
+    </button>
+  );
+}
+
+export function Bell(props: { findings: Finding[] }) {
+  const [open, setOpen] = createSignal(false);
+  /**
+   * Titles the student has waved away, for this run of the app only.
+   *
+   * Not persisted, on purpose. Every finding here is re-derived from the record
+   * on each launch, so a dismissal saved to disk would be a promise never to
+   * mention a problem again - and the problems these report do not go away by
+   * being ignored. Dismissing means "I have read this", not "this is fixed".
+   */
+  const [hidden, setHidden] = createSignal<string[]>([]);
+  let anchor: HTMLButtonElement | undefined;
+
+  const live = () => props.findings.filter((f) => !hidden().includes(f.title));
+
+  /**
+   * A failed refresh is a notification, not an error dialog.
+   *
+   * One row per portal that failed, never a merged "sync failed": etlab and KTU
+   * are different servers with different logins, and a student whose KTU fetch
+   * broke while attendance came through fine needs to know that attendance is
+   * current. Shaped as a launch finding so the list has one kind of row rather
+   * than two, and routed to Data, which is the screen that can act on it.
+   */
+  const syncFailures = (): Finding[] =>
+    refreshFailures()
+      .map((r: SourceResult) => ({
+        kind: "sync" as const, severity: "warn" as const,
+        title: `${r.source === "ktu" ? "KTU" : "etlab"} did not refresh`,
+        detail: r.detail ?? "The portal did not answer.",
+        goto: "data" as const, action: "Open Data",
+      }))
+      .filter((f) => !hidden().includes(f.title));
+
+  const items = (): Finding[] => [...syncFailures(), ...live()];
+
+  const dismiss = (title: string) => setHidden((h) => [...h, title]);
+  const dismissAll = () => {
+    setHidden((h) => [...h, ...items().map((f) => f.title)]);
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <button ref={anchor} class="iconbtn bell" onClick={() => setOpen((o) => !o)}
+              aria-expanded={open()}
+              aria-label={items().length === 0
+                ? "Notifications. Nothing needs attention."
+                : `Notifications. ${items().length} need attention.`}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+             stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
+             stroke-linejoin="round">
+          <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+        </svg>
+        {/* Red is for something wrong, and "you have not added any marks yet"
+            on a fresh install is not something wrong - it is the app meeting a
+            student who has done nothing yet and alarming them for it. The badge
+            takes the tone of the WORST finding in the list, so a warning still
+            reads as a warning. */}
+        <Show when={items().length > 0}>
+          <span class={`bell-badge num${items().some((f) => f.severity === "warn") ? "" : " info"}`}
+                aria-hidden="true">{items().length}</span>
+        </Show>
+      </button>
+
+      <Popover open={open()} onClose={() => setOpen(false)}
+               label="Notifications" anchor={() => anchor}>
+        <div>
+          <div class="pop-head">
+            <p class="pop-title">Needs attention</p>
+            <Show when={items().length > 1}>
+              <button class="link" onClick={dismissAll}>Dismiss all</button>
+            </Show>
+          </div>
+
+          <Show when={items().length > 0} fallback={
+            <p class="pop-empty">
+              <Show when={refreshing()} fallback="Nothing to look at. Your data reconciled.">
+                Checking both portals…
+              </Show>
+            </p>
+          }>
+            <For each={items()}>{(f) => (
+              <div class="pop-item">
+                <div class="pop-item-head">
+                  <strong>{f.title}</strong>
+                  {/* Per-row, because "3 things need attention" is three
+                      different decisions and clearing them together forces the
+                      student to re-read the two they had not dealt with. */}
+                  <button class="pop-x" aria-label={`Dismiss: ${f.title}`}
+                          onClick={() => dismiss(f.title)}>×</button>
+                </div>
+                <span class="dim">{f.detail}</span>
+                <button class="link" onClick={() => { setView(f.goto); setOpen(false); }}>
+                  {f.action}
+                </button>
+              </div>
+            )}</For>
+          </Show>
+        </div>
+      </Popover>
+    </>
+  );
+}
+
+/**
+ * Account.
+ *
+ * The CGPA lives here rather than in its own header block: it is the one number
+ * that describes the student rather than a semester, and reading it beside
+ * their name is where the eye already goes.
+ *
+ * Sign-in is NOT wired yet. The button says so in plain words instead of
+ * opening a dialog that cannot finish, because an account control that fails
+ * silently is worse than one that is honest about not existing. Nothing in the
+ * app requires an account today - every figure on every screen is computed on
+ * this machine from data this machine fetched.
+ */
+/**
+ * The moment a sign-in lands.
+ *
+ * Signing in used to change one line of text inside a menu that the student
+ * had to still be holding open to see. They pressed a button, a browser window
+ * flashed past, and the application said nothing - so the only way to find out
+ * whether it had worked was to go and look.
+ *
+ * This is the acknowledgement. It names the person, because being greeted by
+ * name is the whole proof that the round trip actually carried an identity
+ * back, and it takes itself away - a confirmation that has to be dismissed is
+ * a second task handed to someone who just finished one.
+ */
+function SignedInToast() {
+  const [showing, setShowing] = createSignal(false);
+
+  // The signal the toast actually watches: an explicit signal set by signIn,
+  // so a launch resume can never trigger it.
+  createEffect(() => {
+    if (!justSignedIn()) return;
+    setShowing(true);
+    const t = setTimeout(() => setShowing(false), 4200);
+    onCleanup(() => clearTimeout(t));
+  });
+
+  return (
+    <Show when={showing() && session()}>
+      {(who) => (
+        <div class="toast" role="status">
+          <Show when={who().avatar} fallback={
+            <span class="avatar toast-face" aria-hidden="true">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+                <circle cx="12" cy="8" r="3.6" />
+                <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+              </svg>
+            </span>
+          }>
+            {(src) => <img class="toast-face" src={src()} alt="" />}
+          </Show>
+          <span class="toast-lines">
+            <strong>
+              {who().name ? `Signed in as ${who().name}` : "Signed in"}
+            </strong>
+            {/* Says what it unlocked, because sign-in in this app buys exactly
+                one thing and a student who does not know that will wonder what
+                they just handed over. */}
+            <span class="dim">You can ask questions in the search box now.</span>
+          </span>
+        </div>
+      )}
+    </Show>
+  );
+}
+
+function Profile() {
+  const [open, setOpen] = createSignal(false);
+  const cgpa = () => (overall().credits > 0 ? overall().cgpa.toFixed(2) : null);
+  let anchor: HTMLButtonElement | undefined;
+
+  return (
+    <>
+      <button ref={anchor} class="profile" onClick={() => setOpen((o) => !o)}
+              aria-expanded={open()} aria-label="Account">
+        <span class="avatar" aria-hidden="true">
+          {/* The picture when there is one, the generic figure otherwise. Not
+              initials: a student who has not signed in has no name to take
+              them from, and inventing one from the semester would be a face
+              for an account that does not exist. */}
+          <Show when={session()?.avatar} fallback={
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+              <circle cx="12" cy="8" r="3.6" />
+              <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+            </svg>
+          }>
+            {(src) => <img class="avatar-img" src={src()} alt="" />}
+          </Show>
+        </span>
+        <span class="profile-lines">
+          {/* The chip keeps saying what the app is about. The signed-in name
+              belongs in the menu: an academic tracker's header should lead with
+              the semester being tracked, not with whose Google account is
+              attached to it. */}
+          <span class="profile-name">{state.activeSemester ?? "Student"}</span>
+          <span class="profile-sub">
+            {cgpa() === null ? "no CGPA yet" : `CGPA ${cgpa()}`}
+          </span>
+        </span>
+      </button>
+
+      <Popover open={open()} onClose={() => setOpen(false)}
+               label="Account" anchor={() => anchor}>
+        <div>
+          <div class="pop-row">
+            <span>Appearance</span>
+            <ThemeButton />
+          </div>
+          {/* Sign-in gates the assistant and nothing else, and the copy says
+              so rather than leaving a student to guess what an account is for
+              in an app that works entirely offline. */}
+          <Show when={authConfigured()} fallback={
+            <div class="pop-row">
+              <span>
+                <strong>Accounts are off in this build</strong>
+                <br />
+                <span class="dim">Everything here is computed on this machine.</span>
+              </span>
+            </div>
+          }>
+            <Show when={signedIn()} fallback={
+              <div class="pop-row">
+                <span>
+                  <strong>Not signed in</strong>
+                  <br />
+                  <span class="dim">
+                    <Show when={authBusy()} fallback={
+                      "Only needed to ask questions. Your marks stay on this machine."
+                    }>
+                      Waiting for your browser…
+                    </Show>
+                  </span>
+                </span>
+                <button class="pop-action" disabled={authBusy()}
+                        onClick={() => { void signIn(); }}>
+                  {authBusy() ? "Signing in…" : "Sign in"}
+                </button>
+              </div>
+            }>
+              <div class="pop-row">
+                <span class="who">
+                  <Show when={session()?.avatar}>
+                    {(src) => <img class="who-face" src={src()} alt="" />}
+                  </Show>
+                  <span class="who-lines">
+                    <strong>{session()?.name ?? "Signed in"}</strong>
+                    {/* The address is the thing that actually answers "which
+                        account is this", which is the only question a signed-in
+                        row has to be able to answer. */}
+                    <Show when={session()?.email}>
+                      {(mail) => <span class="dim">{mail()}</span>}
+                    </Show>
+                  </span>
+                </span>
+                <button class="link" onClick={() => { void signOut(); }}>Sign out</button>
+              </div>
+            </Show>
+
+            <Show when={authError()}>
+              {(why) => (
+                <div class="pop-row">
+                  <span class="dim" role="status">{why()}</span>
+                </div>
+              )}
+            </Show>
+          </Show>
+          <div class="pop-row">
+            <span class="dim">Data</span>
+            <button class="link" onClick={() => { setOpen(false); setView("data"); }}>
+              Sync, import and backup
             </button>
           </div>
-        )}</For>
-        <button class="link" onClick={props.onDismiss}>Dismiss</button>
-      </div>
-    </Show>
+        </div>
+      </Popover>
+    </>
   );
 }
 
@@ -377,10 +633,12 @@ export function App() {
   // flying: the X is travelling to its place in the wordmark.
   // done: the overlay is gone.
   const [phase, setPhase] = createSignal<"boot" | "flying" | "done">("boot");
-  let wordmarkX: HTMLSpanElement | undefined;
+  let homeBtn: HTMLButtonElement | undefined;
   let flyer: HTMLDivElement | undefined;
   const [findings, setFindings] = createSignal<Finding[]>([]);
   const [dismissed, setDismissed] = createSignal(false);
+  const [paletteOpen, setPaletteOpen] = createSignal(false);
+  usePaletteShortcut(() => setPaletteOpen(true));
   const [update, setUpdate] = createSignal<Available | null>(null);
   const [updateDismissed, setUpdateDismissed] = createSignal(false);
 
@@ -447,7 +705,7 @@ export function App() {
     setTimeout(() => {
       setFindings(found);
       setPhase("flying");
-      // The wordmark has to be laid out before it can be measured, and the
+      // The home button has to be laid out before it can be measured, and the
       // overlay has to have painted before it can be animated away from.
       requestAnimationFrame(() => requestAnimationFrame(flyMark));
     }, wait);
@@ -458,23 +716,35 @@ export function App() {
     // to null on every failure, so there is nothing to catch and nothing to
     // report when it finds nothing.
     setTimeout(() => { void checkForUpdate().then(setUpdate); }, 2000);
+
+    // Refresh from the portal without being asked, but only when the student
+    // has already put their login in the OS vault - see `autoSync`, which owns
+    // every precondition. Fire-and-forget and deliberately last: it crosses the
+    // network to a college server, and nothing on screen may wait on it.
+    setTimeout(() => { void autoRefresh(); }, 1200);
+
+    // Restore a signed-in account from the refresh token in the OS vault.
+    // Silent either way: not being signed in is a normal state, and this
+    // gates nothing but the assistant - every figure on every screen is
+    // computed here from data this machine already has.
+    void resumeAccount();
   });
 
   /**
-   * Fly the opening X into the wordmark.
+   * Fly the opening X into the home button.
    *
    * The same drawing in both places, moved rather than swapped: the app does
    * not cut from a splash to a dashboard, it puts its mark where it lives.
    *
    * Measured at the moment it runs rather than hardcoded, because the
-   * wordmark's position depends on the window width and on whether setup is
+   * button's position depends on the window width and on whether setup is
    * showing at all. If there is nothing to fly to - setup is open, or the
    * header has not rendered - it fades instead, which is also what a student
    * who has asked for reduced motion gets.
    */
   const flyMark = () => {
     const node = flyer;
-    const target = wordmarkX?.getBoundingClientRect();
+    const target = homeBtn?.getBoundingClientRect();
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     if (!node || !target || target.width < 1 || reduced) {
@@ -539,16 +809,43 @@ export function App() {
               letter: the X is a drawing, and `Mark` hides itself from the
               accessibility tree unless it is given one - so the only heading
               on the screen announced as "Target". */}
-          <h1 class="wordmark" data-tauri-drag-region>Target<span class="wordmark-x" ref={wordmarkX}
-              classList={{ waiting: phase() !== "done" }}><Mark size="0.78em" title="X" /></span></h1>
+          {/* The wordmark and the home route were two targets in the same
+              corner. They are one now: the mark is the button, and the app is
+              named by the window's own title rather than by a heading that had
+              to be spelled "Target" + a drawing to be announced at all. */}
+          <button class="homebtn" ref={homeBtn} aria-current={view() === "home"}
+                  classList={{ waiting: phase() !== "done" }}
+                  aria-label="Home. Where you stand and what needs doing."
+                  title="Home" onClick={() => setView("home")}>
+            <Mark size="17" />
+          </button>
 
+          {/* Home is not in this row - it is the button to the left. The rest
+              are peers with no order, so they stay a flat row. */}
           <nav class="tabs" aria-label="Views">
-            <For each={VIEWS}>{(v) => (
+            <For each={VIEWS.filter((v) => v.id !== "home")}>{(v) => (
               <button class="tab" aria-current={view() === v.id} title={v.hint}
                       onClick={() => setView(v.id)}>{v.label}</button>
             )}</For>
-            <ThemeButton />
           </nav>
+
+          {/* Search sits in the header rather than inside a view because it is
+              not a view: it crosses all of them. Labelled with its shortcut so
+              the keyboard route is discoverable without a tour.
+
+              It names Tex, because this control and the palette it grows into
+              are now visibly one object - and an object that said "Ask
+              anything" at one size and "Ask Tex" at the other was telling the
+              student it was two. */}
+          <button class="ask" onClick={() => setPaletteOpen(true)}
+                  aria-label={`Ask ${ASSISTANT} about your subjects, marks and attendance. Press Control K.`}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+              <circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" />
+            </svg>
+            <span>Ask {ASSISTANT} — how many classes can I miss?</span>
+            <span class="kbd" aria-hidden="true">Ctrl K</span>
+          </button>
 
           <Show when={view() === "ledger"}>
             <nav class="sems" aria-label="Semester">
@@ -559,12 +856,11 @@ export function App() {
               <button class="sem" title="Add the next semester"
                       aria-label="Add the next semester" onClick={addSemester}>+</button>
             </nav>
-            <span class="kpi-note num" style={{ color: "var(--text-faint)" }}>
-              {activeCourses().length} subjects
-            </span>
           </Show>
 
-          <Kpis />
+          <RefreshButton />
+          <Bell findings={findings()} />
+          <Profile />
           <WindowChrome />
         </header>
 
@@ -574,9 +870,6 @@ export function App() {
           <Drawer />
         </Show>
         <SaveNotice />
-        <Show when={!dismissed()}>
-          <LaunchNotice findings={findings()} onDismiss={() => setDismissed(true)} />
-        </Show>
         <Show when={!updateDismissed() && update()}>
           {(u) => (
             <UpdateNotice update={u()} onDismiss={() => setUpdateDismissed(true)} />
@@ -587,6 +880,9 @@ export function App() {
         <Show when={view() === "attendance"}><Attendance /></Show>
         <Show when={view() === "history"}><History /></Show>
         <Show when={view() === "data"}><Data /></Show>
+
+        <Palette open={paletteOpen()} onClose={() => setPaletteOpen(false)} />
+        <SignedInToast />
       </div>
     </Show>
     </>

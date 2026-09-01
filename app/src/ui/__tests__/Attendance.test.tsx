@@ -14,7 +14,7 @@
  */
 import { cleanup, render } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ATTENDANCE_MIN, attendancePlan } from "../../engine";
+import { ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MIN, attendancePlan } from "../../engine";
 import type { Course } from "../../engine";
 import { addCourse, edit, updateCourse } from "../../state/store";
 import { Attendance } from "../Attendance";
@@ -68,9 +68,17 @@ describe("the attendance screen", () => {
     expect(text).toContain("Compiler Design");
     expect(text).toContain("more class");
     expect(text).toContain(String(plan.skip));
-    // One filled pip per missable class - the strip is the whole point.
-    expect(c.querySelectorAll(".att-pip.miss")).toHaveLength(plan.skip);
-    expect(c.querySelectorAll(".att-pip.recover")).toHaveLength(0);
+    // The meter replaced the pip strip. What matters is that it is drawn from
+    // the engine's percentage and carries BOTH KTU thresholds in its label -
+    // the 75/85 gap is the fact this screen exists to show.
+    const meter = c.querySelector(".meter-track");
+    expect(meter).not.toBeNull();
+    const label = meter!.getAttribute("aria-label") ?? "";
+    expect(label).toContain(`${plan.current.toFixed(0)}%`);
+    expect(label).toContain(`${ATTENDANCE_MIN}%`);
+    expect(label).toContain(`${ATTENDANCE_FULL_MARKS_PCT}%`);
+    // A subject above the full-marks line is not tinted as a warning.
+    expect(c.querySelectorAll(".meter-fill.bad")).toHaveLength(0);
   });
 
   it("shows a deficit subject the run of classes needed to recover", () => {
@@ -83,8 +91,13 @@ describe("the attendance screen", () => {
     expect(text).toContain("Computer Networks");
     expect(text).toContain("to recover");
     expect(text).toContain(String(plan.attend));
-    expect(c.querySelectorAll(".att-pip.recover")).toHaveLength(plan.attend!);
-    expect(c.querySelectorAll(".att-pip.miss")).toHaveLength(0);
+    // Below the eligibility line the fill carries the danger tone, and the
+    // label still names both thresholds.
+    const meter = c.querySelector(".meter-track");
+    expect(meter).not.toBeNull();
+    expect(meter!.getAttribute("aria-label") ?? "")
+      .toContain(`${plan.current.toFixed(0)}%`);
+    expect(c.querySelectorAll(".meter-fill.bad")).toHaveLength(1);
   });
 
   it("shows an unrecorded subject as 'not recorded', never a percentage", () => {
@@ -95,9 +108,11 @@ describe("the attendance screen", () => {
     const text = c.textContent ?? "";
     expect(text).toContain("Data Mining");
     expect(text).toContain("not recorded");
-    // Never invented as a full or empty house, and no strip drawn.
+    // Never invented as a full or empty house. No meter either: a meter needs
+    // a percentage, and there is none - drawing an empty track would be the
+    // same lie as printing 0%.
     expect(text).not.toMatch(/\b0%|100%/);
-    expect(c.querySelectorAll(".att-pip")).toHaveLength(0);
+    expect(c.querySelectorAll(".meter-track")).toHaveLength(0);
   });
 
   it("renders every state together without throwing", () => {

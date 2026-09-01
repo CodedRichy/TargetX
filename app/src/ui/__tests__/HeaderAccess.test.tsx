@@ -2,10 +2,10 @@
 /**
  * The header, which is also the title bar.
  *
- * Two things in it were unreachable by name. The wordmark's X is a drawing,
- * and `Mark` hides itself from the accessibility tree unless it is given a
- * title - so the only `h1` on the screen announced as "Target", losing the
- * last letter of the product's name. The add-semester button is drawn as a
+ * Two things in it were unreachable by name. Home is drawn as the app's mark
+ * with no text at all, and `Mark` hides itself from the accessibility tree by
+ * default - so without an explicit label the button that returns you to the
+ * landing screen announces as nothing. The add-semester button is drawn as a
  * plus sign, and a glyph is the accessible name unless one is supplied.
  */
 import { cleanup, render } from "@solidjs/testing-library";
@@ -52,14 +52,14 @@ beforeEach(() => {
   setView("ledger");
 });
 
-describe("the wordmark", () => {
-  it("is announced with its X, not as 'Target'", () => {
+describe("the home button", () => {
+  it("is announced by name even though it is drawn as a glyph", () => {
     const { container } = render(() => <App />);
-    const h1 = container.querySelector("h1.wordmark")!;
-    const mark = h1.querySelector("svg")!;
-    expect(mark.getAttribute("role")).toBe("img");
-    expect(mark.getAttribute("aria-label")).toBe("X");
-    expect(mark.getAttribute("aria-hidden")).toBeNull();
+    const home = container.querySelector("button.homebtn")!;
+    expect(home.getAttribute("aria-label")).toMatch(/^Home\./);
+    // Its own label is the accessible name; the drawing inside must not add a
+    // second one, or the button announces twice.
+    expect(home.textContent).toBe("");
   });
 
   it("still hides the mark wherever it is decoration", () => {

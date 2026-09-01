@@ -264,6 +264,26 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
 }
 .route:hover { background: var(--surface-2); border-color: var(--brand-deep); }
+
+/* The recommended route has to LOOK recommended.
+ *
+ * All three cards were one drawing with a small coloured eyebrow on the first,
+ * which asks a student to read three paragraphs to discover that the app
+ * already has an opinion. It has one - portal sync brings every semester,
+ * attendance, internals and published results in a single pass, and the other
+ * two are for students who cannot use it. So the recommendation carries a
+ * brand edge and a tinted ground, and the alternatives quiet down. */
+.route.recommended {
+  background: var(--brand-wash);
+  border-color: var(--brand-deep);
+}
+.route.recommended:hover { border-color: var(--brand); }
+.route.recommended strong { font-size: var(--text-xl); }
+
+/* Not disabled-looking, just secondary. These are real choices and a student
+   with no portal login needs them to be obviously available. */
+.route.alt { background: transparent; }
+.route.alt strong { font-size: var(--text-base); }
 .route strong { color: var(--text); font-size: var(--text-lg); font-weight: 600; }
 .route span { color: var(--text-dim); font-size: var(--text-sm); line-height: 1.55; }
 .route-tag {
@@ -411,19 +431,57 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   align-items: start;
 }
 
-.card {
+/* --- the container surface -------------------------------------------------
+ *
+ * ONE treatment, shared. `.card` and `.tile` used to declare the same six
+ * properties independently - same gradient border-box, same `--surface-1`, same
+ * transparent 1px border - and differed only in radius and padding. Two names
+ * for one drawing meant a change to "the card" silently missed half the app,
+ * and it made every screen look like every other screen for no authored reason.
+ *
+ * The border is a gradient, not a colour: brightest at the top-left and faded
+ * by the bottom, so a container reads as a raised pane catching light rather
+ * than a rectangle with an outline.
+ *
+ * `isolation` makes each container its own stacking context so the pointer
+ * light `::before` (motion.css) can sit at z-index -1 - above the surface,
+ * below the content, clipped to the corners. `relative` anchors it.
+ */
+.card,
+.tile {
   background:
     linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
     linear-gradient(155deg, var(--edge-hi), var(--edge-mid) 42%, var(--edge-lo)) border-box;
   border: 1px solid transparent;
-  border-radius: var(--radius-lg);
-  padding: var(--s4);
-  /* Stacking context for the pointer-light `::before` (motion.css): `relative`
-     anchors it, `isolation` lets its z-index -1 sit above the card's surface
-     and below its content. Same setup the `.tile` carries. */
+  border-radius: var(--radius-card);
   position: relative;
   isolation: isolate;
 }
+
+/* The second ground, and the whole point of having a ramp.
+ *
+ * `--surface-2` existed in the tokens from the start while `--surface-1` was
+ * left carrying every content container in the app, so no screen had a visible
+ * first thing - hierarchy fell entirely on type size, and Home was spending
+ * four numeric focal points at one elevation. This is the promotion: at most
+ * ONE per screen, on the element that is genuinely the subject.
+ *
+ * Note what it does NOT do, because the ramp is not monotonic across themes.
+ * In the dark, `--surface-2` (0.245) sits above `--surface-1` (0.195) and the
+ * promoted container reads as raised. On paper there is no headroom - the
+ * ground is 0.955 and `--surface-1` is already 0.99 - so `--surface-2` (0.925)
+ * sits BELOW the ground and the same container reads as a heavier, weightier
+ * panel instead. Both separate the subject from its siblings, which is the
+ * job; only the direction differs, and claiming "raised" in both would be a
+ * comment that contradicts the pixels in one of them. */
+.card.promoted,
+.tile.promoted {
+  background:
+    linear-gradient(var(--surface-2), var(--surface-2)) padding-box,
+    linear-gradient(155deg, var(--edge-hi), var(--edge-mid) 42%, var(--edge-lo)) border-box;
+}
+
+.card { padding: var(--s4); }
 .card h3 {
   font-size: var(--text-lg);
   font-weight: 600;
@@ -585,26 +643,12 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   align-items: start;
 }
 
+/* Layout only. The surface itself is the shared `.card, .tile` rule above. */
 .tile {
-  /* The border is a gradient, not a colour: a hairline that is brightest at
-     the top-left and fades away by the bottom, so the card reads as a raised
-     pane catching light rather than as a rectangle with an outline. Two
-     backgrounds, one clipped to the padding box and one to the border box,
-     is the only way to put a gradient in a border without a pseudo-element. */
-  background:
-    linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
-    linear-gradient(155deg, var(--edge-hi), var(--edge-mid) 42%, var(--edge-lo)) border-box;
-  border: 1px solid transparent;
-  border-radius: 14px;
   display: flex;
   flex-direction: column;
   gap: var(--s3);
   padding: var(--s5);
-  /* `isolation` makes the tile its own stacking context so the pointer-light
-     `::before` (motion.css) can sit at z-index -1: above the tile's surface,
-     below its content, clipped to the rounded corners. `relative` anchors it. */
-  position: relative;
-  isolation: isolate;
 }
 
 /* The two cards allowed to occupy two columns: standing is the question the
@@ -806,7 +850,14 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
    context, not the subject. */
 .home .trend svg { margin: 0 auto; max-width: 560px; }
 
-.empty-home { max-width: 60ch; }
+/* Centred in the space it has, not pinned to a corner of it. An empty record
+   leaves the whole screen free, and a single small card in the top-left reads
+   as the page having failed to load the rest. */
+.empty-home {
+  max-width: 60ch;
+  margin-inline: auto;
+  margin-block-start: 6vh;
+}
 .empty-home h3 { font-size: var(--text-lg); font-weight: 600; margin: 0; }
 
 /* The appearance control sits with the tabs but is not one - it changes how
@@ -934,24 +985,144 @@ a.link:hover { text-decoration-thickness: 2px; }
   user-select: all;
 }
 
-/* --- attendance: the miss budget, drawn ------------------------------------
+/* --- attendance: the threshold meter ---------------------------------------
  *
- * Reuses the Data screen's `.cards` grid and `.card` shell so the surface reads
- * as the same app - the only new thing is the strip. Each pip is one class: a
- * filled square the student can still skip, or one they owe back. The colour is
- * a status colour on purpose (room is `--good`, a shortfall is `--warn`), which
- * is the one family the tokens reserve for exactly this kind of standing.
+ * This replaces the pip strip, which drew one square per class. That strip had
+ * two faults. It scaled with the WRONG number - a student at 61% got a wall of
+ * up to thirty amber squares, so the drawing that meant "you are in trouble"
+ * was simply bigger than the one that meant "you have room", and read as a
+ * punishment graphic. And it drew the budget while saying nothing about the two
+ * lines the budget exists because of.
+ *
+ * KTU has two attendance thresholds, not one, and the gap between them is the
+ * whole reason this app exists: 75% is eligibility - miss it and you cannot sit
+ * the exam - while full marks under R 7.5.ii need 85%. Every point between them
+ * is internal marks bleeding away silently, and no other calculator shows it.
+ * So the meter marks BOTH lines and shades the band between them. The student
+ * sees where they stand, what they are about to lose, and what they are trying
+ * to clear, in one glyph.
+ *
+ * The fill takes the status colour of the band it lands in. The band shading is
+ * deliberately weak - it is a region, not a value, and must never out-shout the
+ * fill or the two marks.
  */
-.att-pips {
+.meter {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--s1);
-  margin: var(--s2) 0;
+  flex-direction: column;
+  gap: var(--s2);
+  margin: var(--s3) 0 var(--s2);
 }
-.att-pip {
-  block-size: 0.85rem;
-  border-radius: 2px;
-  inline-size: 0.85rem;
+
+.meter-track {
+  position: relative;
+  block-size: 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
 }
-.att-pip.miss { background: var(--good); }
-.att-pip.recover { background: var(--warn); }
+
+.meter-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  border-radius: 999px;
+  background: var(--good);
+  /* Grows from the left on mount; the one authored motion on this screen. */
+  transition: inline-size 620ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.meter-fill.warn { background: var(--warn); }
+.meter-fill.bad { background: var(--danger); }
+
+/* The 75-85 band: marks being lost while still eligible. */
+.meter-band {
+  position: absolute;
+  inset-block: 0;
+  background: var(--warn);
+  opacity: 0.16;
+}
+
+/* A threshold line. `strong` is the 85% full-marks line, the one to aim at. */
+.meter-mark {
+  position: absolute;
+  inset-block: -2px;
+  inline-size: 2px;
+  background: var(--text-faint);
+  border-radius: 1px;
+}
+.meter-mark.strong { background: var(--text-dim); }
+
+.meter-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}
+.meter-ends .num { color: var(--text-dim); }
+
+@media (prefers-reduced-motion: reduce) {
+  .meter-fill { transition: none; }
+}
+
+/* --- attendance: priced rows ----------------------------------------------
+ *
+ * The reference's neutral label/value list, rewritten in the only unit the
+ * student actually controls: classes. A row never states a figure the engine
+ * has not computed - where a plan is unknown the row is simply not rendered,
+ * rather than printing a zero.
+ */
+.priced {
+  display: flex;
+  flex-direction: column;
+  border-block-start: 1px solid var(--hairline);
+  margin-block-start: var(--s3);
+}
+.priced-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding-block: var(--s2);
+  border-block-end: 1px solid var(--hairline);
+  font-size: var(--text-sm);
+}
+.priced-row dt { color: var(--text-dim); }
+.priced-row dd { margin: 0; color: var(--text); font-weight: 500; }
+
+/* The target invitation, standing where the gauge stands once there is one.
+   Same footprint, so the card does not resize the moment a target is set -
+   a layout that jumps on click reads as something having gone wrong. */
+.goal-invite {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  align-items: flex-start;
+  min-inline-size: 280px;
+}
+.goal-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }
+
+/* The per-row remove control on History.
+   Named `remove-go` rather than `danger`: `button.danger` is a filled
+   destructive button with its own background, and `class="link danger"` would
+   match both rules - the collision that once painted a sign-in control as a
+   bare swatch. Colour alone carries the difference here, so the confirmation
+   also states what is being discarded in words beside it. */
+.row-remove { text-align: right; white-space: nowrap; }
+.confirm-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s3);
+  justify-content: flex-end;
+}
+.confirm-inline .fineprint { color: var(--text-dim); }
+button.link.remove-go { color: var(--danger); }
+button.link.remove-go:hover { color: var(--danger); font-weight: 600; }
+
+/* The counts a subject's percentage is computed from. Quiet, because it is
+   evidence rather than a finding - but present, because a percentage with no
+   visible numerator and denominator is a number the student cannot check. */
+.att-counts {
+  margin: 0 0 var(--s3);
+  font-size: var(--text-sm);
+  color: var(--text-dim);
+}
