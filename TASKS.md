@@ -169,7 +169,10 @@ oracle gave. `engine/__tests__/core.test.ts` is where those live.
 
 ---
 
-## Queued for 0.3.1
+## Queued for 0.3.2
+
+(Was queued for 0.3.1, which was cut early to get the question box into an
+installer at all - 0.3.0 shipped without it.)
 
 **A "check for updates" button.** The updater runs a few seconds after launch
 and never again in that session, so a student who leaves the app open, or whose
