@@ -178,6 +178,62 @@ describe("tomorrow joins the timetable to the budget", () => {
   });
 });
 
+describe("the plain attendance question is answered, not routed", () => {
+  it("states the percentage with the counts behind it", () => {
+    open(EDGE);
+    type("whats my attendance in computer networks");
+    // Percentage AND counts, both derived from the fixture rather than typed
+    // in: a percentage on its own is a figure the student cannot check against
+    // their own portal, and a literal here would stop tracking the band table.
+    const cost = absenceCost(EDGE.attended!, EDGE.held!, 0, 0)!;
+    expect(screen.getByText(new RegExp(
+      `${cost.before.toFixed(0)}%.*\(${EDGE.attended} of ${EDGE.held}\)`))).toBeTruthy();
+  });
+
+  it("says what the attendance is currently earning in CIE marks", () => {
+    open(EDGE);
+    type("whats my attendance in computer networks");
+    expect(screen.getByText(/of the attendance CIE/)).toBeTruthy();
+  });
+});
+
+describe("what a subject needs in the final", () => {
+  it("states the mark required to pass, out of the paper's own maximum", () => {
+    open(EDGE);
+    type("what do i need to pass computer networks");
+    expect(screen.getByText(/needs \d+ of \d+ in the final to pass/)).toBeTruthy();
+  });
+
+  it("answers for every subject when none is named", () => {
+    open(EDGE, CLEAR);
+    type("what do i need to pass");
+    expect(screen.getByText(/What each subject needs in the final/)).toBeTruthy();
+  });
+});
+
+describe("standing is a fact about the record, not about one subject", () => {
+  it("says nothing when no semester has been published", () => {
+    open(EDGE);
+    edit((d) => { d.history = {}; });
+    type("whats my cgpa");
+    // A CGPA computed from nothing is the 0.00 this app refuses to print.
+    expect(screen.queryByText(/CGPA \d/)).toBeNull();
+  });
+
+  it("states the CGPA once published, with the credits it is weighted by", () => {
+    open(EDGE);
+    edit((d) => {
+      d.history = {
+        S3: { sgpa: 8.2, creditsRegistered: 20, creditsEarned: 20,
+              source: "gradecard", conflict: null },
+      };
+    });
+    type("whats my cgpa");
+    expect(screen.getByText("CGPA 8.20")).toBeTruthy();
+    expect(screen.getByText(/20 registered credits counted/)).toBeTruthy();
+  });
+});
+
 describe("eligibility is answered from the record", () => {
   it("does not claim every subject is fine when one is not", () => {
     open(EDGE, { ...CLEAR, attended: 60, held: 100 });

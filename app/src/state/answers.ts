@@ -1,6 +1,6 @@
-import { absenceCost, courseLabel, freeSkips } from "../engine";
-import type { Course } from "../engine";
-import { rows, state } from "./store";
+import { absenceCost, courseLabel, freeSkips, requiredEseCell } from "../engine";
+import type { Course, Evaluation } from "../engine";
+import { goalPlan, goalRequirement, overall, rows, state, summary, targets } from "./store";
 import type { View } from "./nav";
 
 /**
@@ -28,6 +28,7 @@ import type { View } from "./nav";
 /** The question shapes the engine can answer outright. */
 export const TOPICS = [
   "skip_cost", "budget", "eligibility", "tomorrow",
+  "attendance_now", "need_to_pass", "standing",
 ] as const;
 export type Topic = (typeof TOPICS)[number];
 
@@ -82,6 +83,54 @@ function budgetLine(course: Course): string {
   return free === 0
     ? `${label} — none free, the next one costs ${marks(Math.max(1, cost.marksLost))}`
     : `${label} — ${free} free before it costs a mark`;
+}
+
+/**
+ * Where a subject's attendance stands right now.
+ *
+ * The plainest question a student can ask, and the one that fell through: the
+ * detector only fired on forward-looking words - skip, miss, eligible - so
+ * "what is my attendance in CN" was routed to a screen while "can I miss one"
+ * was answered outright. The counts are included because a percentage without
+ * its numerator and denominator is a figure the student cannot check.
+ */
+function standingLine(course: Course): string {
+  const label = courseLabel(course);
+  const cost = absenceCost(course.attended, course.held, course.dl ?? 0, 0);
+  if (cost === null) return `${label} — attendance not recorded`;
+  const counts = `${course.attended} of ${course.held}`;
+  const mark = `${marks(cost.marksBefore)} of the attendance CIE`;
+  return cost.eligibleBefore
+    ? `${label} — ${pct(cost.before)} (${counts}), earning ${mark}`
+    : `${label} — ${pct(cost.before)} (${counts}), below 75% and not eligible`;
+}
+
+/**
+ * What this subject still needs in the end-semester exam.
+ *
+ * `requiredEseCell` is the engine's own answer and is already what the Ledger
+ * prints; this states it in a sentence instead of a table cell. `bound` means
+ * the passing mark is not what binds - the student's own target grade is - and
+ * saying which is the difference between "you need 28" and "you need 28 for the
+ * grade you asked for, 19 to pass".
+ */
+function needLine(course: Course, ev: Evaluation): string {
+  const label = courseLabel(course);
+  if (ev.grade !== null && ev.ese !== null && ev.ese !== undefined) {
+    // Already sat and marked: there is nothing left to need.
+    return `${label} — already graded ${ev.grade}`;
+  }
+  const pass = requiredEseCell(ev.needPass, ev.needPassBest);
+  if (!pass.shown.possible) {
+    return `${label} — cannot pass on the marks recorded so far`;
+  }
+  const target = requiredEseCell(ev.needTarget, ev.needTargetBest);
+  const base = `${label} — needs ${pass.shown.value} of ${ev.eseMax} in the final to pass`;
+  // Only mention the target when it asks for MORE than passing does; a target
+  // already satisfied is not a thing to go and do.
+  return target.shown.possible && target.shown.value > pass.shown.value
+    ? `${base}, ${target.shown.value} for your target`
+    : base;
 }
 
 /**
@@ -173,7 +222,57 @@ export function answerFor(topic: Topic, code?: string): Answer | null {
     };
   }
 
-  const line = topic === "skip_cost" ? skipLine : budgetLine;
+  if (topic === "standing") {
+    // The one topic that is not per-subject: a CGPA is a fact about the whole
+    // record, and listing it per course would be answering a different question.
+    const cgpa = overall();
+    if (cgpa.credits <= 0) return null;
+    const need = goalRequirement();
+    const plan = goalPlan();
+    const lines: string[] = [
+      `${cgpa.credits} registered credits counted, ${cgpa.percent.toFixed(1)}%`,
+    ];
+    const target = targets().cgpa;
+    if (target !== null && target !== undefined && need !== null) {
+      lines.push(need.possible && need.required !== null
+        ? `To reach ${target.toFixed(1)}, you need ${need.required.toFixed(2)} SGPA from here on`
+        : `${target.toFixed(1)} is no longer reachable in the semesters left`);
+      // Three states, not two. `reachable: false` explicitly does NOT mean
+      // impossible - goals.ts:395 says it means "this route does not guarantee
+      // it", and `conditional` is the case where the target is still open on a
+      // harder route or on marks the plan cannot price yet. Collapsing those
+      // into "not reachable" would tell a student their target is gone when it
+      // is not.
+      if (plan !== null) {
+        lines.push(plan.reachable
+          ? "This semester's subjects can carry it"
+          : plan.conditional
+            ? "Still open, but today's marks do not guarantee it"
+            : "This semester's subjects cannot carry it");
+      }
+    }
+    const sem = summary();
+    if (sem.assessed > 0) {
+      lines.push(`This semester projects to ${sem.sgpaProjected.toFixed(2)} SGPA`);
+    }
+    return { headline: `CGPA ${cgpa.cgpa.toFixed(2)}`, lines, view: "home" };
+  }
+
+  if (topic === "need_to_pass") {
+    const lines = picked.map((r) => needLine(r.course, r.ev));
+    if (lines.length === 0) return null;
+    if (picked.length === 1) {
+      return { headline: lines[0]!, lines: [], view: "ledger" };
+    }
+    return {
+      headline: "What each subject needs in the final:",
+      lines, view: "ledger",
+    };
+  }
+
+  const line = topic === "skip_cost" ? skipLine
+    : topic === "attendance_now" ? standingLine
+    : budgetLine;
   const lines = picked
     .map((r) => line(r.course))
     .filter((l): l is string => l !== null);
@@ -187,7 +286,9 @@ export function answerFor(topic: Topic, code?: string): Answer | null {
   return {
     headline: topic === "skip_cost"
       ? "What one more absence costs, per subject:"
-      : "Classes you can still miss for free:",
+      : topic === "attendance_now"
+        ? "Where your attendance stands:"
+        : "Classes you can still miss for free:",
     lines, view: "attendance",
   };
 }
@@ -207,7 +308,38 @@ export function detectTopic(query: string): Topic | null {
   const q = ` ${query.toLowerCase().replace(/[^a-z0-9 ]+/g, " ")} `;
   const has = (...words: string[]) => words.some((w) => q.includes(` ${w} `));
 
+  /**
+   * A question about the RULE is not a question about this student.
+   *
+   * "How is SGPA calculated" contains "sgpa" and was being answered with the
+   * student's own CGPA - a confident reply to a question nobody asked, which is
+   * worse than routing, because a route at least lands somewhere the answer
+   * might be. These fall through so the caller can send them to the glossary.
+   *
+   * The test is possessive: "how badly would it affect MY attendance" is about
+   * this student and is answered; "how does attendance affect marks" is about
+   * the regulation and is not.
+   */
+  const personal = has("my", "i", "me", "mine", "im") || q.includes(" am i ");
+  const explains = has("calculated", "calculate", "computed", "compute",
+                       "explain", "explained", "works", "work", "mean", "means",
+                       "definition", "formula", "affect", "affects", "why")
+    || q.includes(" pass mark ") || q.includes(" pass marks ");
+  if (explains && !personal) return null;
+
   if (has("tomorrow", "tmrw", "tommorow", "tommorw")) return "tomorrow";
+
+  // Ordered before the attendance branches: "what do i need to pass" contains
+  // no attendance word, but "how many marks do i need" and "am i failing" would
+  // otherwise be caught by nothing at all.
+  if (has("pass", "passing", "fail", "failing", "final", "ese", "endsem")
+      || (has("need", "needed") && has("marks", "mark", "exam", "grade"))) {
+    return "need_to_pass";
+  }
+  if (has("cgpa", "sgpa", "gpa", "percentage") || q.includes(" first class ")
+      || q.includes(" where do i stand ") || has("standing", "distinction")) {
+    return "standing";
+  }
   if (has("eligible", "eligibility", "debar", "debarred", "condonation")) {
     return "eligibility";
   }
@@ -220,5 +352,9 @@ export function detectTopic(query: string): Topic | null {
   if (has("miss", "skip", "bunk", "cut", "leave", "leaves", "absent")) {
     return "budget";
   }
+  // The plainest question there is, and the one that used to fall through: the
+  // detector only fired on forward-looking words, so "can i miss one" was
+  // answered and "what is my attendance" was routed to a screen.
+  if (has("attendance", "attended", "present")) return "attendance_now";
   return null;
 }
