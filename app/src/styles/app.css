@@ -860,3 +860,39 @@ tr.row:hover .del { opacity: 1; }
 /* Hard to the far end, so the shortcut reads as the field's affordance rather
    than as the last two words of the placeholder sentence. */
 .ask .kbd { margin-inline-start: auto; flex: none; }
+
+/* --- notification rows ----------------------------------------------------- */
+
+.pop-head {
+  align-items: baseline;
+  display: flex;
+  gap: var(--s3);
+  justify-content: space-between;
+}
+.pop-head .pop-title { margin-block-end: var(--s2); }
+
+.pop-item-head {
+  align-items: start;
+  display: flex;
+  gap: var(--s2);
+  justify-content: space-between;
+}
+
+/* Present at all times rather than on hover. A control that only exists once
+   the pointer finds it is a control a keyboard user is told about by nothing,
+   and this row is already quiet enough that a small glyph does not shout. */
+.pop-x {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+  color: var(--text-faint);
+  cursor: pointer;
+  flex: none;
+  font: inherit;
+  font-size: var(--text-base);
+  line-height: 1;
+  padding: 2px 5px;
+}
+.pop-x:hover { background: var(--surface-2); color: var(--text); }
+.pop-x:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }

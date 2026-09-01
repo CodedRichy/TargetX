@@ -17,6 +17,7 @@ import { Setup } from "./Setup";
 import { Mark } from "./Mark";
 import { Palette, usePaletteShortcut } from "./Palette";
 import { runLaunchCheck, saveFindings } from "../state/launch";
+import { autoSync, autoSyncError, autoSyncing } from "../state/autosync";
 import type { Finding } from "../state/launch";
 import { checkForUpdate } from "../sync/update";
 import type { Available } from "../sync/update";
@@ -291,9 +292,17 @@ export function SaveNotice() {
  * and Home keeps its "Needs attention" card, because that is a place a student
  * goes to look rather than a thing that interrupts them.
  */
-function Bell(props: { findings: Finding[]; onGo: () => void }) {
+export function Bell(props: { findings: Finding[] }) {
   const [open, setOpen] = createSignal(false);
-  const count = () => props.findings.length;
+  /**
+   * Titles the student has waved away, for this run of the app only.
+   *
+   * Not persisted, on purpose. Every finding here is re-derived from the record
+   * on each launch, so a dismissal saved to disk would be a promise never to
+   * mention a problem again - and the problems these report do not go away by
+   * being ignored. Dismissing means "I have read this", not "this is fixed".
+   */
+  const [hidden, setHidden] = createSignal<string[]>([]);
   let wrap: HTMLDivElement | undefined;
 
   /*
@@ -309,45 +318,98 @@ function Bell(props: { findings: Finding[]; onGo: () => void }) {
    *
    * Asking whether the click was inside the wrapper is independent of both
    * listener order and the framework's delegation strategy.
+   *
+   * It listens for pointerdown rather than click, and that is not incidental.
+   * A click on a row's dismiss button removes that row, so by the time a click
+   * listener on `document` ran, the node it was handed had already been
+   * detached from the tree and `contains` answered false for something that
+   * was plainly inside the popover - which closed it on every dismissal.
+   * pointerdown fires before any handler has had the chance to mutate anything.
    */
-  const onDocClick = (e: MouseEvent) => {
+  const onDocDown = (e: Event) => {
     if (wrap && e.target instanceof Node && wrap.contains(e.target)) return;
     setOpen(false);
   };
-  onMount(() => document.addEventListener("click", onDocClick));
-  onCleanup(() => document.removeEventListener("click", onDocClick));
+  onMount(() => document.addEventListener("pointerdown", onDocDown));
+  onCleanup(() => document.removeEventListener("pointerdown", onDocDown));
+
+  const live = () => props.findings.filter((f) => !hidden().includes(f.title));
+
+  /**
+   * A failed background sync is a notification, not an error dialog.
+   *
+   * It is given the same shape as a launch finding so the list has one kind of
+   * row rather than two, and it routes to Data, which is the screen that can
+   * actually do something about it.
+   */
+  const syncFailure = (): Finding | null => {
+    const why = autoSyncError();
+    if (why === null || hidden().includes(SYNC_FAIL)) return null;
+    return {
+      kind: "sync", title: SYNC_FAIL, detail: why, severity: "warn",
+      goto: "data", action: "Open Data",
+    };
+  };
+
+  const items = (): Finding[] => {
+    const f = syncFailure();
+    return f ? [f, ...live()] : live();
+  };
+
+  const dismiss = (title: string) => setHidden((h) => [...h, title]);
+  const dismissAll = () => {
+    setHidden((h) => [...h, ...items().map((f) => f.title)]);
+    setOpen(false);
+  };
 
   return (
     <div class="pop-wrap" ref={wrap}>
       <button class="bell" onClick={() => setOpen((o) => !o)}
               aria-expanded={open()}
-              aria-label={count() === 0
+              aria-label={items().length === 0
                 ? "Notifications. Nothing needs attention."
-                : `Notifications. ${count()} need attention.`}>
+                : `Notifications. ${items().length} need attention.`}>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"
              stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
              stroke-linejoin="round">
           <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.7 21a2 2 0 0 1-3.4 0" />
         </svg>
-        <Show when={count() > 0}>
-          <span class="bell-badge num" aria-hidden="true">{count()}</span>
+        <Show when={items().length > 0}>
+          <span class="bell-badge num" aria-hidden="true">{items().length}</span>
         </Show>
       </button>
 
       <Show when={open()}>
         <div class="pop" role="dialog" aria-label="Notifications">
-          <p class="pop-title">Needs attention</p>
-          <Show when={count() > 0} fallback={
-            <p class="pop-empty">Nothing to look at. Your data reconciled.</p>
+          <div class="pop-head">
+            <p class="pop-title">Needs attention</p>
+            <Show when={items().length > 1}>
+              <button class="link" onClick={dismissAll}>Dismiss all</button>
+            </Show>
+          </div>
+
+          <Show when={items().length > 0} fallback={
+            <p class="pop-empty">
+              <Show when={autoSyncing()} fallback="Nothing to look at. Your data reconciled.">
+                Checking the portal…
+              </Show>
+            </p>
           }>
-            <For each={props.findings}>{(f) => (
+            <For each={items()}>{(f) => (
               <div class="pop-item">
-                <strong>{f.title}</strong>
+                <div class="pop-item-head">
+                  <strong>{f.title}</strong>
+                  {/* Per-row, because "3 things need attention" is three
+                      different decisions and clearing them together forces the
+                      student to re-read the two they had not dealt with. */}
+                  <button class="pop-x" aria-label={`Dismiss: ${f.title}`}
+                          onClick={() => dismiss(f.title)}>×</button>
+                </div>
                 <span class="dim">{f.detail}</span>
-                <button class="link" onClick={() => {
-                  setView(f.goto); setOpen(false); props.onGo();
-                }}>{f.action}</button>
+                <button class="link" onClick={() => { setView(f.goto); setOpen(false); }}>
+                  {f.action}
+                </button>
               </div>
             )}</For>
           </Show>
@@ -356,6 +418,9 @@ function Bell(props: { findings: Finding[]; onGo: () => void }) {
     </div>
   );
 }
+
+/** The one synthetic finding's title, used as its dismissal key. */
+const SYNC_FAIL = "That automatic sync did not land";
 
 /**
  * Account.
@@ -375,14 +440,14 @@ function Profile() {
   const cgpa = () => (overall().credits > 0 ? overall().cgpa.toFixed(2) : null);
   let wrap: HTMLDivElement | undefined;
 
-  /* Same containment test as the bell - see the note there for why this is not
-     done with stopPropagation. */
-  const onDocClick = (e: MouseEvent) => {
+  /* Same containment test as the bell, on pointerdown for the same two reasons
+     - see the note there. */
+  const onDocDown = (e: Event) => {
     if (wrap && e.target instanceof Node && wrap.contains(e.target)) return;
     setOpen(false);
   };
-  onMount(() => document.addEventListener("click", onDocClick));
-  onCleanup(() => document.removeEventListener("click", onDocClick));
+  onMount(() => document.addEventListener("pointerdown", onDocDown));
+  onCleanup(() => document.removeEventListener("pointerdown", onDocDown));
 
   return (
     <div class="pop-wrap" ref={wrap}>
@@ -523,6 +588,12 @@ export function App() {
     // to null on every failure, so there is nothing to catch and nothing to
     // report when it finds nothing.
     setTimeout(() => { void checkForUpdate().then(setUpdate); }, 2000);
+
+    // Refresh from the portal without being asked, but only when the student
+    // has already put their login in the OS vault - see `autoSync`, which owns
+    // every precondition. Fire-and-forget and deliberately last: it crosses the
+    // network to a college server, and nothing on screen may wait on it.
+    setTimeout(() => { void autoSync(); }, 1200);
   });
 
   /**
@@ -648,7 +719,7 @@ export function App() {
             </nav>
           </Show>
 
-          <Bell findings={findings()} onGo={() => setDismissed(true)} />
+          <Bell findings={findings()} />
           <Profile />
           <WindowChrome />
         </header>

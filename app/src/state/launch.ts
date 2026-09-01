@@ -10,13 +10,18 @@ import { saveFault, state } from "./store";
  * recomputation run here, once, rather than being buried in a screen the
  * student may never open.
  *
- * What it deliberately does NOT do is sync. A portal sync needs a password,
- * and the password is never stored; running one on launch would mean keeping
- * a credential on disk to save a click. Staleness is reported instead.
+ * What it deliberately does NOT do is sync. This check is arithmetic over data
+ * already in memory and must finish in milliseconds; a portal sync crosses the
+ * network to a college server and cannot be on the path to the first paint.
+ * Staleness is reported here and acted on separately - see `state/autosync`,
+ * which runs after this, only when the student has already chosen to keep
+ * their login in the OS credential vault, and never blocks anything.
  */
 
 export type FindingKind =
-  "reconcile" | "stale" | "empty" | "attendance" | "corrupt" | "save";
+  "reconcile" | "stale" | "empty" | "attendance" | "corrupt" | "save"
+  /** Raised by the background sync, not by this check. */
+  | "sync";
 
 export interface Finding {
   kind: FindingKind;

@@ -15,9 +15,10 @@
  */
 import { cleanup, render } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { App } from "../App";
+import { App, Bell } from "../App";
 import { setView } from "../../state/nav";
 import { edit } from "../../state/store";
+import type { Finding } from "../../state/launch";
 
 afterEach(cleanup);
 
@@ -40,9 +41,18 @@ beforeEach(() => {
   setView("home");
 });
 
-/** A click that bubbles to `document`, which is where the bug was. */
-const click = (el: Element) =>
+/**
+ * A real press: pointerdown then click, both bubbling to `document`.
+ *
+ * Both are needed and in this order. The outside-dismissal listener is on
+ * pointerdown - a click listener was handed already-detached nodes when a row
+ * removed itself - and the buttons themselves are driven by click. A helper
+ * that fired only one of the two would test a sequence no pointer produces.
+ */
+const click = (el: Element) => {
+  el.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, cancelable: true }));
   el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+};
 
 describe.each([
   ["notifications", "button.bell", "Notifications"],
@@ -76,5 +86,78 @@ describe.each([
 
     click(pop);
     expect(container.querySelector(".pop")).not.toBeNull();
+  });
+});
+
+/**
+ * Dismissal.
+ *
+ * `Bell` is rendered directly with fixed findings rather than through `App`.
+ * The launch check hands its findings over on a 450ms timer, so a test that
+ * mounted the whole app and looked immediately would find an empty popover and
+ * every assertion below would pass by describing nothing.
+ *
+ * A finding is re-derived from the record on every launch, so dismissing one
+ * cannot mean "never mention this again" - it means "I have read it". The
+ * per-row control is covered rather than only the bulk one, because clearing
+ * three unrelated problems together is the behaviour that would actually lose a
+ * student a warning they had not dealt with yet.
+ */
+describe("dismissing notifications", () => {
+  const FINDINGS: Finding[] = [
+    { kind: "attendance", severity: "warn", title: "1 subject below the floor",
+      detail: "MICROCONTROLLERS is under 75%.", goto: "ledger", action: "See which" },
+    { kind: "stale", severity: "info", title: "Last synced 6 days ago",
+      detail: "Attendance may have moved since.", goto: "data", action: "Sync now" },
+    { kind: "reconcile", severity: "warn", title: "S3 does not reconcile",
+      detail: "The published SGPA disagrees with the stored subjects.",
+      goto: "history", action: "Open History" },
+  ];
+
+  const openBell = () => {
+    const { container } = render(() => <Bell findings={FINDINGS} />);
+    click(container.querySelector("button.bell")!);
+    return container;
+  };
+
+  it("shows every finding", () => {
+    expect(openBell().querySelectorAll(".pop-item").length).toBe(3);
+  });
+
+  it("removes the row that was dismissed and leaves the others", () => {
+    const container = openBell();
+    click(container.querySelectorAll(".pop-x")[1]!);
+
+    const titles = [...container.querySelectorAll(".pop-item strong")]
+      .map((n) => n.textContent);
+    expect(titles).toEqual(["1 subject below the floor", "S3 does not reconcile"]);
+  });
+
+  it("keeps the popover open after a dismissal", () => {
+    const container = openBell();
+    click(container.querySelector(".pop-x")!);
+    expect(container.querySelector(".pop")).not.toBeNull();
+  });
+
+  it("counts the badge down as rows go", () => {
+    const container = openBell();
+    expect(container.querySelector(".bell-badge")!.textContent).toBe("3");
+
+    click(container.querySelector(".pop-x")!);
+    expect(container.querySelector(".bell-badge")!.textContent).toBe("2");
+  });
+
+  it("clears everything at once, and closes", () => {
+    const container = openBell();
+    click(container.querySelector(".pop-head .link")!);
+
+    expect(container.querySelector(".pop")).toBeNull();
+    expect(container.querySelector(".bell-badge")).toBeNull();
+  });
+
+  it("offers no bulk control for a single finding", () => {
+    const { container } = render(() => <Bell findings={[FINDINGS[0]!]} />);
+    click(container.querySelector("button.bell")!);
+    expect(container.querySelector(".pop-head .link")).toBeNull();
   });
 });
