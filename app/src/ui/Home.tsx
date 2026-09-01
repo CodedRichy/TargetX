@@ -503,7 +503,16 @@ export function Home() {
             <div class="split">
               <div>
                 <span class="stat-label">Confirmed</span>
-                <span class="stat num dim">{summary().sgpaConfirmed.toFixed(2)}</span>
+                {/* An average over nothing is not zero, it is absent - and
+                    `sgpa()` returns 0 for an empty register, so printing it
+                    raw put "0.00" under the word Confirmed on the first screen
+                    of a semester where nothing has been graded yet. That is
+                    the one number this app is not allowed to state: it reads
+                    as a score, and there is no working to show behind it. */}
+                <Show when={summary().creditsConfirmed > 0}
+                      fallback={<span class="stat num dim" aria-label="Nothing confirmed yet">—</span>}>
+                  <span class="stat num dim">{summary().sgpaConfirmed.toFixed(2)}</span>
+                </Show>
               </div>
               <div>
                 <span class="stat-label">Projected</span>
@@ -514,8 +523,25 @@ export function Home() {
               <Show when={summary().credits > 0} fallback={
                 <>No subjects in {state.activeSemester} yet.</>
               }>
+              {/* "Every subject has been assessed" is true and, on its own,
+                  is the reassurance this engine exists to withhold. `pending`
+                  and `unsettled` between them miss the ordinary middle of a
+                  semester: every internal in, no exam sat, so nothing is
+                  pending, nothing is unsettled, and Confirmed covers no
+                  credits at all. Assessed is not graded, and the tile has to
+                  say which one it means. */}
               <Show when={summary().pending > 0 || summary().unsettled > 0}
-                    fallback={<>Every subject has been assessed.</>}>
+                    fallback={
+                      <Show when={summary().creditsConfirmed > 0}
+                            fallback={
+                              <>Every subject has been assessed, and none is graded
+                              yet — nothing is confirmed until a result is published.
+                              Projected is what this register reaches if every
+                              subject lands where it is currently heading.</>
+                            }>
+                        <>Every subject has been assessed.</>
+                      </Show>
+                    }>
                 <Show when={summary().pending > 0}>
                   <strong class="num">{summary().pending}</strong> subject
                   {summary().pending === 1 ? "" : "s"} not yet assessed — out of

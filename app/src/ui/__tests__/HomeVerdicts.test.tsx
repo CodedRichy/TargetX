@@ -117,3 +117,71 @@ describe("the attendance tile", () => {
     expect(screen.getByText(/Nothing to reclaim/)).toBeTruthy();
   });
 });
+
+/**
+ * The same defect as the CGPA one, one tile down, and it survived the fix.
+ *
+ * `sgpa()` returns 0 for an empty register, so a semester with nothing graded
+ * printed "0.00" under the word Confirmed - a score, on a screen whose whole
+ * claim is that it never states a figure it cannot show the working for.
+ *
+ * And the sentence under it made the number worse. `pending` and `unsettled`
+ * between them were meant to catch every reason Confirmed could be empty, but
+ * they miss the ordinary middle of a semester: every internal is in, no exam
+ * has been sat. Nothing pending, nothing unsettled, nothing confirmed - and
+ * the tile answered that with "Every subject has been assessed", which is true
+ * and reads as an all-clear over a zero. Assessed is not graded.
+ */
+describe("the semester tile before anything is graded", () => {
+  /** Every component marked, attendance known, no result published. */
+  const midSemester = () => edit((s) => {
+    s.semesters["S5"] = {
+      courses: [{
+        ...blankCourse("PCCST501", "Computer Networks", 4, "TH 40/60"),
+        attended: 44, held: 50, s1: 30, s2: 28, other: 8,
+      }],
+    };
+  });
+
+  it("shows a dash rather than a confirmed score of zero", () => {
+    midSemester();
+    const { container } = render(() => <Home />);
+    const stats = [...container.querySelectorAll(".now .stat")].map((e) => e.textContent);
+    // Projected is a real figure and stays. Confirmed has no population to
+    // average over, and an average over nothing is absent, not zero.
+    expect(stats).not.toContain("0.00");
+    expect(stats).toContain("—");
+  });
+
+  it("says nothing is graded, instead of calling it all clear", () => {
+    midSemester();
+    render(() => <Home />);
+    expect(screen.getByText(/none is graded yet/)).toBeTruthy();
+  });
+
+  it("does not leave the all-clear standing on its own", () => {
+    midSemester();
+    const { container } = render(() => <Home />);
+    const verdict = container.querySelector(".now .tile-verdict")!.textContent!;
+    // The words may still appear - they are accurate - but never as the whole
+    // sentence, which is what made them read as reassurance.
+    expect(verdict.trim()).not.toBe("Every subject has been assessed.");
+  });
+
+  it("still gives the plain all-clear once something is actually confirmed", () => {
+    edit((s) => {
+      s.semesters["S5"] = {
+        courses: [{
+          ...blankCourse("PCCST501", "Computer Networks", 4, "TH 40/60"),
+          attended: 44, held: 50, s1: 30, s2: 28, other: 8, ese: 50,
+        }],
+      };
+    });
+    const { container } = render(() => <Home />);
+    const stats = [...container.querySelectorAll(".now .stat")].map((e) => e.textContent);
+    // A real grade exists, so Confirmed has a population and prints a figure.
+    expect(stats).not.toContain("—");
+    expect(container.querySelector(".now .tile-verdict")!.textContent)
+      .toContain("Every subject has been assessed.");
+  });
+});

@@ -394,8 +394,14 @@ export function reportText(rows: Array<{ course: Course; ev: Record<string, unkn
       "  " + row.status,
     ].join(" "));
   }
+  // `sgpa()` returns 0 over an empty register, so a semester with nothing
+  // graded exported "Confirmed SGPA 0" - a score, in a file the student may
+  // well forward to someone. Every other absent value in this report is a
+  // "-" already; this one was the exception.
+  const confirmed = Number(summary["creditsConfirmed"]) > 0
+    ? String(summary["sgpaConfirmed"]) : "-";
   lines.push("",
-    `Confirmed SGPA ${summary["sgpaConfirmed"]}   Projected ${summary["sgpaProjected"]}`,
+    `Confirmed SGPA ${confirmed}   Projected ${summary["sgpaProjected"]}`,
     `Credits ${summary["creditsConfirmed"]} of ${summary["credits"]}`);
   return lines.join("\n");
 }
