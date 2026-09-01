@@ -502,7 +502,7 @@ function Profile() {
                     </Show>
                   </span>
                 </span>
-                <button class="link primary" disabled={authBusy()}
+                <button class="pop-action" disabled={authBusy()}
                         onClick={() => { void signIn(); }}>
                   {authBusy() ? "Signing in…" : "Sign in"}
                 </button>

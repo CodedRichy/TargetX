@@ -904,3 +904,36 @@ tr.row:hover .del { opacity: 1; }
 }
 .pop-x:hover { background: var(--surface-2); color: var(--text); }
 .pop-x:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+
+/* --- actions inside a popover ---------------------------------------------
+ *
+ * `.link primary` was reused here from the launch banner, where `.launch-notice
+ * .link.primary` scopes it back to a link. Unscoped it matches `button.primary`
+ * as well, so the sign-in control rendered as a solid swatch with link metrics
+ * and wrapped "Sign in" onto two lines inside it.
+ */
+.pop-row > span { flex: 1 1 auto; min-inline-size: 0; }
+
+.pop-action {
+  appearance: none;
+  background: var(--brand);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  color: oklch(0.99 0 0);
+  cursor: pointer;
+  flex: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: var(--s2) var(--s4);
+  /* The row is `space-between` and the copy beside it is two lines long. With
+     nothing stopping it, the action is the thing that gives up its width. */
+  white-space: nowrap;
+}
+.pop-action:hover:not(:disabled) { filter: brightness(1.1); }
+.pop-action:disabled { cursor: default; opacity: 0.6; }
+.pop-action:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* The quiet counterpart: signing out and opening Data are not the thing the
+   row is recommending, so they stay text. */
+.pop-row > .link { flex: none; white-space: nowrap; }
