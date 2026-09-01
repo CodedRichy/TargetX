@@ -1025,3 +1025,31 @@ tr.row:hover .del { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }
 }
+
+/* The answer, above the results it is not a substitute for.
+   Elevation by lightness, per the constraint in tokens.css: this sits on the
+   palette surface and lifts by one step, never by a shadow. */
+.palette-answer {
+  padding: var(--s4) var(--s5);
+  background: var(--brand-wash);
+  border-bottom: 1px solid var(--hairline);
+}
+.palette-answer-head {
+  margin: 0;
+  font-size: var(--text-base);
+  line-height: 1.45;
+  color: var(--text);
+}
+.palette-answer-lines {
+  margin: var(--s3) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.palette-answer-lines li {
+  font-size: var(--text-sm);
+  color: var(--text-dim);
+}
+.palette-answer > button.link { margin-top: var(--s3); }

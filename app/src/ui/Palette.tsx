@@ -4,6 +4,8 @@ import { rows } from "../state/store";
 import { VIEWS, setView } from "../state/nav";
 import type { View } from "../state/nav";
 import { askConfigured, askRemote } from "../state/ask";
+import { answerFor, detectTopic } from "../state/answers";
+import type { Topic } from "../state/answers";
 import { signedIn } from "../state/auth";
 
 /**
@@ -118,6 +120,29 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
   const [remote, setRemote] = createSignal<string | null>(null);
   let input: HTMLInputElement | undefined;
   let inflight: AbortController | undefined;
+
+  /**
+   * The answer, when the question is one the engine can answer outright.
+   *
+   * Computed before routing and shown above the results, because it IS the
+   * answer - the rows below it are where to go for the working. Detection is
+   * local keywords, so "can i skip tomorrow" is answered without a network
+   * round trip for a sentence this machine can produce immediately.
+   */
+  const answer = createMemo(() => {
+    const q = query().trim();
+    if (q === "") return null;
+    const topic = detectTopic(q);
+    if (topic === null) return null;
+    // A subject named in the question narrows the answer to it; otherwise the
+    // question is about every subject and every subject answers.
+    const words = terms(q);
+    const loose = words.length === 1;
+    const named = words.length === 0 ? undefined : rows().find((r) =>
+      words.some((w) => matches(courseLabel(r.course), w, loose)
+                     || matches(r.course.code ?? "", w, loose)));
+    return answerFor(topic, named?.course.code);
+  });
 
   const hits = createMemo<Hit[]>(() => {
     const q = query().trim();
@@ -290,6 +315,24 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
                  aria-label="Search subjects and views"
                  onInput={(e) => setQuery(e.currentTarget.value)}
                  onKeyDown={onKey} />
+
+          <Show when={answer()}>
+            {(said) => (
+              <div class="palette-answer">
+                <p class="palette-answer-head">{said().headline}</p>
+                <Show when={said().lines.length > 0}>
+                  <ul class="palette-answer-lines">
+                    <For each={said().lines}>{(line) => <li>{line}</li>}</For>
+                  </ul>
+                </Show>
+                {/* The answer is not a substitute for the working. */}
+                <button class="link" onClick={() => {
+                  setView(said().view);
+                  props.onClose();
+                }}>See the full breakdown</button>
+              </div>
+            )}
+          </Show>
 
           <Show when={hits().length > 0} fallback={
             // An untouched box says nothing at all. "Nothing matches" is a
