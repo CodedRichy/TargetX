@@ -275,6 +275,15 @@ struct TokenResponse {
     access_token: String,
     refresh_token: Option<String>,
     expires_in: Option<u64>,
+    id_token: Option<String>,
+}
+
+/// The claims worth showing. Everything else in the token is ignored.
+#[derive(Deserialize, Default)]
+struct Claims {
+    name: Option<String>,
+    email: Option<String>,
+    picture: Option<String>,
 }
 
 /// What the frontend is told about the signed-in account.
@@ -286,6 +295,17 @@ pub struct Session {
     pub access_token: String,
     /// Unix seconds. `None` when the provider declined to say.
     pub expires_at: Option<u64>,
+    pub name: Option<String>,
+    pub email: Option<String>,
+    /// The avatar as a `data:` URI, already fetched and inlined.
+    ///
+    /// NOT the provider's URL. Handing the webview an https URL would mean a
+    /// request to Google's CDN every time the header rendered - telling them
+    /// this machine's IP and that the app is open, repeatedly, in an
+    /// application whose whole position is that it works without a network. It
+    /// is fetched once here and inlined, which also means it still draws
+    /// offline and needs no widening of the app's `img-src`.
+    pub avatar: Option<String>,
 }
 
 // --- commands ---------------------------------------------------------------
@@ -421,10 +441,7 @@ pub async fn oauth_finish(oauth: tauri::State<'_, Oauth>) -> Result<Session, Str
         let _ = vault_save(refresh);
     }
 
-    Ok(Session {
-        access_token: token.access_token,
-        expires_at: token.expires_in.map(|s| now_secs() + s),
-    })
+    Ok(session_from(token).await)
 }
 
 /// Trade a stored refresh token for a fresh access token, without a browser.
@@ -466,10 +483,7 @@ pub async fn oauth_resume(
         let _ = vault_save(next);
     }
 
-    Ok(Some(Session {
-        access_token: token.access_token,
-        expires_at: token.expires_in.map(|s| now_secs() + s),
-    }))
+    Ok(Some(session_from(token).await))
 }
 
 /// Forget the account on this machine.
@@ -485,6 +499,83 @@ pub fn oauth_has_account() -> bool {
 }
 
 // --- helpers ----------------------------------------------------------------
+
+/// Read the claims out of an ID token, without verifying its signature.
+///
+/// Safe here and only here: this token came back on the direct, TLS-protected
+/// response to our own PKCE exchange, which OpenID Connect Core 3.1.3.7 says
+/// need not be validated - there is no third party in the path who could have
+/// substituted it. The claims are used for a name and a picture and for
+/// nothing that grants access; the WORKER verifies signatures properly,
+/// because there the token arrives from a client we do not trust.
+fn claims_of(id_token: &str) -> Claims {
+    let Some(payload) = id_token.split('.').nth(1) else {
+        return Claims::default();
+    };
+    let Ok(bytes) = URL_SAFE_NO_PAD.decode(payload) else {
+        return Claims::default();
+    };
+    serde_json::from_slice(&bytes).unwrap_or_default()
+}
+
+/// The largest avatar worth inlining.
+///
+/// A cap rather than trust: the URL comes from a token, the response comes from
+/// somebody else's CDN, and this ends up in a `data:` URI held in memory. A
+/// provider that served a 40MB image should cost us nothing.
+const MAX_AVATAR_BYTES: usize = 512 * 1024;
+
+/// Fetch an avatar and inline it as a `data:` URI.
+///
+/// Best-effort throughout. Every failure returns `None`, because an account
+/// with no picture and an account whose picture would not load are the same
+/// thing to a student, and neither is worth an error.
+async fn inline_avatar(url: &str) -> Option<String> {
+    // https only. A token claim is not a reason to make a plaintext request.
+    if !url.starts_with("https://") {
+        return None;
+    }
+
+    let res = reqwest::Client::new().get(url).send().await.ok()?;
+    if !res.status().is_success() {
+        return None;
+    }
+
+    // Trust the declared type only far enough to name it, and only if it is an
+    // image at all - this string goes into a `data:` URI.
+    let mime = res
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.split(';').next().unwrap_or("").trim().to_string())
+        .filter(|v| matches!(v.as_str(),
+            "image/jpeg" | "image/png" | "image/webp" | "image/gif"))?;
+
+    let bytes = res.bytes().await.ok()?;
+    if bytes.is_empty() || bytes.len() > MAX_AVATAR_BYTES {
+        return None;
+    }
+
+    Some(format!("data:{mime};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(&bytes)))
+}
+
+/// Build the session handed to the frontend, resolving the avatar if there is one.
+async fn session_from(token: TokenResponse) -> Session {
+    let claims = token.id_token.as_deref().map(claims_of).unwrap_or_default();
+    let avatar = match claims.picture.as_deref() {
+        Some(url) => inline_avatar(url).await,
+        None => None,
+    };
+
+    Session {
+        access_token: token.access_token,
+        expires_at: token.expires_in.map(|s| now_secs() + s),
+        name: claims.name,
+        email: claims.email,
+        avatar,
+    }
+}
 
 /// Release a pending attempt's loopback port.
 ///

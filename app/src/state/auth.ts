@@ -27,6 +27,17 @@ export interface Session {
   accessToken: string;
   /** Unix seconds, or null when the provider declined to say. */
   expiresAt: number | null;
+  name: string | null;
+  email: string | null;
+  /**
+   * The avatar, already inlined as a `data:` URI by the Rust side.
+   *
+   * Never the provider's https URL. The app's `img-src` is `'self' data:` and
+   * stays that way: pointing the webview at Google's CDN would mean a request
+   * to them every time the header drew, from an application that otherwise
+   * needs no network at all.
+   */
+  avatar: string | null;
 }
 
 /**
@@ -41,23 +52,21 @@ const ISSUER = String(import.meta.env.VITE_CLERK_ISSUER ?? "").trim();
 const CLIENT_ID = String(import.meta.env.VITE_CLERK_CLIENT_ID ?? "").trim();
 
 /**
- * Scopes, kept to the two that are actually load-bearing.
+ * Scopes. Every one of these is here because something uses it.
  *
  * `openid` is what makes this an identity request at all, and `offline_access`
  * is what earns a refresh token - without it the student is signed out the
  * moment the access token expires, on every launch, forever.
  *
- * `profile` and `email` are deliberately NOT requested. Nothing in this app
- * reads them: the Worker rate-limits on the token's `sub` and the account menu
- * shows the student's own semester and CGPA, which are computed here. Asking
- * for a name and an email address we would never look at means a consent
- * screen that overstates what this does, and a token that carries more than it
- * needs to. Add them the day something actually displays them.
+ * `profile` and `email` were dropped for a while because nothing displayed
+ * them, and are back because the account menu now does: the signed-in name,
+ * address and picture. That is the standard for the scope - ask for a claim
+ * when something shows it, not in case something might.
  *
  * `public_metadata` and `private_metadata` are offered by the instance and are
  * never appropriate here.
  */
-const SCOPES = "openid offline_access";
+const SCOPES = "openid profile email offline_access";
 
 const [session, setSession] = createSignal<Session | null>(null);
 const [authBusy, setAuthBusy] = createSignal(false);
@@ -84,11 +93,23 @@ export function accessToken(): string | null {
   return s.accessToken;
 }
 
-interface RawSession { access_token: string; expires_at: number | null }
+interface RawSession {
+  access_token: string;
+  expires_at: number | null;
+  name: string | null;
+  email: string | null;
+  avatar: string | null;
+}
 
 const adopt = (raw: RawSession | null): Session | null => {
   if (!raw) return null;
-  const next = { accessToken: raw.access_token, expiresAt: raw.expires_at ?? null };
+  const next: Session = {
+    accessToken: raw.access_token,
+    expiresAt: raw.expires_at ?? null,
+    name: raw.name ?? null,
+    email: raw.email ?? null,
+    avatar: raw.avatar ?? null,
+  };
   setSession(next);
   return next;
 };

@@ -21,7 +21,8 @@ import { runLaunchCheck, saveFindings } from "../state/launch";
 import { autoRefresh, refreshAll, refreshFailures, refreshing } from "../state/autosync";
 import type { SourceResult } from "../state/autosync";
 import {
-  authBusy, authConfigured, authError, resumeAccount, signIn, signOut, signedIn,
+  authBusy, authConfigured, authError, resumeAccount, session, signIn, signOut,
+  signedIn,
 } from "../state/auth";
 import type { Finding } from "../state/launch";
 import { checkForUpdate } from "../sync/update";
@@ -456,13 +457,25 @@ function Profile() {
       <button ref={anchor} class="profile" onClick={() => setOpen((o) => !o)}
               aria-expanded={open()} aria-label="Account">
         <span class="avatar" aria-hidden="true">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-               stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
-            <circle cx="12" cy="8" r="3.6" />
-            <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
-          </svg>
+          {/* The picture when there is one, the generic figure otherwise. Not
+              initials: a student who has not signed in has no name to take
+              them from, and inventing one from the semester would be a face
+              for an account that does not exist. */}
+          <Show when={session()?.avatar} fallback={
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+              <circle cx="12" cy="8" r="3.6" />
+              <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+            </svg>
+          }>
+            {(src) => <img class="avatar-img" src={src()} alt="" />}
+          </Show>
         </span>
         <span class="profile-lines">
+          {/* The chip keeps saying what the app is about. The signed-in name
+              belongs in the menu: an academic tracker's header should lead with
+              the semester being tracked, not with whose Google account is
+              attached to it. */}
           <span class="profile-name">{state.activeSemester ?? "Student"}</span>
           <span class="profile-sub">
             {cgpa() === null ? "no CGPA yet" : `CGPA ${cgpa()}`}
@@ -509,10 +522,19 @@ function Profile() {
               </div>
             }>
               <div class="pop-row">
-                <span>
-                  <strong>Signed in</strong>
-                  <br />
-                  <span class="dim">You can ask questions in the search box.</span>
+                <span class="who">
+                  <Show when={session()?.avatar}>
+                    {(src) => <img class="who-face" src={src()} alt="" />}
+                  </Show>
+                  <span class="who-lines">
+                    <strong>{session()?.name ?? "Signed in"}</strong>
+                    {/* The address is the thing that actually answers "which
+                        account is this", which is the only question a signed-in
+                        row has to be able to answer. */}
+                    <Show when={session()?.email}>
+                      {(mail) => <span class="dim">{mail()}</span>}
+                    </Show>
+                  </span>
                 </span>
                 <button class="link" onClick={() => { void signOut(); }}>Sign out</button>
               </div>

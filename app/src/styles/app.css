@@ -937,3 +937,32 @@ tr.row:hover .del { opacity: 1; }
 /* The quiet counterpart: signing out and opening Data are not the thing the
    row is recommending, so they stay text. */
 .pop-row > .link { flex: none; white-space: nowrap; }
+
+/* --- the signed-in face ---------------------------------------------------- */
+
+/* Fills the circle it sits in. A non-square source - some providers return
+   one - would otherwise letterbox inside a round frame, which reads as broken
+   rather than as a wide photo. */
+.avatar-img {
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: 999px;
+  object-fit: cover;
+  display: block;
+}
+/* The generic figure needs the padding; a photograph needs the whole circle. */
+.avatar:has(.avatar-img) { border-color: transparent; }
+
+.who { align-items: center; display: flex; gap: var(--s3); min-inline-size: 0; }
+.who-lines { display: flex; flex-direction: column; min-inline-size: 0; }
+/* A long Google display name or a long address must not push the sign-out
+   button off the row. */
+.who-lines > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.who-face {
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: 999px;
+  object-fit: cover;
+  flex: none;
+}
