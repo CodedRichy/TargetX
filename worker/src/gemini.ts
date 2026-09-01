@@ -13,8 +13,24 @@
 import type { AskRequest } from "./schema";
 import { VIEWS } from "./schema";
 
+/**
+ * The routing model.
+ *
+ * `flash-lite` because this is a classification with a fixed output schema and
+ * five possible destinations - the cheapest model that can read a course list
+ * is the right one, and a larger model buys nothing a JSON enum has already
+ * decided.
+ *
+ * The floating alias rather than a pinned version, which is the opposite of the
+ * usual advice and is deliberate. `gemini-2.0-flash` was pinned here and Google
+ * retired it; the endpoint began returning 404 and every question in the app
+ * failed. A pinned version's failure mode is total and arrives without warning.
+ * The alias's failure mode is that the model behind it changes - and with
+ * temperature 0, a schema the API enforces during decoding, and `parseAction`
+ * rejecting anything outside it, there is very little for a change to break.
+ */
 const ENDPOINT =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent";
 
 const SYSTEM = `You route questions inside TargetX, a KTU academic tracker.
 

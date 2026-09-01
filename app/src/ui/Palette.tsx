@@ -90,6 +90,12 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
 
   const hits = createMemo<Hit[]>(() => {
     const q = query().trim();
+    // An empty box lists nothing. It used to open onto every view and every
+    // subject, which is not a set of results - it is the whole app enumerated
+    // in the one place a student came to narrow it down. There is nothing to
+    // read there and nothing to choose between, so the list starts when the
+    // typing does.
+    if (q === "") return [];
     // A question with nothing nameable left in it - "how many can I miss" -
     // is not a failed search. It is a question about every subject, so every
     // subject answers it.
@@ -247,23 +253,28 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
                  onKeyDown={onKey} />
 
           <Show when={hits().length > 0} fallback={
-            <div class="palette-empty">
-              <Show when={remote()} fallback={
-                <>
-                  <p>Nothing here matches “{query()}”.</p>
-                  {/* The offer is only made when it can be honoured. Telling a
-                      signed-out student to press Enter and then refusing them
-                      is worse than not offering. */}
-                  <Show when={askConfigured() && signedIn() && query().trim() !== ""}>
-                    <p class="fineprint">
-                      {asking() ? "Working it out…" : "Press Enter to ask."}
-                    </p>
-                  </Show>
-                </>
-              }>
-                {(said) => <p>{said()}</p>}
-              </Show>
-            </div>
+            // An untouched box says nothing at all. "Nothing matches" is a
+            // verdict on a search, and no search has happened yet - the
+            // placeholder in the field is already the whole instruction.
+            <Show when={query().trim() !== ""}>
+              <div class="palette-empty">
+                <Show when={remote()} fallback={
+                  <>
+                    <p>Nothing here matches “{query().trim()}”.</p>
+                    {/* The offer is only made when it can be honoured. Telling
+                        a signed-out student to press Enter and then refusing
+                        them is worse than not offering. */}
+                    <Show when={askConfigured() && signedIn()}>
+                      <p class="fineprint">
+                        {asking() ? "Working it out…" : "Press Enter to ask."}
+                      </p>
+                    </Show>
+                  </>
+                }>
+                  {(said) => <p>{said()}</p>}
+                </Show>
+              </div>
+            </Show>
           }>
             <ul class="palette-list" role="listbox" aria-label="Results">
               <For each={hits()}>{(hit, i) => (
