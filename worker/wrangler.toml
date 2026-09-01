@@ -1,0 +1,19 @@
+name = "targetx-ask"
+main = "src/index.ts"
+compatibility_date = "2025-01-09"
+compatibility_flags = ["nodejs_compat"]
+
+# The Clerk instance's issuer URL. NOT a secret - it is public, it is in every
+# token the app already holds, and keeping it in the file means the deployment
+# is reproducible from the repo. The Gemini key is NOT here; it is set with
+# `wrangler secret put GEMINI_KEY` and never touches version control.
+[vars]
+CLERK_ISSUER = "https://REPLACE-ME.clerk.accounts.dev"
+
+[[durable_objects.bindings]]
+name = "QUOTA"
+class_name = "Quota"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Quota"]
