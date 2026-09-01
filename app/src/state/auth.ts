@@ -40,9 +40,24 @@ export interface Session {
 const ISSUER = String(import.meta.env.VITE_CLERK_ISSUER ?? "").trim();
 const CLIENT_ID = String(import.meta.env.VITE_CLERK_CLIENT_ID ?? "").trim();
 
-/** Scopes. `offline_access` is what earns a refresh token; without it, a
- *  student is signed out the moment the access token expires. */
-const SCOPES = "openid profile email offline_access";
+/**
+ * Scopes, kept to the two that are actually load-bearing.
+ *
+ * `openid` is what makes this an identity request at all, and `offline_access`
+ * is what earns a refresh token - without it the student is signed out the
+ * moment the access token expires, on every launch, forever.
+ *
+ * `profile` and `email` are deliberately NOT requested. Nothing in this app
+ * reads them: the Worker rate-limits on the token's `sub` and the account menu
+ * shows the student's own semester and CGPA, which are computed here. Asking
+ * for a name and an email address we would never look at means a consent
+ * screen that overstates what this does, and a token that carries more than it
+ * needs to. Add them the day something actually displays them.
+ *
+ * `public_metadata` and `private_metadata` are offered by the instance and are
+ * never appropriate here.
+ */
+const SCOPES = "openid offline_access";
 
 const [session, setSession] = createSignal<Session | null>(null);
 const [authBusy, setAuthBusy] = createSignal(false);

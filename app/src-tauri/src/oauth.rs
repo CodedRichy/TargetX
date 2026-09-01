@@ -14,10 +14,15 @@
 //!     the application could read the password field, and the user has no way
 //!     to tell that it does not.
 //!
-//!   * **A loopback redirect on an ephemeral port.** `127.0.0.1:0` lets the OS
-//!     pick a free port, so two copies of the app cannot collide and a stale
-//!     listener cannot be squatted. The listener accepts exactly one request
-//!     and dies.
+//!   * **A loopback redirect on one of a few fixed ports.** RFC 8252 says a
+//!     provider should accept any port on 127.0.0.1, and an OS-assigned
+//!     ephemeral port is what this originally used. Clerk - like most
+//!     providers - refuses a wildcard and wants exact redirect URIs
+//!     registered, so instead there is a short list of candidates and the
+//!     first free one wins. Several, not one, because a single hardcoded port
+//!     is a single point of failure: something else on the machine binds it
+//!     and sign-in is dead with no way for the student to fix it. The listener
+//!     accepts exactly one request and dies.
 //!
 //!   * **The refresh token in the OS vault, never on disk in the clear.** Same
 //!     store `creds.rs` uses, for the same reason.
@@ -48,6 +53,18 @@ use std::time::Duration;
 /// password, and doing whatever their second factor asks. It exists so an
 /// abandoned sign-in eventually frees the listener, not to hurry anybody.
 const BROWSER_TIMEOUT: Duration = Duration::from_secs(300);
+
+/// The loopback ports sign-in may listen on, in order of preference.
+///
+/// EVERY ONE OF THESE MUST BE REGISTERED AS A REDIRECT URI IN THE PROVIDER, as
+/// `http://127.0.0.1:<port>/callback`. A port missing there is a port that
+/// fails only when the earlier ones happen to be busy - which is the worst kind
+/// of bug, because it is rare, machine-specific and looks random.
+///
+/// Chosen from the IANA dynamic range and away from the round numbers
+/// development servers reach for, so a colleague running something on 8080 or
+/// 3000 does not collide with a student signing in.
+const CALLBACK_PORTS: [u16; 4] = [49731, 49732, 49733, 49734];
 
 /// The vault slot the refresh token lives in. Distinct from the portal logins.
 const ACCOUNT_KEY: &str = "targetx-account";
@@ -154,7 +171,18 @@ height:100vh;background:#f7f6f2;color:#1c1b19}p{margin:.4em}</style>\
 /// the browser arrives. The thread ends after one request either way, so an
 /// abandoned sign-in leaks a thread for at most `BROWSER_TIMEOUT`.
 fn listen_once() -> Result<(u16, Receiver<Callback>), String> {
-    let listener = TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
+    // First free candidate wins. Bound to 127.0.0.1 and never 0.0.0.0: this
+    // accepts an authorization code, and it has no business being reachable
+    // from the campus network the machine is sitting on.
+    let listener = CALLBACK_PORTS
+        .iter()
+        .find_map(|p| TcpListener::bind(("127.0.0.1", *p)).ok())
+        .ok_or_else(|| {
+            format!(
+                "Could not open a port to finish signing in. Something else is using all of {:?}.",
+                CALLBACK_PORTS
+            )
+        })?;
     let port = listener.local_addr().map_err(|e| e.to_string())?.port();
     let (tx, rx) = mpsc::channel();
 
@@ -555,6 +583,19 @@ mod tests {
     fn urlencode_escapes_everything_outside_the_unreserved_set() {
         assert_eq!(urlencode("a b/c?d"), "a%20b%2Fc%3Fd");
         assert_eq!(urlencode("aZ0-._~"), "aZ0-._~");
+    }
+
+    #[test]
+    fn every_candidate_port_is_bindable_and_distinct() {
+        // A duplicate here would silently shrink the fallback list, and the
+        // registered redirect URIs in the provider would no longer match what
+        // the app can actually open.
+        let mut seen = CALLBACK_PORTS.to_vec();
+        seen.sort_unstable();
+        seen.dedup();
+        assert_eq!(seen.len(), CALLBACK_PORTS.len());
+        // Dynamic/private range, so none of these is a registered service.
+        assert!(CALLBACK_PORTS.iter().all(|p| *p >= 49152));
     }
 
     #[test]
