@@ -1053,3 +1053,13 @@ tr.row:hover .del { opacity: 1; }
   color: var(--text-dim);
 }
 .palette-answer > button.link { margin-top: var(--s3); }
+
+/* The raw attendance counts on a ledger row. Sits after the percentage as its
+   working, quieter than it, and never wraps - a fraction broken across two
+   lines reads as two numbers. */
+.att-raw {
+  margin-left: var(--s2);
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  white-space: nowrap;
+}

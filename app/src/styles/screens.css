@@ -1117,3 +1117,12 @@ a.link:hover { text-decoration-thickness: 2px; }
 .confirm-inline .fineprint { color: var(--text-dim); }
 button.link.remove-go { color: var(--danger); }
 button.link.remove-go:hover { color: var(--danger); font-weight: 600; }
+
+/* The counts a subject's percentage is computed from. Quiet, because it is
+   evidence rather than a finding - but present, because a percentage with no
+   visible numerator and denominator is a number the student cannot check. */
+.att-counts {
+  margin: 0 0 var(--s3);
+  font-size: var(--text-sm);
+  color: var(--text-dim);
+}

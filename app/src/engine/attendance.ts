@@ -2,7 +2,8 @@ import {
   ATTENDANCE_MARK_BANDS, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN, DL_CAP_PCT,
 } from "./constants";
 import type {
-  AbsenceCost, AttendanceBand, AttendancePlan, Course, MarkInput,
+  AbsenceCost, AttendanceBand, AttendancePlan, Course, DaywiseAttendance,
+  MarkInput,
 } from "./types";
 import { ceil, clamp, floor, round, toFloat, toOptionalFloat } from "./util";
 
@@ -298,4 +299,45 @@ export function freeSkips(
     n += 1;
   }
   return n;
+}
+
+/**
+ * Attendance counted per subject from the day-by-day record.
+ *
+ * The portal publishes two things that should agree: a percentage per subject,
+ * and a period-by-period log of what happened. TargetX has always shown both
+ * and never compared them - so a portal that miscounts, or a student who was
+ * marked absent for a class they attended, produced a figure with no way to
+ * check it. This is the second opinion.
+ *
+ * Counted the way the regulation counts: `held` excludes holidays and empty
+ * periods, because a class that never happened is not one anybody missed.
+ * Credited statuses (on duty, duty leave) count as HELD and as attended, since
+ * the class ran and the student was excused - which is exactly how the portal's
+ * own percentage treats them, so the two figures stay comparable.
+ *
+ * `leave` is deliberately counted as an absence. A leave a college has approved
+ * arrives as one of the credited statuses; a plain "leave" is the student not
+ * being there, and treating it as neutral would report a rosier figure than the
+ * portal's own.
+ */
+export function daywiseBySubject(
+  days: DaywiseAttendance,
+): Map<string, { attended: number; held: number }> {
+  const out = new Map<string, { attended: number; held: number }>();
+  for (const day of days) {
+    for (const period of day.periods) {
+      const subject = period.subject?.trim();
+      if (!subject) continue;
+      if (period.status === "holiday" || period.status === "none") continue;
+      const row = out.get(subject) ?? { attended: 0, held: 0 };
+      row.held += 1;
+      if (period.status === "present" || period.status === "od"
+          || period.status === "dutyleave" || period.status === "duty") {
+        row.attended += 1;
+      }
+      out.set(subject, row);
+    }
+  }
+  return out;
 }

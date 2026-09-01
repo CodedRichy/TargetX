@@ -1,7 +1,7 @@
 import { For, Show, createMemo } from "solid-js";
 import {
   ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN,
-  attendanceMarks, courseLabel,
+  attendanceMarks, courseLabel, daywiseBySubject, toOptionalFloat,
 } from "../engine";
 import type {
   AttendancePlan, AttendanceStatus, DaywiseDay, TimetableDay,
@@ -30,6 +30,17 @@ interface Line {
   /** The subject as the student knows it. See `courseLabel`. */
   label: string;
   plan: AttendancePlan | null;
+  /**
+   * The counts every other figure on the card is derived from.
+   *
+   * They were only ever reachable as editable inputs inside one expanded
+   * Ledger row, so this screen stated a percentage and a miss budget and never
+   * showed the two numbers behind them - an app whose whole position is that
+   * it never states a number it cannot show its working for, not showing the
+   * working for its loudest number.
+   */
+  attended: number | null;
+  held: number | null;
 }
 
 export function Attendance() {
@@ -38,6 +49,8 @@ export function Attendance() {
       index: row.index,
       label: courseLabel(row.course),
       plan: row.ev.plan,
+      attended: toOptionalFloat(row.course.attended),
+      held: toOptionalFloat(row.course.held),
     })));
 
   return (
@@ -71,6 +84,7 @@ export function Attendance() {
         </div>
       </Show>
 
+      <BySubjectSection />
       <CalendarSection />
       <TimetableSection />
     </div>
@@ -87,15 +101,25 @@ export function Attendance() {
  * spelled-out status for the cell's tooltip, so the meaning colour carries is
  * also available to a pointer and a screen reader, not colour alone.
  */
-const STATUS_META: Record<AttendanceStatus, { cls: string; word: string }> = {
-  present:   { cls: "present",  word: "Present" },
-  absent:    { cls: "absent",   word: "Absent" },
-  od:        { cls: "credited", word: "On duty" },
-  dutyleave: { cls: "credited", word: "Duty leave" },
-  duty:      { cls: "credited", word: "Duty" },
-  leave:     { cls: "leave",    word: "Leave" },
-  holiday:   { cls: "holiday",  word: "Holiday" },
-  none:      { cls: "none",     word: "No class" },
+/**
+ * `glyph` is what keeps this grid readable without colour.
+ *
+ * The blocks were empty divs distinguished only by hue, and the three that
+ * matter are close in lightness on both themes - dark --good L0.76, --warn
+ * L0.80, --danger L0.73 - so under a red-green deficiency they collapse into
+ * three identical squares. The shape carries the meaning; the colour reinforces
+ * it. The Ledger already solved this two files away and the pattern was simply
+ * not applied here.
+ */
+const STATUS_META: Record<AttendanceStatus, { cls: string; word: string; glyph: string }> = {
+  present:   { cls: "present",  word: "Present",    glyph: "·" },
+  absent:    { cls: "absent",   word: "Absent",     glyph: "×" },
+  od:        { cls: "credited", word: "On duty",    glyph: "~" },
+  dutyleave: { cls: "credited", word: "Duty leave", glyph: "~" },
+  duty:      { cls: "credited", word: "Duty",       glyph: "~" },
+  leave:     { cls: "leave",    word: "Leave",      glyph: "~" },
+  holiday:   { cls: "holiday",  word: "Holiday",    glyph: "" },
+  none:      { cls: "none",     word: "No class",   glyph: "" },
 };
 
 /**
@@ -107,6 +131,110 @@ const STATUS_META: Record<AttendanceStatus, { cls: string; word: string }> = {
  * the page was never synced the whole thing is one quiet line, never an empty
  * grid pretending the student has perfect attendance.
  */
+/**
+ * The day-by-day record, rolled up per subject and checked against the counts
+ * the portal published.
+ *
+ * Two independent figures for the same fact: what the period log says happened,
+ * and what the subject page says the totals are. They should agree. When they
+ * do not, one of them is wrong and the student is the only person who can say
+ * which - so the app states the disagreement rather than silently preferring
+ * the number it happens to store.
+ *
+ * Subjects are matched from the portal's printed period string back to the
+ * student's own courses; anything that matches nothing is left out rather than
+ * shown under a name they would not recognise.
+ */
+function BySubjectSection() {
+  const counted = createMemo(() => {
+    const log = daywiseBySubject(state.daywiseAttendance ?? []);
+    if (log.size === 0) return [];
+    return rows().map((row) => {
+      const code = (row.course.code ?? "").trim().toLowerCase();
+      const name = courseLabel(row.course).trim().toLowerCase();
+      let found: { attended: number; held: number } | null = null;
+      for (const [printed, tally] of log) {
+        const key = printed.toLowerCase();
+        if ((code !== "" && key.includes(code)) || (name !== "" && key.includes(name))) {
+          found = tally;
+          break;
+        }
+      }
+      return {
+        label: courseLabel(row.course),
+        logged: found,
+        storedAttended: toOptionalFloat(row.course.attended),
+        storedHeld: toOptionalFloat(row.course.held),
+      };
+    }).filter((r) => r.logged !== null);
+  });
+
+  return (
+    <Show when={counted().length > 0}>
+      <section class="schedule-section" aria-labelledby="bysub-heading">
+        <div class="schedule-head">
+          <div>
+            <h3 id="bysub-heading">Counted from the day-by-day record</h3>
+            <p class="schedule-sub">
+              What the period log adds up to, per subject, beside the totals the
+              portal published. They should agree — where they do not, one of
+              them is wrong.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid-frame">
+          <table class="grid-table">
+            <thead>
+              <tr>
+                <th class="grid-label" scope="col">Subject</th>
+                <th scope="col">From the log</th>
+                <th scope="col">Portal total</th>
+                <th class="left" scope="col">Agreement</th>
+              </tr>
+            </thead>
+            <tbody>
+              <For each={counted()}>
+                {(r) => {
+                  const logged = r.logged!;
+                  const agrees = () =>
+                    r.storedAttended !== null && r.storedHeld !== null
+                    && logged.attended === r.storedAttended
+                    && logged.held === r.storedHeld;
+                  const known = () =>
+                    r.storedAttended !== null && r.storedHeld !== null;
+                  return (
+                    <tr>
+                      <th class="grid-label left" scope="row">{r.label}</th>
+                      <td class="num">{logged.attended}/{logged.held}</td>
+                      <td class="num">
+                        {known() ? `${r.storedAttended}/${r.storedHeld}` : "–"}
+                      </td>
+                      <td class="left">
+                        <Show when={known()} fallback={
+                          <span class="dim">no published total to compare</span>
+                        }>
+                          <Show when={agrees()} fallback={
+                            <span class="pill shortage">
+                              log says {logged.held - (r.storedHeld ?? 0) > 0 ? "more" : "fewer"} classes
+                            </span>
+                          }>
+                            <span class="pill safe">matches</span>
+                          </Show>
+                        </Show>
+                      </td>
+                    </tr>
+                  );
+                }}
+              </For>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </Show>
+  );
+}
+
 function CalendarSection() {
   const days = createMemo<DaywiseDay[]>(() => state.daywiseAttendance ?? []);
   // Every day has the same number of periods after parsing, but a defensive max
@@ -131,12 +259,15 @@ function CalendarSection() {
       <Show when={days().length > 0} fallback={
         <p class="schedule-empty">Sync to see your day-by-day attendance.</p>
       }>
-        <div class="cal-legend" aria-hidden="true">
-          <span><i class="cal-swatch present" />Present</span>
-          <span><i class="cal-swatch absent" />Absent</span>
-          <span><i class="cal-swatch credited" />Credited (on duty / duty leave)</span>
-          <span><i class="cal-swatch leave" />Leave</span>
-          <span><i class="cal-swatch holiday" />Holiday / no class</span>
+        {/* Not aria-hidden. It was, which meant the only explanation of what
+            the grid's colours mean was hidden from the readers least able to
+            infer it from the colours. */}
+        <div class="cal-legend">
+          <span><i class="cal-swatch present" aria-hidden="true" />Present</span>
+          <span><i class="cal-swatch absent" aria-hidden="true" />Absent</span>
+          <span><i class="cal-swatch credited" aria-hidden="true" />Credited (on duty / duty leave)</span>
+          <span><i class="cal-swatch leave" aria-hidden="true" />Leave</span>
+          <span><i class="cal-swatch holiday" aria-hidden="true" />Holiday / no class</span>
         </div>
 
         <div class="grid-frame">
@@ -169,7 +300,14 @@ function CalendarSection() {
                           };
                           return (
                             <td class="cal-cell">
-                              <div class={`cal-block ${meta().cls}`} title={title()} />
+                              {/* `title` is hover-only: unreachable by keyboard,
+                                  unreliable on a td for screen readers, and
+                                  invisible on touch. It stays for the pointer,
+                                  and the status is also stated in text. */}
+                              <div class={`cal-block ${meta().cls}`} title={title()}>
+                                <span aria-hidden="true">{meta().glyph}</span>
+                                <span class="sr-only">{title()}</span>
+                              </div>
                             </td>
                           );
                         }}
@@ -347,6 +485,21 @@ function SubjectCard(props: { line: Line }) {
           {(p) => <span class="tile-note num">{p().current.toFixed(0)}%</span>}
         </Show>
       </div>
+
+      {/* The working for the percentage beside it. Deliberately does NOT repeat
+          the percentage - it is one line up, and saying it twice would make the
+          counts read as a second opinion rather than as the source. */}
+      <Show when={props.line.attended !== null && props.line.held !== null}>
+        <p class="att-counts num">
+          {props.line.attended} of {props.line.held} attended
+          <Show when={(plan()?.dlCredited ?? 0) > 0}>
+            {" · "}{plan()!.dlCredited} duty leave credited
+          </Show>
+          <Show when={(plan()?.dlWasted ?? 0) > 0}>
+            {" · "}<span class="dim">{plan()!.dlWasted} over the cap</span>
+          </Show>
+        </p>
+      </Show>
 
       <Show when={plan()} fallback={
         <p class="tile-verdict dim">
