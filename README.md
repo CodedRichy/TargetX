@@ -9,8 +9,10 @@ matters before an exam: *what do I have to score in this paper?*
 
 ### [**Download TargetX**](https://codedrichy.github.io/TargetX/) — Windows, macOS, Linux
 
-Free for students, forever. No account, no server, no sign-up — your record is
-a file on your own machine.
+Free for students, forever. Your record is a file on your own machine, and every
+figure on every screen is computed there. No account is needed to use any of
+it — sign-in exists only for the question box, and nothing else changes if you
+never do.
 
 ---
 
@@ -61,6 +63,11 @@ after results.
 - **Your marks in without typing them.** Sign in to your college's etlab portal
   and it pulls every semester, attendance, series marks, grades and published
   SGPA in one pass.
+- **Ask it in words.** Press `Ctrl K` and ask — *"can I skip tomorrow?"*, *"what
+  do I need to pass CN?"*, *"what is condonation?"*. **Tex** answers in the box
+  rather than dropping you on a screen to work it out. Every figure in the reply
+  is computed locally by the engine, so the answers are the same numbers the
+  rest of the app shows, and most questions never touch the network at all.
 - **Updates arrive on their own.** The app offers a new version a few seconds
   after launch. It never installs unasked, and a failed check is silent — being
   offline is not an error a student needs to see.
@@ -98,12 +105,24 @@ it is the same tested code path whichever you use.
 
 ## Privacy
 
-Nothing you enter leaves the machine. There is no account and no server. The app
-makes network requests in exactly three situations: the portal sign-in you asked
-for, the course-catalogue file, and the update check. All three are named and
-located in the
+Your marks, attendance and CGPA never leave the machine. The app makes network
+requests in exactly four situations: the portal sign-in you asked for, the
+course-catalogue file, the update check, and — only if you sign in and only when
+you ask a question the app could not answer by itself — the question box. All
+four are named and located in the
 [privacy statement](https://codedrichy.github.io/TargetX/privacy.html)
 ([`PRIVACY.md`](PRIVACY.md)).
+
+The fourth one is new in 0.3.0 and is the only one that involves a server of
+ours, so it is worth being exact about. What is sent is the question you typed
+and the code and title of the subjects you are registered for. What is **not**
+sent is every number: no marks, no attendance, no CGPA, no name, no register
+number. What comes back is not an answer — it is a destination, drawn from a
+fixed list of five screens and your own subjects, and it is rejected outright if
+it names anything else. Every figure you then read was computed on your machine
+by the same engine as the rest of the app. Sign-in gates that box and nothing
+else; signed out, the app is fully usable and the box still answers everything
+it can answer locally, which is most things.
 
 Your portal password is used once, to sign in. It is never written to disk,
 never logged, never included in an export. That is enforced by a test, not by
@@ -124,10 +143,15 @@ Source-available under the **Business Source License 1.1** ([`LICENSE`](LICENSE)
 
 The source is public because the central claim — that your marks never leave
 your machine — is one you should be able to check rather than take on trust.
-`app/src-tauri/src/etlab.rs` is where every network call lives, and there are no
-others. That argument cannot be made from a closed repository, which is why this
-is source-available rather than proprietary, and why it is not permissive. Not
-open source under the OSI definition, and not described as such.
+There are four places to check and no others: `app/src-tauri/src/etlab.rs` and
+`ktu.rs` carry the portal transports, `app/src/sync/update.ts` the update check,
+and `app/src/state/ask.ts` the question box — which is the only one that talks
+to a server of ours, and the only file that decides what is put in that request.
+The Worker on the other end is in `worker/`, and `worker/src/schema.ts` is the
+type its reply has to parse into before the app will act on it. That argument
+cannot be made from a closed repository, which is why this is source-available
+rather than proprietary, and why it is not permissive. Not open source under the
+OSI definition, and not described as such.
 
 Third-party components ship under their own terms
 ([`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)). No external pull request
@@ -158,11 +182,13 @@ calculation core. It is not part of the shipped app.
 ## Tests
 
 ```
-cd app && npm test
+cd app && npm test        # 763
+cd worker && npm test     # 75
 ```
 
-**487 tests across 44 files**, counted from a run on 2026-08-30, not estimated:
-205 engine, 136 UI, 77 sync, 51 state, 16 styles, 2 data.
+**838 tests across 68 files**, counted from a run on 2026-09-02, not estimated:
+257 engine, 229 UI, 157 state, 102 sync, 16 styles, 2 data, and 75 in the
+Worker.
 
 `engine/__tests__/parity.test.ts` is the load-bearing one. It replays a frozen
 corpus of generated course cases and semester rollups produced by the Python
@@ -256,6 +282,9 @@ are not transcribed.
 | `app/src/data/curriculum.json` | Bundled course catalogue, refreshable from the repo |
 | `app/src/state/persist.ts` | Your data, saved atomically with three backups kept |
 | `app/src/sync/update.ts` | The update check. Never blocks startup, never installs unasked |
+| `app/src/state/answers.ts` | Tex's answers. Every figure computed here, from the engine |
+| `app/src/state/glossary.ts` | What the words mean. A lookup table, not a model |
+| `worker/` | The question router. Names a screen and a subject; never a number |
 | `docs/` | The download page, served by GitHub Pages |
 | `legacy/` | The retired Python original, kept as the parity oracle |
 
@@ -268,7 +297,7 @@ including the alternatives that were rejected and why.
 [`CHANGELOG.md`](CHANGELOG.md) is written for the student deciding whether an
 update is worth taking; its first section is the numbers that used to be wrong.
 [`DEPLOYMENT.md`](DEPLOYMENT.md) answers "what does this touch?" for a college
-IT department — silent-install flags, the three hosts it contacts, where the
+IT department — silent-install flags, the five hosts it contacts, where the
 record lives, and how to take version control away from the updater.
 [`SIGNING.md`](SIGNING.md) covers releasing and the two signatures a build
 carries. [`ACCESSIBILITY.md`](ACCESSIBILITY.md) is a dated self-assessment

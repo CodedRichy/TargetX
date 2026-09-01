@@ -1,7 +1,14 @@
 # Privacy
 
-TargetX is a desktop application that runs entirely on the machine it is
-installed on. There is no TargetX account, no TargetX server, and no telemetry.
+TargetX is a desktop application that runs on the machine it is installed on.
+Every figure it shows is computed there. There is no telemetry, and no account
+is needed to use any of it.
+
+One optional feature is different, and is set out in full below: the question
+box can forward a question it could not answer locally to a server of ours, and
+that is the one part that asks you to sign in. It never receives a mark, an
+attendance figure or a CGPA. If you never sign in, nothing in this paragraph
+applies to you and the rest of the app is unaffected.
 
 This document describes what the software actually does, and every claim in it
 can be checked against the source in this repository. Where a claim is about
@@ -24,7 +31,8 @@ different one.
 
 ## What is sent over the network
 
-TargetX makes network requests in exactly three situations, and no others.
+TargetX makes network requests in exactly four situations, and no others. The
+fourth happens only if you choose to sign in.
 
 1. **When you press Sync.** It signs in to the college portal URL that you
    typed, and reads your attendance and internal marks. This is a request to
@@ -36,6 +44,33 @@ TargetX makes network requests in exactly three situations, and no others.
 3. **A few seconds after launch, to ask whether a newer version exists.** This
    is a request to GitHub's release feed. It carries no information about you
    beyond what any file download carries. See `app/src/sync/update.ts`.
+4. **When you are signed in and ask a question the app could not answer by
+   itself.** This is the only request that reaches a server of ours, and the
+   only one that requires an account. Most questions never get here: attendance,
+   marks, standing and the regulations are all answered on your own machine,
+   offline, and only a phrasing the app does not recognise is forwarded.
+
+   **What is sent:** your question, and the code and title of the subjects you
+   are registered for — the course list, so the question can be matched to a
+   subject.
+
+   **What is not sent:** marks, attendance, CGPA, your name, your register
+   number, your password. None of it. See `app/src/state/ask.ts`, which is the
+   only file that decides what goes into that request.
+
+   **What comes back is not an answer.** It is a destination: one of five
+   screens, or one of the subjects you sent. The reply is parsed into a fixed
+   type before the app acts on it, and anything outside that type — including a
+   subject code you did not send — is rejected. There is no field in it that
+   could carry a figure about you, so the model cannot state one even if asked
+   to. See `worker/src/schema.ts`.
+
+   **What is logged:** the question text, the outcome, how many subjects were
+   sent, and how long it took — so the app can learn which phrasings it failed
+   to answer locally. Not logged: any account id, any token, or the course codes
+   themselves. Identity and content are deliberately kept apart, so the log is a
+   record of what people ask rather than a record of what a named student asks.
+   See `worker/src/log.ts`.
 
 Your marks are never sent anywhere, by anyone, for any reason. There is no
 endpoint that would receive them.

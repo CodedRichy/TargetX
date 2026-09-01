@@ -37,19 +37,27 @@ Verify the download first — see **Signing** below.
 
 ## What it talks to
 
-Three hosts, and only three. There is **no telemetry, no analytics and no
-crash reporting**; the only `fetch` in the entire frontend is the second row of
-this table (`app/src/state/actions.ts`).
+Five hosts, and only five — and the last two are reached only if a student
+chooses to sign in, which nothing else in the app requires. There is **no
+telemetry, no analytics and no crash reporting**.
 
 | Host | When | Why |
 |---|---|---|
 | `github.com` | A few seconds after launch | Update check — reads `releases/latest/download/latest.json` |
 | `raw.githubusercontent.com` | On launch | Course catalogue refresh, so a KTU curriculum revision does not need a new build |
 | **Your own portal** | Only when the student presses Sync, and only to the address they typed | Reads attendance and marks |
+| `*.clerk.accounts.dev` | Only if the student signs in | Sign-in, which gates the question box and nothing else |
+| `targetx-ask.*.workers.dev` | Only when a signed-in student asks a question the app could not answer locally | Returns a destination — a screen or a subject — never a figure |
 
 Nothing else. If your network blocks GitHub, the app still works: the update
 check and the catalogue refresh both fail quietly and the bundled catalogue is
 used. Portal sync is optional — everything can be typed or pasted in.
+
+**Blocking the last two rows is supported and costs nothing but the question
+box.** No marks, attendance or CGPA are sent to either host; what leaves is the
+question text and the student's course codes and titles. If you would rather
+students could not sign in at all, build from source with `VITE_CLERK_CLIENT_ID`
+left empty and the feature is absent rather than merely blocked.
 
 ### About the portal
 

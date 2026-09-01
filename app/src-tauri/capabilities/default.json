@@ -24,6 +24,13 @@
     "fs:allow-rename",
     "fs:scope-appdata",
     "fs:deny-webview-data-windows",
-    "fs:deny-webview-data-linux"
+    "fs:deny-webview-data-linux",
+
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://github.com/CodedRichy/TargetX/*" }
+      ]
+    }
   ]
 }

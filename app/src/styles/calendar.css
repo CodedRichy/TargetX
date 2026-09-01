@@ -112,9 +112,20 @@
   font-weight: 600;
   color: var(--text);
   /* Fixed layout sizes a column from its width, not its content, so the day
-     name needs an explicit one or it collapses to an even share. */
-  width: 11ch;
-  min-width: 11ch;
+     name needs an explicit one or it collapses to an even share.
+
+     14ch, not 11ch, and the number is measured rather than judged by eye.
+     `ch` is the width of a ZERO, and no day name is made of zeroes: at 11ch
+     the column offered 63px of inner width while "Wednesday" sets 75.2px in
+     Space Grotesk 600, so it spilled 12.2px - and because this cell is
+     `position: sticky` with its own background, the spill painted straight
+     over Period 1 instead of being clipped. Thursday cleared by 2.6px, which
+     is to say the column was under-sized for the whole set and Wednesday was
+     merely the first to show it. 14ch gives 88px of inner width: 12.8px of
+     slack on the longest name, enough to survive the fallback font being
+     wider than Space Grotesk. */
+  width: 14ch;
+  min-width: 14ch;
 }
 
 .grid-table thead th.grid-label {

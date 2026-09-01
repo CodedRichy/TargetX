@@ -36,6 +36,7 @@ rand = "0.8"
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-fs = "2.5.1"
+tauri-plugin-opener = "2"
 
 # Opt-in portal-credential storage (issue #2). Scoped to Windows, where the
 # store is Credential Manager (DPAPI, per-user). The native backend pulls only

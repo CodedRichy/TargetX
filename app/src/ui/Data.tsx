@@ -6,6 +6,7 @@ import {
 } from "../state/actions";
 import { rows, state, summary } from "../state/store";
 import { logDir } from "../state/diagnostics";
+import { openExternal } from "../state/external";
 import { canSync, describeAcademics, parseAcademics } from "../sync/etlab";
 import { parseGradeCard, pdfToText } from "../sync/gradecard";
 import { KtuError, canSyncKtu } from "../sync/ktu";
@@ -27,7 +28,7 @@ export function Data() {
       <div class="screen-head">
         <div>
           <h2>Data</h2>
-          <p class="lede">All local — no account, nothing uploaded.</p>
+          <p class="lede">Your marks stay on this computer — nothing here uploads them.</p>
         </div>
         <Show when={state.lastSync}>
           <span class="fineprint num">
@@ -454,7 +455,8 @@ function PortalCheck() {
           }}>{copied() ? "Copied" : "Copy"}</button>
           {" · "}
           <a href="https://github.com/CodedRichy/TargetX/issues/new?template=bug.yml"
-             target="_blank" rel="noreferrer">Open an issue</a>
+             target="_blank" rel="noreferrer"
+             onClick={(e) => openExternal(e, e.currentTarget.href)}>Open an issue</a>
         </details>
       </Show>
     </section>
@@ -539,10 +541,13 @@ function About() {
 
         <dt>Your data</dt>
         <dd>
-          Stays on this computer. No account, no server, no telemetry —{" "}
+          Your marks stay on this computer, and there is no telemetry. Four
+          things touch the network, and the fourth only if you sign in to ask
+          a question —{" "}
           <a class="link" href="https://github.com/CodedRichy/TargetX/blob/main/PRIVACY.md"
-             target="_blank" rel="noreferrer">the privacy statement</a>{" "}
-          names the only three things that touch the network.
+             target="_blank" rel="noreferrer"
+             onClick={(e) => openExternal(e, e.currentTarget.href)}>the privacy statement</a>{" "}
+          names all of them.
         </dd>
       </dl>
     </section>
