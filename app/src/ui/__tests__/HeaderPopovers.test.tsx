@@ -14,10 +14,15 @@
  * broken build.
  *
  * The panels are queried on `document` rather than on the render container:
- * they are rendered through a Portal into `document.body`, out of the header,
- * because the header carries a backdrop-filter and WebView2 clips a filtered
- * element's descendants to its own box - which painted them and then clipped
- * them away in the shipped app while every test passed.
+ * they are rendered through a Portal into `document.body`. The Portal is there
+ * so a panel anchored to a header button is not clipped or stacked by the
+ * header's own box, which is the ordinary reason a popover is portalled.
+ *
+ * An earlier version of this comment blamed a WebView2 backdrop-filter clipping
+ * bug for blank panels in the running app. That was wrong and is recorded here
+ * so it is not re-derived: the panels were blank because a dev server that had
+ * been up for hours had silently stopped applying HMR updates. Restarting it
+ * fixed it. Nothing about backdrop-filter was involved.
  */
 import { cleanup, render } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

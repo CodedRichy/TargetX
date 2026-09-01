@@ -3,6 +3,8 @@ import { courseLabel } from "../engine";
 import { rows } from "../state/store";
 import { VIEWS, setView } from "../state/nav";
 import type { View } from "../state/nav";
+import { askConfigured, askRemote } from "../state/ask";
+import { signedIn } from "../state/auth";
 
 /**
  * The command palette.
@@ -17,8 +19,13 @@ import type { View } from "../state/nav";
  * engine's own evaluation. Nothing is generated, summarised or inferred, which
  * is what makes it safe to put a question box at the top of an app whose whole
  * trust position is that it never states a number it cannot show its working
- * for. When a model is eventually put behind this box, it selects among these
- * same rows - it does not get to invent one.
+ * for. The model behind this box selects among these same rows - it does not
+ * get to invent one.
+ *
+ * The remote route is deliberately the SECOND thing tried, and only on Enter.
+ * Local matching is free, offline, instant and cannot hallucinate, so it answers
+ * every question it can; calling a metered API per keystroke would be an
+ * unbounded bill for answers the machine already had.
  */
 
 interface Hit {
@@ -75,7 +82,11 @@ function matches(haystack: string, needle: string): boolean {
 export function Palette(props: { open: boolean; onClose: () => void }) {
   const [query, setQuery] = createSignal("");
   const [cursor, setCursor] = createSignal(0);
+  const [asking, setAsking] = createSignal(false);
+  /** What the remote route had to say, when it had to say anything. */
+  const [remote, setRemote] = createSignal<string | null>(null);
   let input: HTMLInputElement | undefined;
+  let inflight: AbortController | undefined;
 
   const hits = createMemo<Hit[]>(() => {
     const q = query().trim();
@@ -129,16 +140,80 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
 
   // A filtered list whose selection stayed put would run the wrong row on
   // Enter as soon as the results moved under it.
-  createEffect(() => { query(); setCursor(0); });
+  createEffect(() => {
+    query();
+    setCursor(0);
+    // A verdict about the previous question is worse than no verdict at all
+    // once the question has changed under it.
+    setRemote(null);
+  });
 
   createEffect(() => {
     if (props.open) { setQuery(""); setCursor(0); queueMicrotask(() => input?.focus()); }
   });
 
+  // A request whose palette has closed has nobody left to answer.
+  onCleanup(() => inflight?.abort());
+
   const run = (hit: Hit | undefined) => {
     if (!hit) return;
     hit.go();
     props.onClose();
+  };
+
+  /**
+   * Hand the question to the router.
+   *
+   * Only reached when local matching found nothing, so there is no risk of the
+   * model overriding an answer the engine could already give. A returned route
+   * is followed; a returned subject is matched back to a real row before the
+   * app moves, because "the worker validated the code" and "this student has
+   * that subject" are not the same claim.
+   */
+  const ask = async () => {
+    const q = query().trim();
+    if (q === "" || asking()) return;
+    inflight?.abort();
+    const ctl = new AbortController();
+    inflight = ctl;
+    setAsking(true);
+    setRemote(null);
+    try {
+      const out = await askRemote(q, rows().map((r) => ({
+        code: r.course.code ?? "",
+        name: courseLabel(r.course),
+      })), ctl.signal);
+
+      if (!out.ok) {
+        setRemote(
+          out.kind === "signin" ? "Sign in from the profile menu to ask questions."
+          : out.kind === "limit" ? "That is all the questions for today. The rest of the app is unchanged."
+          : out.kind === "offline" ? "No connection. Everything below still works offline."
+          : out.kind === "unconfigured" ? "Question routing is not set up in this build."
+          : "That did not go through. Try rephrasing it.",
+        );
+        return;
+      }
+
+      const a = out.action;
+      if (a.kind === "view") { setView(a.view); props.onClose(); return; }
+      if (a.kind === "subject") {
+        const hit = rows().find((r) => r.course.code === a.code);
+        if (hit) { setView(a.view); props.onClose(); return; }
+        setRemote("That subject is not in this semester.");
+        return;
+      }
+      setRemote(
+        a.reason === "off_topic"
+          ? "That one is outside what TargetX knows about."
+          : a.reason === "no_match"
+            ? "Nothing in your record matches that."
+            : "Not sure what that is asking. Try naming the subject.",
+      );
+    } finally {
+      if (inflight === ctl) inflight = undefined;
+      setAsking(false);
+    }
   };
 
   const onKey = (e: KeyboardEvent) => {
@@ -152,7 +227,11 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
       setCursor((c) => Math.max(c - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      run(list[cursor()]);
+      const hit = list[cursor()];
+      // The engine's answer wins whenever it has one. Enter only leaves the
+      // machine when there is nothing here to press.
+      if (hit) { run(hit); return; }
+      void ask();
     }
   };
 
@@ -168,7 +247,23 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
                  onKeyDown={onKey} />
 
           <Show when={hits().length > 0} fallback={
-            <p class="palette-empty">Nothing matches “{query()}”.</p>
+            <div class="palette-empty">
+              <Show when={remote()} fallback={
+                <>
+                  <p>Nothing here matches “{query()}”.</p>
+                  {/* The offer is only made when it can be honoured. Telling a
+                      signed-out student to press Enter and then refusing them
+                      is worse than not offering. */}
+                  <Show when={askConfigured() && signedIn() && query().trim() !== ""}>
+                    <p class="fineprint">
+                      {asking() ? "Working it out…" : "Press Enter to ask."}
+                    </p>
+                  </Show>
+                </>
+              }>
+                {(said) => <p>{said()}</p>}
+              </Show>
+            </div>
           }>
             <ul class="palette-list" role="listbox" aria-label="Results">
               <For each={hits()}>{(hit, i) => (
