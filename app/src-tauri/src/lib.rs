@@ -1,6 +1,7 @@
 mod creds;
 mod etlab;
 mod ktu;
+mod oauth;
 
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
@@ -87,6 +88,7 @@ pub fn run() {
     .plugin(log_plugin())
     .manage(etlab::Etlab::default())
     .manage(ktu::Ktu::default())
+    .manage(oauth::Oauth::default())
     .invoke_handler(tauri::generate_handler![
       etlab::etlab_start,
       etlab::etlab_reset,
@@ -102,6 +104,11 @@ pub fn run() {
       creds::cred_load,
       creds::cred_delete,
       creds::cred_has,
+      oauth::oauth_begin,
+      oauth::oauth_finish,
+      oauth::oauth_resume,
+      oauth::oauth_sign_out,
+      oauth::oauth_has_account,
       log_error,
       diagnostics_dir,
     ])

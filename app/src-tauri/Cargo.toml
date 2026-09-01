@@ -25,8 +25,14 @@ tauri = { version = "2.11.3", features = [] }
 tauri-plugin-log = "2"
 # rustls rather than the system TLS stack: one less thing that differs
 # between a developer machine and a student's laptop.
-reqwest = { version = "0.12", default-features = false, features = ["cookies", "rustls-tls", "charset"] }
+reqwest = { version = "0.12", default-features = false, features = ["cookies", "rustls-tls", "charset", "json"] }
 tokio = { version = "1", features = ["rt", "macros"] }
+# Sign-in (RFC 8252). PKCE needs a CSPRNG and SHA-256, and the challenge is
+# base64url. No OAuth crate: the flow is one authorize URL and one form post,
+# and a library for that would be more surface than the code it replaces.
+sha2 = "0.10"
+base64 = "0.22"
+rand = "0.8"
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-fs = "2.5.1"

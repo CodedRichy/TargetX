@@ -19,6 +19,9 @@ import { Palette, usePaletteShortcut } from "./Palette";
 import { runLaunchCheck, saveFindings } from "../state/launch";
 import { autoRefresh, refreshAll, refreshFailures, refreshing } from "../state/autosync";
 import type { SourceResult } from "../state/autosync";
+import {
+  authBusy, authConfigured, authError, resumeAccount, signIn, signOut, signedIn,
+} from "../state/auth";
 import type { Finding } from "../state/launch";
 import { checkForUpdate } from "../sync/update";
 import type { Available } from "../sync/update";
@@ -508,14 +511,55 @@ function Profile() {
             <span>Appearance</span>
             <ThemeButton />
           </div>
-          <div class="pop-row">
-            <span>
-              <strong>Not signed in</strong>
-              <br />
-              <span class="dim">Sign-in is not built yet. Everything you see is
-              computed on this machine.</span>
-            </span>
-          </div>
+          {/* Sign-in gates the assistant and nothing else, and the copy says
+              so rather than leaving a student to guess what an account is for
+              in an app that works entirely offline. */}
+          <Show when={authConfigured()} fallback={
+            <div class="pop-row">
+              <span>
+                <strong>Accounts are off in this build</strong>
+                <br />
+                <span class="dim">Everything here is computed on this machine.</span>
+              </span>
+            </div>
+          }>
+            <Show when={signedIn()} fallback={
+              <div class="pop-row">
+                <span>
+                  <strong>Not signed in</strong>
+                  <br />
+                  <span class="dim">
+                    <Show when={authBusy()} fallback={
+                      "Only needed to ask questions. Your marks stay on this machine."
+                    }>
+                      Waiting for your browser…
+                    </Show>
+                  </span>
+                </span>
+                <button class="link primary" disabled={authBusy()}
+                        onClick={() => { void signIn(); }}>
+                  {authBusy() ? "Signing in…" : "Sign in"}
+                </button>
+              </div>
+            }>
+              <div class="pop-row">
+                <span>
+                  <strong>Signed in</strong>
+                  <br />
+                  <span class="dim">You can ask questions in the search box.</span>
+                </span>
+                <button class="link" onClick={() => { void signOut(); }}>Sign out</button>
+              </div>
+            </Show>
+
+            <Show when={authError()}>
+              {(why) => (
+                <div class="pop-row">
+                  <span class="dim" role="status">{why()}</span>
+                </div>
+              )}
+            </Show>
+          </Show>
           <div class="pop-row">
             <span class="dim">Data</span>
             <button class="link" onClick={() => { setOpen(false); setView("data"); }}>
@@ -628,6 +672,12 @@ export function App() {
     // every precondition. Fire-and-forget and deliberately last: it crosses the
     // network to a college server, and nothing on screen may wait on it.
     setTimeout(() => { void autoRefresh(); }, 1200);
+
+    // Restore a signed-in account from the refresh token in the OS vault.
+    // Silent either way: not being signed in is a normal state, and this
+    // gates nothing but the assistant - every figure on every screen is
+    // computed here from data this machine already has.
+    void resumeAccount();
   });
 
   /**
