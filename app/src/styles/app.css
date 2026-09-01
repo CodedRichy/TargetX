@@ -966,3 +966,62 @@ tr.row:hover .del { opacity: 1; }
   object-fit: cover;
   flex: none;
 }
+
+/* An informational count, not an alarm. The empty-record finding fires on a
+   brand new install, and a red badge there is the app telling a student off for
+   having just arrived. */
+.bell-badge.info {
+  background: var(--surface-3);
+  color: var(--text-dim);
+  border: 1px solid var(--hairline-strong);
+  line-height: calc(1rem - 2px);
+}
+
+/* --- the sign-in acknowledgement -------------------------------------------
+ *
+ * Bottom-right, over the content, gone in four seconds. It confirms something
+ * that already succeeded, so it must not be dismissible - a confirmation that
+ * has to be closed is a second task handed to someone who just finished one.
+ */
+.toast {
+  position: fixed;
+  inset-block-end: var(--s5);
+  inset-inline-end: var(--s5);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  max-inline-size: 24rem;
+  padding: var(--s3) var(--s4);
+  background: var(--surface-1);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-card);
+  /* The one place a shadow is right: this floats over content that is still
+     there underneath it, and tokens.css's "elevation by lightness" rule has no
+     lightness step left above surface-1 in light mode. */
+  box-shadow: 0 8px 28px oklch(0 0 0 / 0.16);
+  animation: toast-in var(--dur) var(--ease);
+}
+
+.toast-face {
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: 999px;
+  object-fit: cover;
+  flex: none;
+}
+
+.toast-lines { display: flex; flex-direction: column; gap: 2px; min-inline-size: 0; }
+.toast-lines strong { font-size: var(--text-sm); }
+.toast-lines .dim { color: var(--text-faint); font-size: var(--text-xs); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* It still appears, it just stops sliding. Removing the animation entirely
+   would make it pop into existence, which is more startling than the motion. */
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}

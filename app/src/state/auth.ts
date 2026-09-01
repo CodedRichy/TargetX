@@ -71,7 +71,15 @@ const SCOPES = "openid profile email offline_access";
 const [session, setSession] = createSignal<Session | null>(null);
 const [authBusy, setAuthBusy] = createSignal(false);
 const [authError, setAuthError] = createSignal<string | null>(null);
-export { authBusy, authError, session };
+/**
+ * True for a moment after a sign-in the student actually performed.
+ *
+ * Deliberately NOT derived from `session()` becoming non-null. `resumeAccount`
+ * does that on every launch, and greeting somebody by name every time they
+ * open the app is a nag rather than an acknowledgement.
+ */
+const [justSignedIn, setJustSignedIn] = createSignal(false);
+export { authBusy, authError, justSignedIn, session };
 
 /** Whether this build was given a provider to talk to at all. */
 export const authConfigured = (): boolean =>
@@ -133,7 +141,14 @@ export async function signIn(): Promise<Session | null> {
     await invoke<{ authorize_url: string }>("oauth_begin", {
       issuer: ISSUER, clientId: CLIENT_ID, scopes: SCOPES,
     });
-    return adopt(await invoke<RawSession>("oauth_finish"));
+    const next = adopt(await invoke<RawSession>("oauth_finish"));
+    if (next) {
+      setJustSignedIn(true);
+      // Long enough for the acknowledgement to have been shown and gone. The
+      // flag is a one-shot, not a state anything else should read.
+      setTimeout(() => setJustSignedIn(false), 6000);
+    }
+    return next;
   } catch (exc) {
     setAuthError(exc instanceof Error ? exc.message : String(exc));
     return null;
@@ -170,6 +185,7 @@ export async function resumeAccount(): Promise<Session | null> {
 export async function signOut(): Promise<void> {
   setSession(null);
   setAuthError(null);
+  setJustSignedIn(false);
   try {
     await invoke<void>("oauth_sign_out");
   } catch { /* nothing left to do; the session is already gone from memory */ }

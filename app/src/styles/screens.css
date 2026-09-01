@@ -264,6 +264,26 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
 }
 .route:hover { background: var(--surface-2); border-color: var(--brand-deep); }
+
+/* The recommended route has to LOOK recommended.
+ *
+ * All three cards were one drawing with a small coloured eyebrow on the first,
+ * which asks a student to read three paragraphs to discover that the app
+ * already has an opinion. It has one - portal sync brings every semester,
+ * attendance, internals and published results in a single pass, and the other
+ * two are for students who cannot use it. So the recommendation carries a
+ * brand edge and a tinted ground, and the alternatives quiet down. */
+.route.recommended {
+  background: var(--brand-wash);
+  border-color: var(--brand-deep);
+}
+.route.recommended:hover { border-color: var(--brand); }
+.route.recommended strong { font-size: var(--text-xl); }
+
+/* Not disabled-looking, just secondary. These are real choices and a student
+   with no portal login needs them to be obviously available. */
+.route.alt { background: transparent; }
+.route.alt strong { font-size: var(--text-base); }
 .route strong { color: var(--text); font-size: var(--text-lg); font-weight: 600; }
 .route span { color: var(--text-dim); font-size: var(--text-sm); line-height: 1.55; }
 .route-tag {
@@ -830,7 +850,14 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
    context, not the subject. */
 .home .trend svg { margin: 0 auto; max-width: 560px; }
 
-.empty-home { max-width: 60ch; }
+/* Centred in the space it has, not pinned to a corner of it. An empty record
+   leaves the whole screen free, and a single small card in the top-left reads
+   as the page having failed to load the rest. */
+.empty-home {
+  max-width: 60ch;
+  margin-inline: auto;
+  margin-block-start: 6vh;
+}
 .empty-home h3 { font-size: var(--text-lg); font-weight: 600; margin: 0; }
 
 /* The appearance control sits with the tabs but is not one - it changes how

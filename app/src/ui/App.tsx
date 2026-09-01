@@ -1,4 +1,4 @@
-import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
+import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import {
   activeCourses, addSemester, attendanceGaps, goalRequirement, hydrate, overall,
   selectSemester, semesterNames, setAttendanceTarget, setGoal, state, summary,
@@ -21,8 +21,8 @@ import { runLaunchCheck, saveFindings } from "../state/launch";
 import { autoRefresh, refreshAll, refreshFailures, refreshing } from "../state/autosync";
 import type { SourceResult } from "../state/autosync";
 import {
-  authBusy, authConfigured, authError, resumeAccount, session, signIn, signOut,
-  signedIn,
+  authBusy, authConfigured, authError, justSignedIn, resumeAccount, session,
+  signIn, signOut, signedIn,
 } from "../state/auth";
 import type { Finding } from "../state/launch";
 import { checkForUpdate } from "../sync/update";
@@ -389,8 +389,14 @@ export function Bell(props: { findings: Finding[] }) {
           <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
           <path d="M13.7 21a2 2 0 0 1-3.4 0" />
         </svg>
+        {/* Red is for something wrong, and "you have not added any marks yet"
+            on a fresh install is not something wrong - it is the app meeting a
+            student who has done nothing yet and alarming them for it. The badge
+            takes the tone of the WORST finding in the list, so a warning still
+            reads as a warning. */}
         <Show when={items().length > 0}>
-          <span class="bell-badge num" aria-hidden="true">{items().length}</span>
+          <span class={`bell-badge num${items().some((f) => f.severity === "warn") ? "" : " info"}`}
+                aria-hidden="true">{items().length}</span>
         </Show>
       </button>
 
@@ -447,6 +453,61 @@ export function Bell(props: { findings: Finding[] }) {
  * app requires an account today - every figure on every screen is computed on
  * this machine from data this machine fetched.
  */
+/**
+ * The moment a sign-in lands.
+ *
+ * Signing in used to change one line of text inside a menu that the student
+ * had to still be holding open to see. They pressed a button, a browser window
+ * flashed past, and the application said nothing - so the only way to find out
+ * whether it had worked was to go and look.
+ *
+ * This is the acknowledgement. It names the person, because being greeted by
+ * name is the whole proof that the round trip actually carried an identity
+ * back, and it takes itself away - a confirmation that has to be dismissed is
+ * a second task handed to someone who just finished one.
+ */
+function SignedInToast() {
+  const [showing, setShowing] = createSignal(false);
+
+  // The signal the toast actually watches: an explicit signal set by signIn,
+  // so a launch resume can never trigger it.
+  createEffect(() => {
+    if (!justSignedIn()) return;
+    setShowing(true);
+    const t = setTimeout(() => setShowing(false), 4200);
+    onCleanup(() => clearTimeout(t));
+  });
+
+  return (
+    <Show when={showing() && session()}>
+      {(who) => (
+        <div class="toast" role="status">
+          <Show when={who().avatar} fallback={
+            <span class="avatar toast-face" aria-hidden="true">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+                <circle cx="12" cy="8" r="3.6" />
+                <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
+              </svg>
+            </span>
+          }>
+            {(src) => <img class="toast-face" src={src()} alt="" />}
+          </Show>
+          <span class="toast-lines">
+            <strong>
+              {who().name ? `Signed in as ${who().name}` : "Signed in"}
+            </strong>
+            {/* Says what it unlocked, because sign-in in this app buys exactly
+                one thing and a student who does not know that will wonder what
+                they just handed over. */}
+            <span class="dim">You can ask questions in the search box now.</span>
+          </span>
+        </div>
+      )}
+    </Show>
+  );
+}
+
 function Profile() {
   const [open, setOpen] = createSignal(false);
   const cgpa = () => (overall().credits > 0 ? overall().cgpa.toFixed(2) : null);
@@ -815,6 +876,7 @@ export function App() {
         <Show when={view() === "data"}><Data /></Show>
 
         <Palette open={paletteOpen()} onClose={() => setPaletteOpen(false)} />
+        <SignedInToast />
       </div>
     </Show>
     </>

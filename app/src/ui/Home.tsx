@@ -59,7 +59,14 @@ export function Home() {
    * four published results sitting in history.
    */
   const onRecord = () => new Set([
-    ...Object.keys(state.semesters),
+    // A semester with no subjects in it is not a semester on record. Setup
+    // creates the current one before anything is in it, so a student who had
+    // just finished onboarding was told "1 semester on record" while looking
+    // at an empty screen - the app opening with a claim it could not support,
+    // which is the one thing it is supposed never to do.
+    ...Object.entries(state.semesters)
+      .filter(([, sem]) => (sem?.courses.length ?? 0) > 0)
+      .map(([name]) => name),
     ...Object.keys(state.history),
   ]).size;
 
@@ -239,17 +246,33 @@ export function Home() {
       <div class="screen-head">
         <div>
           <h2>Where you stand</h2>
-          <p class="lede">
-            {state.activeSemester} · {onRecord()} semester
-            {onRecord() === 1 ? "" : "s"} on record
-          </p>
+          {/* With nothing on record the count is not "0 semesters", it is
+              absent. A zero here is a fact about the record; the student has
+              not made one yet, and the empty state below already says so in
+              words that lead somewhere. */}
+          {/* No lede at all when the record is empty. It said "nothing
+              recorded yet" directly above a card whose heading is "Nothing
+              recorded yet", which is the same sentence twice in one eyeful and
+              makes the screen read as an error rather than as a start. */}
+          <Show when={onRecord() > 0}>
+            <p class="lede">
+              {state.activeSemester} · {onRecord()} semester
+              {onRecord() === 1 ? "" : "s"} on record
+            </p>
+          </Show>
         </div>
+        {/* The header action is for a student who HAS data and wants more of
+            it. With an empty record the card below carries the same call, and
+            two identical primary buttons on one screen is a choice the student
+            has to make between two things that do the same thing. */}
+        <Show when={state.lastSync || onRecord() > 0}>
         <Show when={state.lastSync} fallback={
           <button class="ghost" onClick={() => setView("data")}>Get your marks in</button>
         }>
           <span class="fineprint num">
             Synced {new Date(state.lastSync!).toLocaleDateString()}
           </span>
+        </Show>
         </Show>
       </div>
 
@@ -586,7 +609,10 @@ function ChangesPanel(props: { at: string; items: Change[] }) {
 function EmptyHome() {
   return (
     <div class="tile empty-home">
-      <h3>Nothing recorded yet</h3>
+      {/* "Nothing recorded yet" as a heading describes the app's problem. This
+          describes the student's next move, which is the only thing an empty
+          state is for. */}
+      <h3>Get your marks in</h3>
       <p class="lede">
         TargetX has no marks to work from. The fastest route is your college
         portal — it brings attendance, internals and every past semester in one
