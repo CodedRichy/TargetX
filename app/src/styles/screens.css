@@ -934,24 +934,106 @@ a.link:hover { text-decoration-thickness: 2px; }
   user-select: all;
 }
 
-/* --- attendance: the miss budget, drawn ------------------------------------
+/* --- attendance: the threshold meter ---------------------------------------
  *
- * Reuses the Data screen's `.cards` grid and `.card` shell so the surface reads
- * as the same app - the only new thing is the strip. Each pip is one class: a
- * filled square the student can still skip, or one they owe back. The colour is
- * a status colour on purpose (room is `--good`, a shortfall is `--warn`), which
- * is the one family the tokens reserve for exactly this kind of standing.
+ * This replaces the pip strip, which drew one square per class. That strip had
+ * two faults. It scaled with the WRONG number - a student at 61% got a wall of
+ * up to thirty amber squares, so the drawing that meant "you are in trouble"
+ * was simply bigger than the one that meant "you have room", and read as a
+ * punishment graphic. And it drew the budget while saying nothing about the two
+ * lines the budget exists because of.
+ *
+ * KTU has two attendance thresholds, not one, and the gap between them is the
+ * whole reason this app exists: 75% is eligibility - miss it and you cannot sit
+ * the exam - while full marks under R 7.5.ii need 85%. Every point between them
+ * is internal marks bleeding away silently, and no other calculator shows it.
+ * So the meter marks BOTH lines and shades the band between them. The student
+ * sees where they stand, what they are about to lose, and what they are trying
+ * to clear, in one glyph.
+ *
+ * The fill takes the status colour of the band it lands in. The band shading is
+ * deliberately weak - it is a region, not a value, and must never out-shout the
+ * fill or the two marks.
  */
-.att-pips {
+.meter {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--s1);
-  margin: var(--s2) 0;
+  flex-direction: column;
+  gap: var(--s2);
+  margin: var(--s3) 0 var(--s2);
 }
-.att-pip {
-  block-size: 0.85rem;
-  border-radius: 2px;
-  inline-size: 0.85rem;
+
+.meter-track {
+  position: relative;
+  block-size: 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
 }
-.att-pip.miss { background: var(--good); }
-.att-pip.recover { background: var(--warn); }
+
+.meter-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  border-radius: 999px;
+  background: var(--good);
+  /* Grows from the left on mount; the one authored motion on this screen. */
+  transition: inline-size 620ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.meter-fill.warn { background: var(--warn); }
+.meter-fill.bad { background: var(--danger); }
+
+/* The 75-85 band: marks being lost while still eligible. */
+.meter-band {
+  position: absolute;
+  inset-block: 0;
+  background: var(--warn);
+  opacity: 0.16;
+}
+
+/* A threshold line. `strong` is the 85% full-marks line, the one to aim at. */
+.meter-mark {
+  position: absolute;
+  inset-block: -2px;
+  inline-size: 2px;
+  background: var(--text-faint);
+  border-radius: 1px;
+}
+.meter-mark.strong { background: var(--text-dim); }
+
+.meter-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}
+.meter-ends .num { color: var(--text-dim); }
+
+@media (prefers-reduced-motion: reduce) {
+  .meter-fill { transition: none; }
+}
+
+/* --- attendance: priced rows ----------------------------------------------
+ *
+ * The reference's neutral label/value list, rewritten in the only unit the
+ * student actually controls: classes. A row never states a figure the engine
+ * has not computed - where a plan is unknown the row is simply not rendered,
+ * rather than printing a zero.
+ */
+.priced {
+  display: flex;
+  flex-direction: column;
+  border-block-start: 1px solid var(--hairline);
+  margin-block-start: var(--s3);
+}
+.priced-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding-block: var(--s2);
+  border-block-end: 1px solid var(--hairline);
+  font-size: var(--text-sm);
+}
+.priced-row dt { color: var(--text-dim); }
+.priced-row dd { margin: 0; color: var(--text); font-weight: 500; }

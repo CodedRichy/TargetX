@@ -1,5 +1,8 @@
 import { For, Show, createMemo } from "solid-js";
-import { ATTENDANCE_MIN, courseLabel } from "../engine";
+import {
+  ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN,
+  attendanceMarks, courseLabel,
+} from "../engine";
 import type {
   AttendancePlan, AttendanceStatus, DaywiseDay, TimetableDay,
 } from "../engine";
@@ -20,17 +23,6 @@ import { setView } from "../state/nav";
  * house, and inventing either is the exact lie the rest of the app refuses to
  * tell.
  */
-
-/**
- * Missable / recoverable classes drawn as a strip.
- *
- * The count in words is the load-bearing fact; the strip is a glance. Capped so
- * a subject with forty classes of room does not draw a hundred-pixel ribbon -
- * the headline number stays exact and the overflow is stated in words. The
- * strip itself is `aria-hidden`, because the same number is announced in the
- * heading beside it and a screen reader counting pips would only repeat it.
- */
-const MAX_PIPS = 30;
 
 /** A subject's attendance standing, ready to render. */
 interface Line {
@@ -55,8 +47,9 @@ export function Attendance() {
           <h2>How many classes can you miss?</h2>
           <p class="lede">
             {state.activeSemester} · the room you have above the {ATTENDANCE_MIN}%
-            eligibility line, per subject. A full strip is a class you can still
-            skip; an empty one is a class you owe.
+            eligibility line, per subject. The meter marks both lines that
+            matter: {ATTENDANCE_MIN}% to sit the exam, and{" "}
+            {ATTENDANCE_FULL_MARKS_PCT}% to stop losing internal marks.
           </p>
         </div>
       </div>
@@ -288,17 +281,63 @@ function TimetableSection() {
 }
 
 /** One subject: its standing, the headline number, and the strip. */
+/**
+ * Where a percentage stands against KTU's two attendance lines, drawn once.
+ *
+ * The two lines are the point. `ATTENDANCE_MIN` (75) is eligibility - below it
+ * the exam cannot be sat - and `ATTENDANCE_FULL_MARKS_PCT` (85) is where R
+ * 7.5.ii finally pays all five internal marks. The band between them is the
+ * figure this whole app exists to surface: a student sitting at 78% is
+ * "fine" by the only number their college quotes them, and is losing internal
+ * marks every week for it.
+ *
+ * Rendered as one `role="img"` with a written label rather than as bare divs,
+ * because the meter carries a fact and a screen reader must get the fact, not
+ * a decorative strip. Nothing here computes a figure: `current` arrives from
+ * the engine, and where it is unknown the caller does not render a meter.
+ */
+function ThresholdMeter(props: { current: number }) {
+  const pct = () => Math.max(0, Math.min(100, props.current));
+  const tone = () => (
+    pct() >= ATTENDANCE_FULL_MARKS_PCT ? "" :
+    pct() >= ATTENDANCE_MIN ? " warn" : " bad"
+  );
+  /** What R 7.5.ii pays at this percentage. Engine-computed, never guessed. */
+  const earned = () => attendanceMarks(pct()) ?? 0;
+  const label = () =>
+    `Attendance ${pct().toFixed(0)}%. Eligibility line ${ATTENDANCE_MIN}%. `
+    + `Full internal marks from ${ATTENDANCE_FULL_MARKS_PCT}%. `
+    + `Currently earning ${earned()} of ${ATTENDANCE_MARK_MAX} attendance marks.`;
+
+  return (
+    <div class="meter">
+      <div class="meter-track" role="img" aria-label={label()}>
+        {/* The bleed zone: eligible, but not earning full marks. */}
+        <span class="meter-band" style={{
+          left: `${ATTENDANCE_MIN}%`,
+          width: `${ATTENDANCE_FULL_MARKS_PCT - ATTENDANCE_MIN}%`,
+        }} />
+        <span class={`meter-fill${tone()}`} style={{ "inline-size": `${pct()}%` }} />
+        <span class="meter-mark" style={{ left: `${ATTENDANCE_MIN}%` }} />
+        <span class="meter-mark strong" style={{ left: `${ATTENDANCE_FULL_MARKS_PCT}%` }} />
+      </div>
+      {/* The right end prices the position in the unit that actually moves the
+          student's grade. Repeating the 85% constant on every card said the
+          same thing seven times on one screen; what differs per subject - and
+          what no other calculator shows - is how many of the five R 7.5.ii
+          marks this attendance is currently earning. */}
+      <div class="meter-ends">
+        <span class="num">{pct().toFixed(0)}%</span>
+        <span>
+          <strong class="num">{earned()}</strong> of {ATTENDANCE_MARK_MAX} marks
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function SubjectCard(props: { line: Line }) {
   const plan = () => props.line.plan;
-
-  // How many pips the strip draws, and whether the true count overran the cap.
-  const budget = () => {
-    const p = plan();
-    if (p === null) return 0;
-    return p.state === "surplus" ? p.skip : (p.attend ?? 0);
-  };
-  const shown = () => Math.min(budget(), MAX_PIPS);
-  const overflow = () => Math.max(0, budget() - MAX_PIPS);
 
   return (
     <article class="card att-card">
@@ -316,8 +355,8 @@ function SubjectCard(props: { line: Line }) {
         </p>
       }>
         {(p) => (
-          <Show when={p().state === "surplus"} fallback={
-            <>
+          <>
+            <Show when={p().state === "surplus"} fallback={
               <div class="hero-number tight">
                 <Show when={p().attend !== null} fallback={
                   <span class="huge num dim">–</span>
@@ -328,13 +367,20 @@ function SubjectCard(props: { line: Line }) {
                   </span>
                 </Show>
               </div>
-              <Show when={shown() > 0}>
-                <div class="att-pips" aria-hidden="true">
-                  <For each={Array.from({ length: shown() })}>
-                    {() => <span class="att-pip recover"></span>}
-                  </For>
-                </div>
-              </Show>
+            }>
+              <div class="hero-number tight">
+                <span class="huge num">{p().skip}</span>
+                <span class="hero-unit">
+                  more class{p().skip === 1 ? "" : "es"} you can miss
+                </span>
+              </div>
+            </Show>
+
+            {/* One glyph, both lines, every state - replacing the two pip
+                strips that differed only by hue. */}
+            <ThresholdMeter current={p().current} />
+
+            <Show when={p().state === "surplus"} fallback={
               <p class="tile-verdict bad">
                 <Show when={p().attend !== null} fallback={
                   <>At {p().current.toFixed(0)}% there is no way back above{" "}
@@ -345,31 +391,13 @@ function SubjectCard(props: { line: Line }) {
                   <strong class="num">{p().attend}</strong> without missing one to get back.
                 </Show>
               </p>
-            </>
-          }>
-            <div class="hero-number tight">
-              <span class="huge num">{p().skip}</span>
-              <span class="hero-unit">
-                more class{p().skip === 1 ? "" : "es"} you can miss
-              </span>
-            </div>
-            <Show when={shown() > 0} fallback={
-              <p class="fineprint">No room to spare — the next miss drops you under {ATTENDANCE_MIN}%.</p>
             }>
-              <div class="att-pips" aria-hidden="true">
-                <For each={Array.from({ length: shown() })}>
-                  {() => <span class="att-pip miss"></span>}
-                </For>
-              </div>
-              <Show when={overflow() > 0}>
-                <p class="fineprint">+{overflow()} more not shown</p>
-              </Show>
+              <p class="tile-verdict">
+                At <strong class="num">{p().current.toFixed(0)}%</strong>. Miss more than{" "}
+                <strong class="num">{p().skip}</strong> and you drop below {ATTENDANCE_MIN}%.
+              </p>
             </Show>
-            <p class="tile-verdict">
-              At <strong class="num">{p().current.toFixed(0)}%</strong>. Miss more than{" "}
-              <strong class="num">{p().skip}</strong> and you drop below {ATTENDANCE_MIN}%.
-            </p>
-          </Show>
+          </>
         )}
       </Show>
     </article>
