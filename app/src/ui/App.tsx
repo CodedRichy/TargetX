@@ -294,15 +294,31 @@ export function SaveNotice() {
 function Bell(props: { findings: Finding[]; onGo: () => void }) {
   const [open, setOpen] = createSignal(false);
   const count = () => props.findings.length;
+  let wrap: HTMLDivElement | undefined;
 
-  // A popover that outlives a click elsewhere is a popover the student has to
-  // dismiss twice.
-  const onDocClick = () => setOpen(false);
+  /*
+   * Close when the click lands outside, decided by geometry rather than by
+   * propagation.
+   *
+   * The propagation version did not work and could not: Solid delegates every
+   * `onClick` to `document`, and this listener is on `document` too.
+   * `stopPropagation` does not stop other listeners already bound to the SAME
+   * node - only `stopImmediatePropagation` does, and only for handlers
+   * registered after it. So the button's own toggle opened the popover and
+   * this handler closed it again in the same click, and the bell looked dead.
+   *
+   * Asking whether the click was inside the wrapper is independent of both
+   * listener order and the framework's delegation strategy.
+   */
+  const onDocClick = (e: MouseEvent) => {
+    if (wrap && e.target instanceof Node && wrap.contains(e.target)) return;
+    setOpen(false);
+  };
   onMount(() => document.addEventListener("click", onDocClick));
   onCleanup(() => document.removeEventListener("click", onDocClick));
 
   return (
-    <div class="pop-wrap" onClick={(e) => e.stopPropagation()}>
+    <div class="pop-wrap" ref={wrap}>
       <button class="bell" onClick={() => setOpen((o) => !o)}
               aria-expanded={open()}
               aria-label={count() === 0
@@ -357,13 +373,19 @@ function Bell(props: { findings: Finding[]; onGo: () => void }) {
 function Profile() {
   const [open, setOpen] = createSignal(false);
   const cgpa = () => (overall().credits > 0 ? overall().cgpa.toFixed(2) : null);
+  let wrap: HTMLDivElement | undefined;
 
-  const onDocClick = () => setOpen(false);
+  /* Same containment test as the bell - see the note there for why this is not
+     done with stopPropagation. */
+  const onDocClick = (e: MouseEvent) => {
+    if (wrap && e.target instanceof Node && wrap.contains(e.target)) return;
+    setOpen(false);
+  };
   onMount(() => document.addEventListener("click", onDocClick));
   onCleanup(() => document.removeEventListener("click", onDocClick));
 
   return (
-    <div class="pop-wrap" onClick={(e) => e.stopPropagation()}>
+    <div class="pop-wrap" ref={wrap}>
       <button class="profile" onClick={() => setOpen((o) => !o)}
               aria-expanded={open()} aria-label="Account">
         <span class="avatar" aria-hidden="true">
