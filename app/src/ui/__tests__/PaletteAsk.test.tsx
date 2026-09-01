@@ -98,20 +98,22 @@ describe("the engine answers first", () => {
     expect(askRemote).not.toHaveBeenCalled();
   });
 
-  it("does not let a sentence phantom-match a subject and swallow the question", async () => {
+  it("does not let a sentence phantom-match a subject", () => {
     open();
     // Measured against the real haystacks, not supposed: the palette matches
     // the course NAME and the CODE as two separate strings (courseLabel is the
     // name alone, engine/course.ts:44). The stop list leaves [happens, one],
-    // and "one" subsequence-matches "Computer Networks" - o, n, e in order.
-    //
-    // The damage is not the bad row. A local hit stops Enter from reaching the
-    // router, so a phantom match silently disables the one path that could
-    // have answered a question the engine cannot.
-    const input = type("what happens if i miss one more class");
-    expect(screen.getByText(/Nothing here matches/)).toBeTruthy();
-    fireEvent.keyDown(input, { key: "Enter" });
-    await vi.waitFor(() => expect(askRemote).toHaveBeenCalledTimes(1));
+    // and "one" subsequence-matches "Computer Networks" - o, n, e in order, so
+    // an unrelated subject was offered as the answer to a question about
+    // missing a class.
+    type("what happens if i miss one more class");
+
+    // The question is about attendance, so the Attendance view is the right
+    // row and it is there - "miss" and "class" name the screen.
+    expect(screen.getByText("Attendance")).toBeTruthy();
+    // But no subject is claimed to match, because none does.
+    expect(screen.queryByText("Computer Networks")).toBeNull();
+    expect(screen.queryByText("Machine Learning")).toBeNull();
   });
 
   it("still resolves an abbreviation typed as the whole query", async () => {
@@ -123,6 +125,33 @@ describe("the engine answers first", () => {
     fireEvent.keyDown(screen.getByLabelText("Search subjects and views"), { key: "Enter" });
     await Promise.resolve();
     expect(askRemote).not.toHaveBeenCalled();
+  });
+
+  it("finds the screen a question names, even though the word was stripped", () => {
+    open();
+    // "attendance" is a stop word - it appears in every phrasing of every
+    // attendance question, so matching subjects on it would match all of them.
+    // Stripping it left "am i short on attendance" with only [short], which
+    // named nothing, and the question that the Attendance screen answers
+    // outright found no results at all. Views are matched on the raw question
+    // for exactly this reason.
+    type("am i short on attendance");
+    expect(screen.getByText("Attendance")).toBeTruthy();
+  });
+
+  it("routes a CGPA question without a screen called CGPA", () => {
+    open();
+    type("whats my cgpa");
+    expect(screen.getByText("Home")).toBeTruthy();
+  });
+
+  it("resolves an abbreviation used inside a sentence, by initials", () => {
+    open();
+    // Four terms, so the loose subsequence path is closed. Initials are what
+    // carries this: "Computer Networks" -> "cn" exactly, which cannot
+    // over-match the way a subsequence does.
+    type("what do i need in the final to pass cn");
+    expect(screen.getByText("Computer Networks")).toBeTruthy();
   });
 
   it("does not call out on an empty box", async () => {

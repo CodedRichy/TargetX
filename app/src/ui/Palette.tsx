@@ -86,6 +86,12 @@ function matches(haystack: string, needle: string, loose = true): boolean {
   const h = haystack.toLowerCase();
   const n = needle.toLowerCase();
   if (h.includes(n)) return true;
+  // Initials, which work in a sentence because they cannot over-match: the
+  // initials of "Computer Networks" are exactly "cn" and nothing else. Losing
+  // this was the cost of the fix above - "what do i need to pass cn" is four
+  // terms, so the loose path is closed and "cn" stopped resolving. This gives
+  // it back without giving back "one" matching Computer Networks.
+  if (n.length >= 2 && initials(h) === n) return true;
   if (!loose) return false;
   let i = 0;
   for (const ch of h) {
@@ -93,6 +99,15 @@ function matches(haystack: string, needle: string, loose = true): boolean {
     if (i === n.length) return true;
   }
   return false;
+}
+
+/** "Computer Networks" -> "cn". Words only; "and"/"of" are not initials. */
+const SKIP_WORD = new Set(["and", "of", "the", "for", "in", "to", "a"]);
+function initials(label: string): string {
+  return label.toLowerCase().split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 0 && !SKIP_WORD.has(w))
+    .map((w) => w[0])
+    .join("");
 }
 
 export function Palette(props: { open: boolean; onClose: () => void }) {
@@ -123,8 +138,13 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
       words.length === 0 || words.some((w) => matches(hay, w, loose));
     const out: Hit[] = [];
 
+    // Views are matched on the RAW question, not on `terms`. The stop list
+    // exists to stop domain words matching every subject, and those same words
+    // - attendance, marks, results, sync - are the ones that name a screen. A
+    // question stripped of them had nothing left to match a view with.
+    const raw = new Set(q.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
     for (const v of VIEWS) {
-      if (!matches(v.label, q)) continue;
+      if (!matches(v.label, q) && !v.keys.some((k) => raw.has(k))) continue;
       out.push({
         kind: "view", label: v.label, detail: v.hint ?? "",
         go: () => setView(v.id as View),
