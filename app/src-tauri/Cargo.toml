@@ -1,6 +1,6 @@
 [package]
 name = "targetx"
-version = "0.2.0"
+version = "0.3.0"
 description = "KTU 2024 academic tracker"
 authors = ["CodedRichy"]
 license = "BUSL-1.1"
