@@ -61,6 +61,28 @@ jobs:
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
       WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+
+      # The question box, and the sign-in that gates it. Vite inlines every
+      # VITE_* value at BUILD time, and `app/.env` is gitignored - so a build
+      # that does not set these here ships them as empty strings and the
+      # feature is simply absent from the installer. That is what happened to
+      # v0.3.0: it shipped with `askConfigured()` false, so Tex answered
+      # locally (the engine and the glossary need no network) and the remote
+      # router was not in the build at all. Nothing failed and nothing warned,
+      # which is the same shape as the draft-release trap above.
+      #
+      # REPOSITORY VARIABLES, not secrets, and deliberately so. The endpoint is
+      # a public URL, the Clerk issuer appears in every token the app already
+      # holds, and a PKCE client id is not a secret - that is the whole point
+      # of PKCE. See `app/.env.example`. A real secret could not live here
+      # anyway: anything inlined by Vite ships inside the installer.
+      #
+      # Absent variables arrive as empty strings, which is a build with no
+      # question box rather than a broken one - so this cannot fail a release,
+      # it can only quietly omit a feature. Check them if Tex stops routing.
+      VITE_ASK_ENDPOINT: ${{ vars.VITE_ASK_ENDPOINT }}
+      VITE_CLERK_ISSUER: ${{ vars.VITE_CLERK_ISSUER }}
+      VITE_CLERK_CLIENT_ID: ${{ vars.VITE_CLERK_CLIENT_ID }}
     steps:
       # The updater key is not optional, and its absence is silent. A build
       # with no TAURI_SIGNING_PRIVATE_KEY still bundles both installers, still
