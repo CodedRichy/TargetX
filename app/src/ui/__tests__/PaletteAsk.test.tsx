@@ -37,6 +37,21 @@ const ML: Partial<Course> = {
   s1: 38, s2: 34, other: 9, attended: 39, held: 50, dl: 0,
 };
 
+/**
+ * The subject that makes the phantom-match bug visible.
+ *
+ * "Computer Networks" contains o, n, e in order, so the word "one" - left
+ * behind by the stop list from "what happens if i miss one more class" -
+ * subsequence-matched it. "Machine Learning" does not, so a test seeded only
+ * with ML would pass against the broken build and prove nothing. This course
+ * is here to make the test able to fail; the revert check below confirms it
+ * does.
+ */
+const CN: Partial<Course> = {
+  code: "CST303", name: "Computer Networks", credits: 4, type: "TH 40/60",
+  s1: 30, s2: 28, other: 8, attended: 44, held: 50, dl: 0,
+};
+
 function open() {
   edit((d) => {
     d.semesters = { S5: { courses: [] } };
@@ -45,6 +60,8 @@ function open() {
   });
   addCourse();
   updateCourse(0, ML);
+  addCourse();
+  updateCourse(1, CN);
   return render(() => <Palette open={true} onClose={() => {}} />);
 }
 
@@ -81,6 +98,33 @@ describe("the engine answers first", () => {
     expect(askRemote).not.toHaveBeenCalled();
   });
 
+  it("does not let a sentence phantom-match a subject and swallow the question", async () => {
+    open();
+    // Measured against the real haystacks, not supposed: the palette matches
+    // the course NAME and the CODE as two separate strings (courseLabel is the
+    // name alone, engine/course.ts:44). The stop list leaves [happens, one],
+    // and "one" subsequence-matches "Computer Networks" - o, n, e in order.
+    //
+    // The damage is not the bad row. A local hit stops Enter from reaching the
+    // router, so a phantom match silently disables the one path that could
+    // have answered a question the engine cannot.
+    const input = type("what happens if i miss one more class");
+    expect(screen.getByText(/Nothing here matches/)).toBeTruthy();
+    fireEvent.keyDown(input, { key: "Enter" });
+    await vi.waitFor(() => expect(askRemote).toHaveBeenCalledTimes(1));
+  });
+
+  it("still resolves an abbreviation typed as the whole query", async () => {
+    open();
+    // The loose match is why it exists, and it survives: "ml" is one term, so
+    // it may match a subsequence, and it finds Machine Learning.
+    type("ml");
+    expect(screen.getByText("Machine Learning")).toBeTruthy();
+    fireEvent.keyDown(screen.getByLabelText("Search subjects and views"), { key: "Enter" });
+    await Promise.resolve();
+    expect(askRemote).not.toHaveBeenCalled();
+  });
+
   it("does not call out on an empty box", async () => {
     open();
     fireEvent.keyDown(screen.getByLabelText("Search subjects and views"), { key: "Enter" });
@@ -110,7 +154,10 @@ describe("the router is the fallback", () => {
     // subject while proving nothing. What matters is that the seeded course's
     // 39 of 50 classes and its 38/34/9 marks are not in here, and an equality
     // check on the whole array says that and nothing weaker.
-    expect(subjects).toEqual([{ code: "CST305", name: "Machine Learning" }]);
+    expect(subjects).toEqual([
+      { code: "CST305", name: "Machine Learning" },
+      { code: "CST303", name: "Computer Networks" },
+    ]);
   });
 
   it("tells the student what happened when the router declines", async () => {

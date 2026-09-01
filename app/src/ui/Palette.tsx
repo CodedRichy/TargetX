@@ -65,12 +65,28 @@ function terms(q: string): string[] {
     .filter((w) => w.length > 0 && !STOP.has(w));
 }
 
-/** Subsequence match, so "cn" finds "Computer Networks". */
-function matches(haystack: string, needle: string): boolean {
+/**
+ * Match a subject label against one term.
+ *
+ * `loose` allows a subsequence, so "cn" finds "Computer Networks". That is the
+ * behaviour a student typing an abbreviation wants, and it is ONLY safe when
+ * the abbreviation is the whole query.
+ *
+ * Applied to words pulled out of a sentence it matches almost anything, and
+ * measurably did: "if i took a leave tomorrow how badly would it affect my
+ * attendance" left the terms [took, tommorw, badly, would, affect], and "took"
+ * subsequence-matched "Computer Networks" - t, o, o, k in order, scattered
+ * across three words. The student got one arbitrary subject and no answer.
+ *
+ * Worse than a bad row: a local hit stops Enter from reaching the router, so a
+ * phantom match silently disables the one path that could have answered.
+ */
+function matches(haystack: string, needle: string, loose = true): boolean {
   if (!needle) return true;
   const h = haystack.toLowerCase();
   const n = needle.toLowerCase();
   if (h.includes(n)) return true;
+  if (!loose) return false;
   let i = 0;
   for (const ch of h) {
     if (ch === n[i]) i += 1;
@@ -100,8 +116,11 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
     // is not a failed search. It is a question about every subject, so every
     // subject answers it.
     const words = terms(q);
+    // One term is an abbreviation and gets the loose match. Several terms are a
+    // sentence, and a sentence's words have to appear literally - see `matches`.
+    const loose = words.length === 1;
     const anyTerm = (hay: string) =>
-      words.length === 0 || words.some((w) => matches(hay, w));
+      words.length === 0 || words.some((w) => matches(hay, w, loose));
     const out: Hit[] = [];
 
     for (const v of VIEWS) {
