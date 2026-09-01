@@ -1088,3 +1088,15 @@ a.link:hover { text-decoration-thickness: 2px; }
 }
 .priced-row dt { color: var(--text-dim); }
 .priced-row dd { margin: 0; color: var(--text); font-weight: 500; }
+
+/* The target invitation, standing where the gauge stands once there is one.
+   Same footprint, so the card does not resize the moment a target is set -
+   a layout that jumps on click reads as something having gone wrong. */
+.goal-invite {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  align-items: flex-start;
+  min-inline-size: 280px;
+}
+.goal-chips { display: flex; flex-wrap: wrap; gap: var(--s2); }

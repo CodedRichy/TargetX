@@ -6,7 +6,7 @@ import {
   unconfirmedNames,
 } from "../engine";
 import {
-  dismissChanges, goalRequirement, overall, rows, state, summary, trend,
+  dismissChanges, goalRequirement, overall, rows, setGoal, state, summary, trend,
 } from "../state/store";
 import { setView } from "../state/nav";
 import { GoalGauge, TrendChart } from "./charts";
@@ -328,7 +328,16 @@ export function Home() {
                   <span class="hero-unit num">CGPA · {overall().percent.toFixed(1)}%</span>
                 </Show>
               </div>
-              <Show when={state.goal?.cgpa != null}>
+              {/* The gauge occupies the right half of a double-width tile. With
+                  no target set it rendered nothing, so the card became one
+                  number and a sentence spread across the widest surface on the
+                  screen - the dead half that made Home feel unfinished.
+
+                  What goes there instead is the action the sentence beside it
+                  is already asking for. Setting a target is the single thing
+                  that changes what every other figure on this screen means, and
+                  it was previously only reachable from a row on another view. */}
+              <Show when={state.goal?.cgpa != null} fallback={<GoalInvite />}>
                 <GoalGauge projected={summary().sgpaProjected}
                            required={need()?.required ?? null}
                            reachable={need()?.possible ?? true}
@@ -606,6 +615,29 @@ function ChangesPanel(props: { at: string; items: Change[] }) {
  * has entered nothing is the same lie the engine refuses to tell about an
  * unassessed subject.
  */
+/**
+ * Set a target, from the card whose meaning depends on it.
+ *
+ * Five values rather than a text field. A student does not arrive with 8.37 in
+ * mind; they arrive wanting "a first" or "above eight", and a number pad asks
+ * them to invent a precision they do not have. The exact figure stays editable
+ * on the Semester view for anyone who does have one.
+ */
+function GoalInvite() {
+  return (
+    <div class="goal-invite">
+      <span class="stat-label">Set a target</span>
+      <div class="goal-chips">
+        <For each={[7, 7.5, 8, 8.5, 9]}>{(value) => (
+          <button class="chip" onClick={() => setGoal(value)}>
+            {value.toFixed(1)}
+          </button>
+        )}</For>
+      </div>
+    </div>
+  );
+}
+
 function EmptyHome() {
   return (
     <div class="tile empty-home">
