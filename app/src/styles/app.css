@@ -590,7 +590,7 @@ tr.row:hover .del { opacity: 1; }
 
 .palette {
   inline-size: min(38rem, calc(100vw - 2rem));
-  max-block-size: 60vh;
+  max-block-size: 68vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -616,7 +616,10 @@ tr.row:hover .del { opacity: 1; }
   list-style: none;
   margin: 0;
   padding: var(--s2);
-  overflow-y: auto;
+  /* The scroll moved up to `.palette-body`, which now owns the whole column.
+     Two nested scrollers would trap the wheel in whichever one was under the
+     pointer. */
+  overflow: visible;
 }
 
 .palette-hit {
@@ -1093,12 +1096,48 @@ tr.row:hover .del { opacity: 1; }
 /* The router's reply, and the row that reaches it.
    The reply sits above the list rather than inside its empty state: asking is
    a row now, so the list is never empty when asking is on offer. */
+/*
+ * Everything under the field scrolls together.
+ *
+ * `min-block-size: 0` is load-bearing: a flex child defaults to its content's
+ * minimum size, so without it this box refuses to shrink and the 60vh cap on
+ * the palette is enforced by clipping instead of by scrolling.
+ */
+.palette-body {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/*
+ * What the assistant said.
+ *
+ * Was dim and small, which was right when this only ever held "No connection"
+ * - a footnote about a failure. It now holds Tex's own answer, which is the
+ * thing the student asked for, and a footnote is the wrong shape for that. The
+ * `tex` variant reads as speech; the bare one stays quiet, because the app
+ * reporting that it could not reach anything should not look like an answer.
+ */
 .palette-remote {
+  margin: 0;
+  padding: var(--s4) var(--s5);
   color: var(--text-dim);
   font-size: var(--text-sm);
-  margin: 0;
-  padding: var(--s3) var(--s5);
 }
+.palette-remote > p { margin: 0; }
+.palette-remote.tex {
+  color: var(--text);
+  font-size: var(--text-base);
+  line-height: 1.55;
+  background: var(--brand-wash);
+  border-block-end: 1px solid var(--hairline);
+  /* Long enough to read comfortably, short enough that a paragraph does not
+     run the full width of a 38rem box. */
+  text-wrap: pretty;
+}
+.palette-remote.tex > .palette-answer-who { margin-block-end: var(--s2); }
 /* The ask row is an action, not a destination. Brand-coloured kind marker so
    it separates from the View and Subject rows it sits among. */
 .palette-hit .palette-kind { white-space: nowrap; }

@@ -1,4 +1,5 @@
 import { accessToken } from "./auth";
+import { trace } from "./trace";
 import type { View } from "./nav";
 import type { Status } from "../engine";
 
@@ -94,6 +95,20 @@ export function parseReply(raw: unknown): AskOutcome | null {
   const act = a as Record<string, unknown>;
   const remaining = typeof o.remaining === "number" ? o.remaining : 0;
   const say = cleanSay(act.say);
+  // Which of the two silences this is. A model that wrote nothing is a prompt
+  // problem; a sentence this guard threw away is a rule problem. From the
+  // outside they are identical, and they need opposite fixes.
+  if (say === undefined) {
+    // Three possibilities, and they need three different fixes. The worker
+    // reports the one this side cannot see: a sentence it wrote and then
+    // refused. Without that flag a drop at the edge is indistinguishable here
+    // from a model that never wrote anything, and the first hour of chasing
+    // this went into loosening a rule that was not the problem.
+    trace("no sentence",
+      typeof act.say === "string" ? `this app's guard dropped: ${JSON.stringify(act.say)}`
+      : o.sayDropped === true ? "the worker's guard dropped it - it stated a figure"
+      : "the model wrote none");
+  }
 
   if (act.kind === "view" && isView(act.view)) {
     return { ok: true, action: { kind: "view", view: act.view, say }, remaining };

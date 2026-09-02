@@ -110,7 +110,22 @@ export default {
         return json({ action: { kind: "none", reason: "unclear" }, remaining: quota.remaining });
       }
 
-      return json({ action, remaining: quota.remaining });
+      // Why there is no sentence, when there is no sentence.
+      //
+      // The app cannot work this out for itself: a sentence the guard here
+      // threw away and a sentence the model never wrote arrive at the client
+      // looking identical, and they need opposite fixes - one is a rule that
+      // is too strict, the other is a prompt or a schema that is too loose.
+      // Measured, this cost an hour of loosening the wrong thing.
+      //
+      // A boolean, never the rejected text: the sentence was refused for
+      // stating a figure about this student, and echoing it back would send
+      // exactly what the refusal was protecting.
+      const wrote = typeof (raw as { say?: unknown } | null)?.say === "string"
+        && ((raw as { say: string }).say).trim() !== "";
+      const dropped = wrote && action.say === undefined;
+
+      return json({ action, remaining: quota.remaining, sayDropped: dropped });
     } catch {
       // Nothing about the upstream failure is echoed back. The error text could
       // carry a URL, a key fragment or a project id, and none of that is the

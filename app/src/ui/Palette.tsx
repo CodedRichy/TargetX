@@ -146,12 +146,13 @@ function rank(haystack: string, needle: string, loose = true): number {
   // terms, so the loose path is closed and "cn" stopped resolving. This gives
   // it back without giving back "one" matching Computer Networks.
   if (n.length >= 2 && initials(h) === n) return RANK_NAMED;
-  if (!loose) return 0;
-  let i = 0;
-  for (const ch of h) {
-    if (ch === n[i]) i += 1;
-    if (i === n.length) return RANK_SCATTERED;
-  }
+  // No subsequence match. It was here so "cn" would find Computer Networks,
+  // and initials do that job exactly - "cn" is what Computer Networks IS
+  // called. What the subsequence added was noise, three times over and each
+  // one observed rather than imagined: "took" found Computer Networks,
+  // "cn" found Ma-c-hi-n-e Learning, and "hi" - as in "hi how are you" -
+  // found it too. Every real abbreviation a student types is either the
+  // initials or a piece of the name, and both are matched above.
   return 0;
 }
 
@@ -181,6 +182,16 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
   const [asking, setAsking] = createSignal(false);
   /** What the remote route had to say, when it had to say anything. */
   const [remote, setRemote] = createSignal<string | null>(null);
+  /**
+   * Whether the line above was written by the assistant or by the app.
+   *
+   * They look identical in the markup and are not the same kind of thing: one
+   * is Tex answering, the other is TargetX reporting that it could not get an
+   * answer. Only the first gets a name against it, for the same reason the
+   * engine's answers do - an unattributed sentence reads as the app asserting
+   * something.
+   */
+  const [remoteIsTex, setRemoteIsTex] = createSignal(false);
   let input: HTMLInputElement | undefined;
   let inflight: AbortController | undefined;
   /** The exchange so far, for as long as the palette is open. */
@@ -491,6 +502,7 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
     inflight = ctl;
     setAsking(true);
     setRemote(null);
+    setRemoteIsTex(false);
     try {
       const out = await askRemote(q, rows().map((r) => ({
         code: r.course.code ?? "",
@@ -502,6 +514,7 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
 
       if (!out.ok) {
         trace("router refused", out.kind);
+        setRemoteIsTex(false);
         setRemote(
           out.kind === "signin" ? "Sign in from the profile menu to ask questions."
           : out.kind === "limit" ? "That is all the questions for today. The rest of the app is unchanged."
@@ -531,7 +544,7 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
        */
       if (a.kind === "view") {
         setView(a.view);
-        if (a.say) { setRemote(a.say); return; }
+        if (a.say) { setRemoteIsTex(true); setRemote(a.say); return; }
         props.onClose();
         return;
       }
@@ -539,16 +552,18 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
         const hit = rows().find((r) => r.course.code === a.code);
         if (hit) {
           setView(a.view);
-          if (a.say) { setRemote(a.say); return; }
+          if (a.say) { setRemoteIsTex(true); setRemote(a.say); return; }
           props.onClose();
           return;
         }
+        setRemoteIsTex(a.say !== undefined);
         setRemote(a.say ?? "That subject is not in this semester.");
         return;
       }
       // Its own words when it has them. The canned lines stay as the floor:
       // `say` is dropped whenever it names a figure, and a refusal with no
       // explanation at all reads as the app breaking rather than declining.
+      setRemoteIsTex(a.say !== undefined);
       setRemote(
         a.say
         ?? (a.reason === "off_topic"
@@ -610,6 +625,13 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
                  onInput={(e) => setQuery(e.currentTarget.value)}
                  onKeyDown={onKey} />
 
+          {/* Everything below the field scrolls as one.
+              The list used to be the only scrolling part, which was fine while
+              the assistant's reply was a line. It can now be a paragraph, and
+              a paragraph inside a box that clips at 60vh either loses its tail
+              or squeezes the rows out of the way. The field stays put because
+              it is what the student is typing into. */}
+          <div class="palette-body">
           <Show when={answer()}>
             {(said) => (
               <div class="palette-answer" classList={{ definition: said().isDefinition }}>
@@ -645,7 +667,14 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
               reply in there would have meant "No connection" and "that is all
               the questions for today" could never be shown to anyone. */}
           <Show when={remote()}>
-            {(said) => <p class="palette-remote">{said()}</p>}
+            {(said) => (
+              <div class="palette-remote" classList={{ tex: remoteIsTex() }}>
+                <Show when={remoteIsTex()}>
+                  <p class="palette-answer-who">{ASSISTANT}</p>
+                </Show>
+                <p>{said()}</p>
+              </div>
+            )}
           </Show>
 
           <Show when={hits().length > 0} fallback={
@@ -705,6 +734,7 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
               )}</For>
             </ul>
           </Show>
+          </div>
         </div>
       </div>
     </Show>
