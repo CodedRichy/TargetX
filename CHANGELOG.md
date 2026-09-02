@@ -83,6 +83,43 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The panel beside the table stopped eating your columns.** The analytics
+  panel took a fixed 340px of the window whatever was left, and the semester
+  table needs about 1250 across its fourteen columns - so on the default window
+  Target, Need and Status ran off the right edge and stopped against the
+  panel's border. Nothing actually overlapped, but cut off and covered look the
+  same from where you sit, and there was no control anywhere that would move
+  the panel (issue #12).
+
+  There is one now: **Panel**, in the header, on the Semester screen. It puts
+  the panel away and gives the table the whole window, and it remembers - the
+  reason to close it is a window too narrow to hold both, and a window does not
+  get wider between launches.
+
+  The table was also tightened on narrow windows, by four pixels of cell
+  padding and six characters of course name. That is enough that the default
+  1440 window now shows every column *with the panel still open*, and a window
+  at the app's own 1100 minimum shows every column with it closed. A wide
+  window is unchanged.
+
+- **Last month's attendance is no longer thrown away.** The portal serves one
+  month of the day-by-day grid and TargetX stored exactly that, overwritten by
+  every sync - so on the first of October your September was gone. September is
+  precisely what you would want, because a wrongly marked absence is only ever
+  found by looking back at a day you remember being in class (issue #13).
+
+  Every month TargetX syncs is now kept, and the day-by-day grid has a row of
+  months to switch between once there is more than one. It accumulates forward:
+  the portal only serves the current month, so TargetX can keep the months it
+  sees but cannot reach back for ones it was not running for.
+
+  The panel above it that compares the period log against the portal's own
+  totals is fixed by the same change. It was counting one month of log against
+  a whole semester of portal total, so it reported "log says fewer classes" on
+  every subject, every time - a check meant to catch a wrong absence, crying
+  wolf on all of them. It now adds up every month held, and says how many
+  months that is, so a gap can be read for what it is.
+
 - **Typing a question stopped filling the list with the wrong subject.**
   Matching compared letters anywhere inside a word, so `hi` matched *mac**hi**ne
   learning* and `1` matched *PCCST**5**01*. Typing `hi how are you` listed

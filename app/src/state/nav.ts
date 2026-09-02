@@ -1,5 +1,5 @@
 import { createSignal } from "solid-js";
-import { state } from "./store";
+import { edit, state } from "./store";
 
 /**
  * Navigation.
@@ -58,3 +58,24 @@ export { step, setStep };
 
 /** Setup runs until it is explicitly finished, not until data exists. */
 export const needsSetup = () => !state.onboarded;
+
+/**
+ * The analytics drawer, and whether it is beside the ledger.
+ *
+ * The ledger table has fourteen columns and a natural width of about 1260px.
+ * The drawer takes 340 of whatever the window has, which on the default 1440
+ * window left the table 1100 - so Target, Need and Status, the three columns
+ * the app exists to show, were scrolled off the right edge against the
+ * drawer's border. It read as the drawer covering the table (issue #12), and
+ * there was no control anywhere that would move it.
+ *
+ * Absent means open: the drawer is the right default on a wide screen, and a
+ * save written before this field existed should not open with it closed.
+ */
+export const drawerOpen = () => state.drawerOpen !== false;
+
+export function setDrawerOpen(open: boolean) {
+  edit((s) => { s.drawerOpen = open; });
+}
+
+export const toggleDrawer = () => setDrawerOpen(!drawerOpen());

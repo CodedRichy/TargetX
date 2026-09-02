@@ -1,7 +1,8 @@
-import { For, Show, createMemo } from "solid-js";
+import { For, Show, createMemo, createSignal } from "solid-js";
 import {
   ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN,
-  attendanceMarks, courseLabel, daywiseBySubject, toOptionalFloat,
+  attendanceMarks, courseLabel, daywiseBySubject, monthLabel, monthsHeld,
+  toOptionalFloat,
 } from "../engine";
 import type {
   AttendancePlan, AttendanceStatus, DaywiseDay, TimetableDay,
@@ -146,8 +147,27 @@ const STATUS_META: Record<AttendanceStatus, { cls: string; word: string; glyph: 
  * shown under a name they would not recognise.
  */
 function BySubjectSection() {
+  /**
+   * Every day the archive holds, oldest month first (issue #13).
+   *
+   * This comparison used to run on the last pull alone, which is one month -
+   * against a portal total that covers the whole semester. So it reported "log
+   * says fewer classes" on every row of every subject, every time, and a panel
+   * whose job is to catch a wrongly marked absence was instead crying wolf on
+   * all of them. With months kept rather than overwritten it can add up what
+   * the app has actually seen.
+   */
+  const allDays = createMemo<DaywiseDay[]>(() => {
+    const archive = state.daywiseMonths;
+    const keys = monthsHeld(archive).reverse();
+    if (keys.length === 0) return state.daywiseAttendance ?? [];
+    return keys.flatMap((key) => archive?.[key] ?? []);
+  });
+
+  const monthCount = createMemo(() => monthsHeld(state.daywiseMonths).length);
+
   const counted = createMemo(() => {
-    const log = daywiseBySubject(state.daywiseAttendance ?? []);
+    const log = daywiseBySubject(allDays());
     if (log.size === 0) return [];
     return rows().map((row) => {
       const code = (row.course.code ?? "").trim().toLowerCase();
@@ -177,8 +197,25 @@ function BySubjectSection() {
             <h3 id="bysub-heading">Counted from the day-by-day record</h3>
             <p class="schedule-sub">
               What the period log adds up to, per subject, beside the totals the
-              portal published. They should agree — where they do not, one of
-              them is wrong.
+              portal published.
+              {" "}
+              {/* Said before the table rather than after it. The log covers the
+                  months TargetX has synced, and the portal total covers the
+                  whole semester - so until those are the same span a gap here
+                  is the app's own blind spot and not a portal error, and a
+                  student should know that before reading a row as a mistake. */}
+              <Show when={monthCount() > 0} fallback={
+                <>They should agree — where they do not, one of them is wrong.</>
+              }>
+                The log covers the{" "}
+                <Show when={monthCount() === 1} fallback={
+                  <><span class="num">{monthCount()}</span> months</>
+                }>one month</Show>{" "}
+                TargetX has synced, so it only matches the portal once that is
+                the whole semester. A gap is worth reading as a mistake when the
+                months line up and one day is off, not when the log is simply
+                shorter.
+              </Show>
             </p>
           </div>
         </div>
@@ -236,7 +273,36 @@ function BySubjectSection() {
 }
 
 function CalendarSection() {
-  const days = createMemo<DaywiseDay[]>(() => state.daywiseAttendance ?? []);
+  /**
+   * Issue #13: the month being looked at, not just the month last synced.
+   *
+   * A wrongly marked absence is found by looking back at a day you remember
+   * being in class, and until now every sync overwrote the grid - so the month
+   * a student wanted was the one the app had just thrown away. The archive
+   * keeps each month it has seen; this picks between them.
+   *
+   * The choice is a signal rather than stored state. It is a place in a record
+   * being read, like a scroll position, not a preference: reopening the app
+   * should show the current month, which is the one that is still changing.
+   */
+  const months = createMemo(() => monthsHeld(state.daywiseMonths));
+  const [picked, setPicked] = createSignal<string | null>(null);
+
+  // Newest held month when nothing is picked, and also whenever the pick has
+  // gone - a chosen month can disappear if the record is reset underneath.
+  const month = createMemo(() => {
+    const chosen = picked();
+    const held = months();
+    return chosen && held.includes(chosen) ? chosen : held[0] ?? null;
+  });
+
+  const days = createMemo<DaywiseDay[]>(() => {
+    const key = month();
+    if (key) return state.daywiseMonths?.[key] ?? [];
+    // No archive yet - a record synced by an older build, or a portal whose
+    // page carries no dates. The last pull is still worth showing.
+    return state.daywiseAttendance ?? [];
+  });
   // Every day has the same number of periods after parsing, but a defensive max
   // keeps the header honest if a short row ever slips through.
   const cols = createMemo(() =>
@@ -254,7 +320,34 @@ function CalendarSection() {
             excused class that never counts against you.
           </p>
         </div>
+
+        {/* Only once there are two. A switcher over a single month is a
+            control that cannot do anything, and it would appear on the very
+            first sync - when the archive has nothing to switch to yet. */}
+        <Show when={months().length > 1}>
+          <nav class="cal-months" aria-label="Month">
+            <For each={months()}>{(key) => (
+              <button class="pill cal-month" aria-current={month() === key}
+                      onClick={() => setPicked(key)}>{monthLabel(key)}</button>
+            )}</For>
+          </nav>
+        </Show>
       </div>
+
+      {/* Said in words, not only by which pill is lit: the grid's own rows are
+          labelled "1st", "6th" and name no month, so a student reading a
+          screenshot of it has no way to tell September from October. */}
+      <Show when={month()}>{(key) => (
+        <p class="cal-month-note">
+          Showing <strong>{monthLabel(key())}</strong>.{" "}
+          <Show when={months().length === 1}
+                fallback={<>TargetX keeps every month it has synced.</>}>
+            Past months appear here as they are synced - the portal serves one
+            month at a time, so TargetX can keep the months it sees but cannot
+            reach back for ones it never did.
+          </Show>
+        </p>
+      )}</Show>
 
       <Show when={days().length > 0} fallback={
         <p class="schedule-empty">Sync to see your day-by-day attendance.</p>

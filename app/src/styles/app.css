@@ -217,6 +217,74 @@
    reading column. Issue #3. */
 .ledger { grid-area: ledger; overflow: auto; min-width: 0; padding-inline: var(--s5); }
 
+/*
+ * With the drawer put away the table takes the whole width.
+ *
+ * The ledger's natural width is about 1260px across fourteen columns. The
+ * drawer is 340 of whatever the window has, so on the default 1440 window the
+ * table was given 1100 and lost Target, Need and Status off the right edge -
+ * the three columns the app exists to compute (issue #12). Closing the drawer
+ * hands those 340px back and the table fits.
+ *
+ * The area is renamed rather than the drawer being sized to zero: a zero-width
+ * track still has the border-left on it, which would draw a hairline down the
+ * right of a table that has nothing beside it.
+ */
+.app.no-drawer {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "head"
+    "notice"
+    "goal"
+    "ledger";
+}
+
+/*
+ * Tighten the table rather than let it lose columns.
+ *
+ * What matters is not how wide the window is, it is how much of it the table
+ * is left with - and the drawer takes a fixed 340 of that. So the threshold is
+ * written twice, once for each case: the table has the window when the drawer
+ * is away, and the window less 340 when it is not.
+ *
+ * The numbers behind them. The ledger's natural width is ~1253px over fourteen
+ * columns, and what falls off the right edge first is Target, Need and Status -
+ * the app's own answer, which made it read as the drawer covering the table
+ * (issue #12). Four pixels of cell padding across fourteen columns is 112, and
+ * six characters off the course-name cap is another 48. That brings the table
+ * to ~1082, which fits the 1100 the default 1440 window leaves beside an open
+ * drawer, and fits the 1100 window at its own minimum with the drawer away.
+ *
+ * A wide window pays none of it.
+ */
+@media (max-width: 1280px) {
+  .app.no-drawer .ledger { padding-inline: var(--s4); }
+  .app.no-drawer .ledger thead th,
+  .app.no-drawer .ledger tbody td,
+  .app.no-drawer .ledger tbody th { padding-inline: var(--s2); }
+  .app.no-drawer .ledger .title { max-width: 20ch; }
+}
+
+@media (max-width: 1620px) {
+  .app:not(.no-drawer) .ledger { padding-inline: var(--s4); }
+  .app:not(.no-drawer) .ledger thead th,
+  .app:not(.no-drawer) .ledger tbody td,
+  .app:not(.no-drawer) .ledger tbody th { padding-inline: var(--s2); }
+  .app:not(.no-drawer) .ledger .title { max-width: 20ch; }
+}
+
+/* Lit like the view tabs when the panel is showing, so the control says which
+   of its two states you are in without being read. */
+/* Its label must not wrap under its icon: the header is a fixed-height strip
+   and a two-line pill in it grows the strip on exactly the narrow windows this
+   control exists for. */
+.drawer-toggle { white-space: nowrap; }
+
+.drawer-toggle[aria-pressed="true"] {
+  border-color: var(--brand-deep);
+  color: var(--brand-bright);
+}
+
 table { border-collapse: collapse; width: 100%; }
 
 thead th {

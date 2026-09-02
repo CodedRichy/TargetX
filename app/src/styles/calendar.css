@@ -47,6 +47,38 @@
   line-height: 1.6;
 }
 
+/*
+ * Which month the grid is showing (issue #13).
+ *
+ * A row of pills rather than a select: there are a handful of months in a
+ * semester, they are all worth seeing at once, and the point of the control is
+ * that the student can see how far back the record goes. A dropdown hides
+ * exactly that.
+ *
+ * Newest first, matching the order they are held in - looking back starts from
+ * where you are.
+ */
+.cal-months {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.cal-month[aria-current="true"] {
+  border-color: var(--brand-deep);
+  color: var(--brand-bright);
+}
+
+.cal-month-note {
+  margin: var(--s3) 0 0;
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  max-width: 72ch;
+}
+
+.cal-month-note strong { color: var(--text); font-weight: 600; }
+
 /* --- shared scroll frame ------------------------------------------------- */
 
 .grid-frame {

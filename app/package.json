@@ -16,6 +16,7 @@
     "shots": "node tools/screenshot.mjs",
     "tauri": "tauri",
     "picker-width": "node tools/picker-width.mjs",
+    "ledger-width": "node tools/ledger-width.mjs",
     "site": "node tools/site.mjs",
     "site:audit": "node tools/site-audit.mjs",
     "og": "node tools/og-image.mjs"

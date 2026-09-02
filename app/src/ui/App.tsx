@@ -5,7 +5,7 @@ import {
   selectSemester, semesterNames, setAttendanceTarget, setGoal, state, summary,
   targets,
 } from "../state/store";
-import { VIEWS, needsSetup, setView, view } from "../state/nav";
+import { VIEWS, drawerOpen, needsSetup, setView, toggleDrawer, view } from "../state/nav";
 import { ASSISTANT } from "../state/answers";
 import { appearance, setTheme, startTheme, theme } from "../state/theme";
 import { Data } from "./Data";
@@ -810,7 +810,8 @@ export function App() {
     </Show>
 
     <Show when={!setupOpen()} fallback={<Setup onDone={() => setSetupOpen(false)} />}>
-      <div class="app" classList={{ wide: view() !== "ledger" }}>
+      <div class="app"
+           classList={{ wide: view() !== "ledger", "no-drawer": !drawerOpen() }}>
         {/* The OS title bar is off (`decorations: false`), so this header IS
             the title bar and has to do what the OS stopped doing: be draggable,
             and carry the window buttons.
@@ -886,6 +887,32 @@ export function App() {
             </nav>
           </Show>
 
+          {/* The drawer's own control, in the header rather than inside the
+              drawer: a control that only exists inside the panel it hides can
+              put the panel away and never bring it back. Issue #12 reported
+              exactly this - "sidebar toggling is not enabled" - alongside the
+              table being cut off, which is the same fact seen from the other
+              end. Ledger only, because the drawer is ledger only. */}
+          <Show when={view() === "ledger"}>
+            <button class="pill drawer-toggle" aria-pressed={drawerOpen()}
+                    aria-label={drawerOpen()
+                      ? "Hide the analytics panel and give the table its full width"
+                      : "Show the analytics panel beside the table"}
+                    title={drawerOpen() ? "Hide the panel" : "Show the panel"}
+                    onClick={toggleDrawer}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                   aria-hidden="true" stroke="currentColor" stroke-width="1.8"
+                   stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <path d="M15 4v16" />
+                <Show when={drawerOpen()}>
+                  <path d="M17.5 8h2M17.5 12h2" stroke-linecap="round" />
+                </Show>
+              </svg>
+              <span>Panel</span>
+            </button>
+          </Show>
+
           <RefreshButton />
           <Bell findings={findings()} />
           <Profile />
@@ -895,7 +922,7 @@ export function App() {
         <Show when={view() === "ledger"}>
           <GoalBar />
           <Ledger />
-          <Drawer />
+          <Show when={drawerOpen()}><Drawer /></Show>
         </Show>
         <SaveNotice />
         <Show when={!updateDismissed() && update()}>

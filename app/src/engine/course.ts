@@ -3,6 +3,7 @@ import { DEFAULT_TYPE } from "./constants";
 import { defaultTargets } from "./targets";
 import type { Targets } from "./targets";
 import type { Change } from "./changes";
+import type { DaywiseArchive } from "./daywise";
 import type {
   Course, DaywiseAttendance, SemesterHistory, Timetable, TypeKey,
 } from "./types";
@@ -92,6 +93,15 @@ export interface AppState {
   onboarded?: boolean;
   /** "system" | "light" | "dark". Absent means system. */
   theme?: string;
+  /**
+   * Whether the analytics drawer is open beside the ledger.
+   *
+   * Stored, because the reason to close it is that the window is too narrow to
+   * hold both it and the table - and a window does not get wider between
+   * launches. Absent means open, so an existing save is unchanged by this
+   * field arriving.
+   */
+  drawerOpen?: boolean;
   /** ISO timestamp of the last successful portal sync. */
   lastSync?: string;
   /**
@@ -112,6 +122,20 @@ export interface AppState {
    * later sync that could not, so a good grid survives a portal hiccup.
    */
   daywiseAttendance?: DaywiseAttendance | null;
+  /**
+   * Every month of that grid the app has ever seen, keyed `YYYY-MM`.
+   *
+   * `daywiseAttendance` above holds one month and is overwritten by each sync,
+   * so on the first of October the student's September was gone - and a
+   * wrongly marked absence is only ever found by looking back at a day you
+   * remember being in class (issue #13). This keeps them.
+   *
+   * It accumulates forward. The portal serves one month, so the archive can
+   * only hold months the app was running for; it cannot reach back and invent
+   * a September it never saw. `daywiseAttendance` is kept beside it as the
+   * most recent pull, so a record written by an older build still opens.
+   */
+  daywiseMonths?: DaywiseArchive;
   /** The weekly timetable and its substitutions, as last synced. See above. */
   timetable?: Timetable | null;
 }

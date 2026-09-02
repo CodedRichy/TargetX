@@ -4,7 +4,7 @@ import { hasFileStore, readStateFile, stateFilePath, writeStateFile } from "./pe
 import {
   attendanceTargetGap, cgpaFromSemesters, checkAttendanceTarget, checkGpaTarget,
   courseFromCode, defaultState, evaluate, historyCredits, horizonToGraduation,
-  normaliseTargets, planForSgpa, PROGRAMME_SEMESTERS, reconcileSgpaTarget,
+  adoptLegacy, normaliseTargets, planForSgpa, PROGRAMME_SEMESTERS, reconcileSgpaTarget,
   requiredSgpaForCgpa,
   sameSgpa, sgpaTargetFor, statusFor, summarise, toFloat, toOptionalFloat,
 } from "../engine";
@@ -84,6 +84,11 @@ function parse(raw: string): { state: AppState; savedAt: number } | null {
     ...defaultState(), ...parsed,
     history: migrateHistory(parsed.history),
     goal: normaliseTargets(parsed.goal),
+    // A record written before the month archive existed carries one grid and
+    // no idea which month it is. Filing it here means the month the student
+    // last synced is not lost by the upgrade itself (issue #13); an undated
+    // grid has no month to be filed under and is left where it is.
+    daywiseMonths: adoptLegacy(parsed.daywiseMonths, parsed.daywiseAttendance),
   };
   delete (state as { savedAt?: unknown }).savedAt;
   return { state, savedAt: Number.isFinite(stamp) ? stamp : 0 };

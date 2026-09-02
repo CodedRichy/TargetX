@@ -3,6 +3,7 @@ export * from "./constants";
 export * from "./util";
 export * from "./cie";
 export * from "./attendance";
+export * from "./daywise";
 export * from "./grade";
 export * from "./evaluate";
 export * from "./goals";

@@ -1,7 +1,7 @@
 import { unwrap } from "solid-js/store";
 import {
   CATALOGUE_URL, blankCourse, catalogueVersion, courseFromCode, defaultState,
-  defaultTargets, diffSync, mergeHistory, mergeHistoryInto, normaliseTargets,
+  defaultTargets, diffSync, fileMonth, mergeHistory, mergeHistoryInto, normaliseTargets,
   parseEtlab, requiredEseCell, setCatalogue,
 } from "../engine";
 import type { ChangeSide, Course, PresetCourse, RequiredEse } from "../engine";
@@ -78,7 +78,14 @@ export function applySync(result: SyncResult) {
     // null means the page 404'd or did not parse, and overwriting a good grid
     // with that would throw away the last-known-good over a portal hiccup. So a
     // failed schedule fetch leaves whatever was there, exactly like the record.
-    if (result.daywiseAttendance) s.daywiseAttendance = result.daywiseAttendance;
+    if (result.daywiseAttendance) {
+      s.daywiseAttendance = result.daywiseAttendance;
+      // Filed by month as well as kept as the latest pull, so last month
+      // survives this month's sync (issue #13). `fileMonth` replaces only the
+      // month it belongs to, and drops an undated grid rather than writing it
+      // over whichever month it might have been.
+      s.daywiseMonths = fileMonth(s.daywiseMonths ?? {}, result.daywiseAttendance);
+    }
     if (result.timetable) s.timetable = result.timetable;
 
     // The diff runs against the freshly-merged state, not against `result`:
