@@ -116,7 +116,7 @@ const REASONS = ["off_topic", "unclear", "no_match"] as const;
  */
 const SAY_MAX = 600;
 
-const NUMBER_WORDS = "zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|half|quarter|dozen";
+const NUMBER_WORDS = "zero|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|half|quarter|dozen";
 /**
  * Vocabulary that means "this student's record" rather than "the world".
  *
@@ -131,10 +131,27 @@ const NUMBER_WORDS = "zero|one|two|three|four|five|six|seven|eight|nine|ten|elev
  * right one: it left the assistant unable to give ordinary advice without
  * sounding like it was dodging something.
  */
-const RECORD_TERMS = "attendance|attended|absent|present|bunk|bunked|skip|skipped|cie|internal|internals|marks|mark|scored|scoring|score|sgpa|cgpa|gpa|grade|grades|credits|credit|percent|percentage|class|classes|lecture|lectures|period|periods|semester|sem|series|ese|endsem|exam|exams|target|condonation|eligible|eligibility|shortage|debarred";
+const RECORD_TERMS = "attendance|attended|absent|absence|absences|present|bunk|bunked|skip|skipped|cie|internal|internals|marks|mark|scored|scoring|score|sgpa|cgpa|gpa|grade|grades|credits|credit|percent|percentage|class|classes|lecture|lectures|period|periods|subject|subjects|short|semester|sem|series|ese|endsem|exam|exams|target|condonation|eligible|eligibility|shortage|debarred";
 
 const ONE_NUMBER = new RegExp("^[^a-z0-9]*(?:" + NUMBER_WORDS + "|\\d+)[^a-z0-9]*$", "i");
 const RECORD_NEAR = new RegExp("\\b(?:" + RECORD_TERMS + ")\\b", "i");
+
+/**
+ * "One" is usually a pronoun, and pronouns are not figures.
+ *
+ * Observed: an answer naming which subject to focus on was thrown away by the
+ * rule below, because "Microcontrollers is THE ONE to focus on, it is the only
+ * subject showing a SHORTAGE" puts a number word and a record word in one
+ * sentence. It states no figure whatsoever. English uses "one" as a pronoun
+ * far more often than as a count, and treating every instance as a quantity
+ * silently cost the assistant its most useful sentences.
+ *
+ * So "one" counts only where it is actually counting: in front of a thing, or
+ * in front of the comparatives that only ever follow a number.
+ */
+const ONE_AS_QUANTITY = new RegExp(
+  "\\bone \\s*(?:more|less|fewer|extra|further|additional|other|of)\\b"
+  + "|\\bone \\s*(?:" + RECORD_TERMS + ")\\b", "i");
 
 /**
  * Does this text state a figure about the student?
@@ -160,6 +177,7 @@ export function statesAFigure(text: string): boolean {
 
   for (const sentence of text.split(new RegExp("[.!?]+"))) {
     if (!RECORD_NEAR.test(sentence)) continue;
+    if (ONE_AS_QUANTITY.test(sentence)) return true;
     if (sentence.split(new RegExp("\\s+")).some((w) => ONE_NUMBER.test(w))) {
       return true;
     }

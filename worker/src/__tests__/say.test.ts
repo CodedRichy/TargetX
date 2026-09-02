@@ -60,6 +60,26 @@ describe("a quantity about the student is a claim; a quantity in advice is not",
     expect(cleanSay(text)).toBe(text);
   });
 
+  it.each([
+    "Microcontrollers is the one to focus on - it is the only subject showing a shortage.",
+    "That is the one where your attendance needs watching.",
+    "No one enjoys that subject, but the marks there are gettable.",
+  ])("keeps %j - \"one\" is a pronoun there, not a count", (text) => {
+    // Observed live: an answer naming which subject to focus on was thrown
+    // away, because a pronoun and a record word shared a sentence. English
+    // uses "one" as a pronoun far more often than as a count, and treating
+    // every instance as a quantity cost the assistant its best sentences.
+    expect(cleanSay(text)).toBe(text);
+  });
+
+  it.each([
+    "One more class and you lose the mark.",
+    "You can afford one absence there.",
+    "One of your subjects is short.",
+  ])("still drops %j - there it IS counting", (text) => {
+    expect(cleanSay(text)).toBeUndefined();
+  });
+
   it("catches a number separated from the record word by a few words", () => {
     // Proximity is the whole mechanism, so the reach is asserted rather than
     // left to whatever the constant happens to be.

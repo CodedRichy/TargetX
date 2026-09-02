@@ -161,6 +161,8 @@ const HOWTO = [
   /\bhow (?:do|can|does|often)\b/, /\bcan i\b/, /\bwhere (?:is|are|do|does)\b/,
   /\bwhat can\b/, /\bis my\b/, /\bare my\b/, /\bwhat (?:is|are|does|do)\b/,
   /\bwhats\b/, /\bwho (?:are|is|r)\b/,
+  /\bwho (?:made|built|created|wrote|owns|runs)\b/,
+  /\b(?:the|your) developer\b/,
 ];
 
 export function lookupCapability(query: string): Term | null {
@@ -208,6 +210,18 @@ export const CAPABILITIES: Term[] = [
               "who you are", "your name", "who is tex", "what is tex",
               "who am i talking to"],
     body: `The assistant inside TargetX. Ask about your attendance, internal marks, what a subject still needs in the final, or what a KTU term means, and the answer is computed on this machine from your own records - no figure here is guessed or written by a model. Questions it cannot work out locally go to a small router that only ever replies with which screen to open, never with a number.`,
+  },
+  {
+    // Observed live: "who made you" went to the router, which deflected -
+    // it has no way of knowing, and guessing would have been worse. It is a
+    // plain fact about the app, so it is answered here where it cannot be
+    // got wrong, costs nothing from the daily allowance, and works offline.
+    name: "Who made TargetX",
+    aliases: ["who made you", "who built you", "who made this", "who built this",
+              "who created you", "who created this", "who wrote this",
+              "who made targetx", "who is behind this", "the developer",
+              "your developer", "who owns this"],
+    body: `Rishi Praseeth Krishnan, a KTU student, because working out what an absence costs in CIE marks should not need a spreadsheet. The source is public at github.com/CodedRichy/TargetX under the BUSL-1.1 licence, so anyone can read exactly what it does with their record - which is the point of publishing it.`,
   },
   {
     name: "What TargetX does",

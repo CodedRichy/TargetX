@@ -139,7 +139,18 @@ function rank(haystack: string, needle: string, loose = true): number {
   if (!needle) return RANK_NAMED;
   const h = haystack.toLowerCase();
   const n = needle.toLowerCase();
-  if (h.includes(n)) return RANK_NAMED;
+  // At a word boundary, not anywhere inside a word.
+  //
+  // A plain `includes` scored "hi" against MACHINE LEARNING at full rank,
+  // because "machine" contains "hi" - so typing "hi how are you" listed two
+  // subjects. Removing the subsequence path did not touch this: the letters
+  // really are adjacent and really are in there. What makes a match mean
+  // something is that it starts a word, which is how a student abbreviates or
+  // half-types a name ("comp", "learn", "algo"), and mid-word letters never
+  // are.
+  if (new RegExp("\\b" + n.replace(/[.*+?^${}()|[\\\\]]/g, "\\\\$&")).test(h)) {
+    return RANK_NAMED;
+  }
   // Initials, which work in a sentence because they cannot over-match: the
   // initials of "Computer Networks" are exactly "cn" and nothing else. Losing
   // this was the cost of the fix above - "what do i need to pass cn" is four
