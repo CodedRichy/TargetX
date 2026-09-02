@@ -1185,3 +1185,12 @@ button.link.remove-go:hover { color: var(--danger); font-weight: 600; }
   font-size: var(--text-sm);
   color: var(--text-dim);
 }
+
+/* Discarding a semester, at the foot of the Ledger.
+   Right-aligned and quiet: it is the one destructive action on a screen full
+   of editable cells, and it should be findable without competing with them. */
+.sem-remove {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--s5) var(--s5);
+}

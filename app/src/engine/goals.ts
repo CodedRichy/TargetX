@@ -89,8 +89,13 @@ export interface GoalHorizon {
 /** Solve for this semester alone, which is what the app used to do. */
 export const NO_HORIZON: GoalHorizon = { semesters: 0, credits: 0 };
 
-/** A KTU B.Tech runs S1 to S8. Semesters are countable; credits are not. */
-const PROGRAMME_SEMESTERS = 8;
+/**
+ * A KTU B.Tech runs S1 to S8. Semesters are countable; credits are not.
+ *
+ * Exported because the store needs the same number to stop the semester tab
+ * strip running past S8, and two copies of a regulation is one copy too many.
+ */
+export const PROGRAMME_SEMESTERS = 8;
 /**
  * Last-resort credits per semester, for a student with no record at all.
  *

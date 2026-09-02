@@ -135,7 +135,10 @@
   padding: var(--s1) var(--s3);
   transition: color var(--fast) var(--ease), background var(--fast) var(--ease);
 }
-.sem:hover { color: var(--text); background: var(--surface-3); }
+.sem:hover:not(:disabled) { color: var(--text); background: var(--surface-3); }
+/* The add button at S8. Present and refusing, not missing - and it must stop
+   answering the hover, or a control that does nothing still looks live. */
+.sem:disabled { cursor: default; opacity: 0.35; }
 .sem[aria-current="true"] {
   background: var(--brand-wash);
   border-color: var(--brand-deep);

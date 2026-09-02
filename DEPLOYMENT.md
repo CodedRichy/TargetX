@@ -59,6 +59,15 @@ question text and the student's course codes and titles. If you would rather
 students could not sign in at all, build from source with `VITE_CLERK_CLIENT_ID`
 left empty and the feature is absent rather than merely blocked.
 
+If you build from source against your own Worker, the hostname must also be
+added to `connect-src` in `app/src-tauri/tauri.conf.json`. The webview enforces
+that list, and a host missing from it is refused before a request is made -
+which the app cannot tell apart from a dead network, so it reports the student
+as offline. `src/state/__tests__/csp.test.ts` compares the policy against the
+URLs the frontend actually fetches, so a mismatch fails the build rather than
+shipping. Sign-in is not on that list and does not need to be: it runs in the
+native process, not the webview.
+
 ### About the portal
 
 The student's portal password is held in a local variable for the duration of

@@ -4,7 +4,8 @@ import { hasFileStore, readStateFile, stateFilePath, writeStateFile } from "./pe
 import {
   attendanceTargetGap, cgpaFromSemesters, checkAttendanceTarget, checkGpaTarget,
   courseFromCode, defaultState, evaluate, historyCredits, horizonToGraduation,
-  normaliseTargets, planForSgpa, reconcileSgpaTarget, requiredSgpaForCgpa,
+  normaliseTargets, planForSgpa, PROGRAMME_SEMESTERS, reconcileSgpaTarget,
+  requiredSgpaForCgpa,
   sameSgpa, sgpaTargetFor, statusFor, summarise, toFloat, toOptionalFloat,
 } from "../engine";
 import type { Course, HistorySource, MarkInput, SemesterHistory, Targets } from "../engine";
@@ -295,9 +296,51 @@ export function selectSemester(name: string) {
   });
 }
 
+/**
+ * The next semester that does not exist yet, or null at S8.
+ *
+ * Counting the existing ones was wrong twice over (issue #10). It ran past the
+ * programme - a B.Tech is S1 to S8, and the strip happily produced S9, S10 and
+ * upwards, none of which KTU awards - and after a removal it counted a gap it
+ * could not see: with S1 and S3 present, `length + 1` is S3, which already
+ * exists, so the button silently selected an existing semester instead of
+ * adding one. The lowest unused slot is the thing actually being asked for.
+ */
+export const nextSemester = createMemo<string | null>(() => {
+  const taken = new Set(semesterNames());
+  for (let n = 1; n <= PROGRAMME_SEMESTERS; n += 1) {
+    if (!taken.has(`S${n}`)) return `S${n}`;
+  }
+  return null;
+});
+
 export function addSemester() {
-  const next = `S${semesterNames().length + 1}`;
-  selectSemester(next);
+  const next = nextSemester();
+  if (next) selectSemester(next);
+}
+
+/**
+ * Remove a semester and everything entered against it.
+ *
+ * Refuses the last one: an app with no semester at all has no screen to show
+ * and no way back except adding one, and nothing in the UI would explain that.
+ *
+ * Published results are NOT touched. History is a separate record keyed by the
+ * same name, and it holds the university's own figure - a student clearing out
+ * a semester they mistyped is not asking to discard their S3 grade card. The
+ * confirmation says so rather than leaving it to be discovered.
+ */
+export function removeSemester(name: string) {
+  edit((s) => {
+    if (!s.semesters[name]) return;
+    if (Object.keys(s.semesters).length <= 1) return;
+    delete s.semesters[name];
+    if (s.activeSemester === name) {
+      const left = Object.keys(s.semesters)
+        .sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)));
+      s.activeSemester = left[left.length - 1]!;
+    }
+  });
 }
 
 // --- courses ---------------------------------------------------------------

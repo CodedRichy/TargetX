@@ -6,7 +6,10 @@ import {
 import type {
   AttendanceTargetGap, Course, Evaluation, Letter, RequiredEse, TypeKey,
 } from "../engine";
-import { addCourse, attendanceGaps, removeCourse, rows, updateCourse } from "../state/store";
+import {
+  activeCourses, addCourse, attendanceGaps, removeCourse, removeSemester, rows,
+  semesterNames, state, updateCourse,
+} from "../state/store";
 import { AttendanceBar } from "./charts";
 
 const dash = "–";
@@ -627,6 +630,61 @@ export function Ledger() {
           <button class="icon-btn" onClick={() => addCourse()}>+ Subject</button>
         </div>
       </Show>
+      {/* Outside the Show on purpose. The semester this is most needed on is an
+          empty one added by mistake, and the empty state renders the other
+          branch - which is where issue #10 left a student with an S9 they
+          could not get rid of and no control anywhere that would do it. */}
+      <RemoveSemester />
     </div>
+  );
+}
+
+/**
+ * Discard this semester.
+ *
+ * Kept away from the tab strip. The strip is a navigation control the student
+ * uses constantly, and putting a destructive action inside it means one stray
+ * click on the way to S3 costs a semester of marks. Down here it is reached
+ * deliberately, on the screen that shows exactly what would be lost.
+ *
+ * Two-press, matching History's row removal: the first press states the cost,
+ * the second acts. No modal - a dialog for this is heavier than the action and
+ * trains the student to dismiss dialogs.
+ */
+function RemoveSemester() {
+  const [confirming, setConfirming] = createSignal(false);
+  const count = () => activeCourses().length;
+
+  return (
+    <Show when={semesterNames().length > 1}>
+      <div class="sem-remove">
+        <Show when={confirming()} fallback={
+          <button class="link" aria-label={`Remove ${state.activeSemester}`}
+                  onClick={() => setConfirming(true)}>
+            Remove {state.activeSemester}
+          </button>
+        }>
+          <span class="confirm-inline" role="group"
+                aria-label={`Remove ${state.activeSemester}?`}>
+            {/* Names the count, because "remove S5" does not tell a student
+                whether S5 is the empty one they added by accident or the one
+                holding six subjects of entered marks. */}
+            <span class="fineprint">
+              Discard {state.activeSemester} and{" "}
+              <Show when={count() > 0} fallback={<>its empty subject list</>}>
+                its <span class="num">{count()}</span>{" "}
+                {count() === 1 ? "subject" : "subjects"}
+              </Show>
+              ? A published result for {state.activeSemester} stays in History.
+            </span>
+            <button class="link remove-go" onClick={() => {
+              removeSemester(state.activeSemester);
+              setConfirming(false);
+            }}>Remove</button>
+            <button class="link" onClick={() => setConfirming(false)}>Keep</button>
+          </span>
+        </Show>
+      </div>
+    </Show>
   );
 }

@@ -48,6 +48,36 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   regulations. Enough of them and this stops being a maybe.
 
 
+## [0.3.2] - 2026-09-02
+
+### Fixed
+
+- **Asking a question said you were offline while you were online.** The
+  question box has never worked in a released build. It was built, wired and
+  deployed, and then the application's own security policy refused the
+  connection before it was made: the list of hosts the app is allowed to reach
+  named GitHub and nothing else, so every question failed instantly and the
+  only thing the app could truthfully say was that it could not reach anything.
+
+  Signing in was unaffected and worked, because that runs outside the part of
+  the app the policy governs - which is why the two halves failed differently
+  and did not look related.
+
+  Nothing was wrong with your marks, and nothing was sent anywhere that should
+  not have been. The app was refusing to talk to its own router.
+
+  A test now compares the policy against every address the app actually
+  fetches, so a host that is missing fails the build instead of shipping.
+
+- **The semester strip stops at S8, and a semester can be removed.** Pressing
+  `+` kept going — S9, S10 and upwards, none of which KTU awards — and nothing
+  anywhere would take them back off, so one stray press was permanent. The
+  button now names the semester it would add, refuses at S8 and says why, and
+  fills a gap rather than counting past it. Removing is at the foot of the
+  Semester screen, asks once, and names how many subjects would go with it.
+  A published result stays in History either way: clearing out a semester you
+  mistyped is not a request to discard a grade card. (Issue #10.)
+
 ## [0.3.1] - 2026-09-02
 
 ### Fixed

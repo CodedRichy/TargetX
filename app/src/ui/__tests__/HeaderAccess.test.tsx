@@ -76,7 +76,26 @@ describe("the semester switcher", () => {
     const add = [...container.querySelectorAll("nav.sems button")]
       .find((b) => b.textContent === "+")!;
     expect(add).toBeTruthy();
-    expect(add.getAttribute("aria-label")).toBe("Add the next semester");
+    // Names the semester it would add rather than "the next semester": with
+    // the strip capped at S8 (issue #10) the button has two meanings, and a
+    // label that never changes cannot carry the second one.
+    expect(add.getAttribute("aria-label")).toMatch(/^Add S[1-8]$/);
+    expect((add as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("says why it is refusing once the programme is full", () => {
+    // Disabled with no accessible reason is the same dead end the issue
+    // reported, just quieter.
+    edit((s) => {
+      s.semesters = {};
+      for (let n = 1; n <= 8; n += 1) s.semesters[`S${n}`] = { courses: [] };
+      s.activeSemester = "S1";
+    });
+    const { container } = render(() => <App />);
+    const add = [...container.querySelectorAll("nav.sems button")]
+      .find((b) => b.textContent === "+")! as HTMLButtonElement;
+    expect(add.disabled).toBe(true);
+    expect(add.getAttribute("aria-label")).toContain("S1 to S8");
   });
 
   it("marks the semester in view, so the choice is not colour alone", () => {

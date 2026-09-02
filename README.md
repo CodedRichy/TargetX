@@ -182,12 +182,12 @@ calculation core. It is not part of the shipped app.
 ## Tests
 
 ```
-cd app && npm test        # 775
+cd app && npm test        # 790
 cd worker && npm test     # 75
 ```
 
-**850 tests across 69 files**, counted from a run on 2026-09-02, not estimated:
-257 engine, 232 UI, 166 state, 102 sync, 16 styles, 2 data, and 75 in the
+**865 tests across 71 files**, counted from a run on 2026-09-02, not estimated:
+257 engine, 233 UI, 180 state, 102 sync, 16 styles, 2 data, and 75 in the
 Worker.
 
 `engine/__tests__/parity.test.ts` is the load-bearing one. It replays a frozen

@@ -1,6 +1,7 @@
 import { For, Show, createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import {
-  activeCourses, addSemester, attendanceGaps, goalRequirement, hydrate, overall,
+  activeCourses, addSemester, attendanceGaps, goalRequirement, hydrate,
+  nextSemester, overall,
   selectSemester, semesterNames, setAttendanceTarget, setGoal, state, summary,
   targets,
 } from "../state/store";
@@ -870,8 +871,18 @@ export function App() {
                 <button class="sem" aria-current={state.activeSemester === name}
                         onClick={() => selectSemester(name)}>{name}</button>
               )}</For>
-              <button class="sem" title="Add the next semester"
-                      aria-label="Add the next semester" onClick={addSemester}>+</button>
+              {/* Disabled rather than hidden at S8. A control that vanishes
+                  reads as a glitch; one that is present and refuses, with a
+                  reason on hover, says the programme ended - which is the
+                  actual fact (issue #10). */}
+              <button class="sem" disabled={nextSemester() === null}
+                      title={nextSemester() === null
+                        ? "A B.Tech runs S1 to S8 — there is no S9"
+                        : `Add ${nextSemester()}`}
+                      aria-label={nextSemester() === null
+                        ? "No semester left to add — a B.Tech runs S1 to S8"
+                        : `Add ${nextSemester()}`}
+                      onClick={addSemester}>+</button>
             </nav>
           </Show>
 
