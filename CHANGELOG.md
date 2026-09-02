@@ -48,6 +48,32 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   regulations. Enough of them and this stops being a maybe.
 
 
+## [0.3.3] - 2026-09-02
+
+### Fixed
+
+- **You can actually ask a question now.** Asking was only reachable when the
+  suggestion list came back completely empty: Enter always ran whatever was
+  highlighted, and the offer to ask lived in the no-results message. But the
+  suggestions match on words like *attendance*, *marks*, *results* and *sync* -
+  the words questions are made of - so a real question nearly always produced a
+  suggestion, and that suggestion silently blocked the only route that could
+  have answered it. In practice the question box could not be reached at all.
+
+  Asking is now a row in the list, like a subject or a screen. Enter means one
+  thing: run what is highlighted. `Ctrl`+`Enter` asks whatever is highlighted,
+  if you would rather not arrow down to it.
+
+  Where TargetX can answer on its own it still does, for free and offline, and
+  that answer appears above the list without you pressing anything - so the
+  paid route is never the thing sitting under your cursor when the answer is
+  already on screen.
+
+- **Replies from the router are visible again.** "No connection" and "that is
+  all the questions for today" were rendered inside the no-results message,
+  which the change above means never appears. They would have been shown to
+  nobody.
+
 ## [0.3.2] - 2026-09-02
 
 ### Fixed

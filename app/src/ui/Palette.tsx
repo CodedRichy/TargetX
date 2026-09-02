@@ -32,11 +32,41 @@ import { morph } from "./morph";
  */
 
 interface Hit {
-  kind: "view" | "subject";
+  kind: "view" | "subject" | "ask";
   label: string;
   /** The line under the label. Engine-computed for subjects. */
   detail: string;
   go: () => void;
+}
+
+/**
+ * Words that open a question.
+ *
+ * Used to decide whether asking is the FIRST offer or the last one. Not used
+ * to decide whether asking is offered at all - that would rebuild the trap
+ * this exists to remove, just with a different gate.
+ */
+const OPENERS = new Set([
+  "am", "are", "can", "could", "did", "do", "does", "how", "if", "is", "may",
+  "should", "was", "were", "what", "when", "where", "which", "who", "why",
+  "will", "would",
+]);
+
+/**
+ * Does this read as a question rather than a search?
+ *
+ * Three signals, any of which is enough: it ends in a question mark, it opens
+ * with a question word, or it is long enough that nobody types it to filter a
+ * list. A student typing "cn" wants the subject; a student typing "what
+ * happens if I miss the series exam" does not want a subject at all.
+ */
+function readsAsQuestion(q: string): boolean {
+  const trimmed = q.trim();
+  if (trimmed === "") return false;
+  if (trimmed.endsWith("?")) return true;
+  const words = trimmed.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  if (words.length >= 5) return true;
+  return words.length > 0 && OPENERS.has(words[0]!);
 }
 
 /**
@@ -225,6 +255,55 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
       });
     }
 
+    /*
+     * Asking is a row, not a fallback.
+     *
+     * It used to be reachable only when this list came back EMPTY: Enter ran
+     * the highlighted hit whenever there was one, and the "Press Enter to ask"
+     * line lived in the no-results branch. Views match on raw words, and those
+     * words are `attendance`, `marks`, `results`, `sync` - the vocabulary every
+     * real question is made of. So a genuine question almost always produced a
+     * hit, and the hit silently disabled the only route that could answer it.
+     * The comment on `matches` predicted exactly this; it was the rule rather
+     * than the edge case.
+     *
+     * As a row the ambiguity is gone: the student can see asking is available
+     * and choose it, and Enter means one thing - run what is highlighted.
+     */
+    /*
+     * Signed in only.
+     *
+     * A signed-out student gets the nudge in the no-results branch instead, and
+     * that placement is deliberate: the account is worth mentioning at the
+     * moment the assistant would have been used, not as a standing row over a
+     * box that works perfectly well without one. Putting "Sign in" under every
+     * query would be the banner that position exists to avoid.
+     *
+     * The trap this row removes only ever applied to someone who COULD ask.
+     */
+    if (askConfigured() && signedIn()) {
+      const askRow: Hit = {
+        kind: "ask",
+        label: `Ask ${ASSISTANT}`,
+        detail: `“${q}”`,
+        // Set by the component, which owns the request and its in-flight state.
+        go: () => {},
+      };
+      // First when it reads as a question the engine could NOT answer; last
+      // otherwise. Ordering is a preference about what is most likely wanted -
+      // it never decides whether the option exists, which is the whole point of
+      // the change.
+      //
+      // `answer()` is in the condition on purpose. When the engine has already
+      // worked something out, it is on screen above this list, free, offline
+      // and derived from the student's own record. Putting a metered round trip
+      // under the cursor in front of an answer that is already displayed would
+      // bill for a question that has been answered.
+      const engineAnswered = answer() !== null;
+      if (readsAsQuestion(q) && !engineAnswered) out.unshift(askRow);
+      else out.push(askRow);
+    }
+
     return out;
   });
 
@@ -284,6 +363,10 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
 
   const run = (hit: Hit | undefined) => {
     if (!hit) return;
+    // The ask row is the one hit that does not navigate. It stays in the
+    // palette because the answer lands here, and closing on the way to it
+    // would throw away the thing the student pressed Enter for.
+    if (hit.kind === "ask") { void ask(); return; }
     hit.go();
     props.onClose();
   };
@@ -354,9 +437,17 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
       setCursor((c) => Math.max(c - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
+      // Ctrl/Cmd+Enter asks regardless of what is highlighted, so a student
+      // who wants the router never has to arrow to it.
+      if (e.ctrlKey || e.metaKey) {
+        if (!signedIn()) { void signIn(); return; }
+        void ask();
+        return;
+      }
+      // Enter means one thing now: run what is highlighted. Asking is a row in
+      // that list, so it no longer needs a rule of its own - and cannot be
+      // shut out by a match that happened to score.
       const hit = list[cursor()];
-      // The engine's answer wins whenever it has one. Enter only leaves the
-      // machine when there is nothing here to press.
       if (hit) { run(hit); return; }
       void ask();
     }
@@ -400,14 +491,22 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
             )}
           </Show>
 
+          {/* What the router said, wherever the list stands.
+              This lived inside the no-results branch, which was safe only
+              while asking REQUIRED an empty list. Now that asking is a row,
+              the list is never empty when it is offered - so leaving the
+              reply in there would have meant "No connection" and "that is all
+              the questions for today" could never be shown to anyone. */}
+          <Show when={remote()}>
+            {(said) => <p class="palette-remote">{said()}</p>}
+          </Show>
+
           <Show when={hits().length > 0} fallback={
             // An untouched box says nothing at all. "Nothing matches" is a
             // verdict on a search, and no search has happened yet - the
             // placeholder in the field is already the whole instruction.
             <Show when={query().trim() !== ""}>
               <div class="palette-empty">
-                <Show when={remote()} fallback={
-                  <>
                     <p>Nothing here matches “{query().trim()}”.</p>
                     {/* Signed out, this said nothing at all - so a student who
                         had just been shown that the box answers questions hit
@@ -433,10 +532,6 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
                         </p>
                       </Show>
                     </Show>
-                  </>
-                }>
-                  {(said) => <p>{said()}</p>}
-                </Show>
               </div>
             </Show>
           }>
@@ -445,10 +540,18 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
                 <li>
                   <button class="palette-hit" role="option"
                           aria-selected={i() === cursor()}
+                          // In flight, in both directions: a browser opening
+                          // for sign-in and a question already on its way are
+                          // both states where pressing again does nothing good.
+                          disabled={hit.kind === "ask" && asking()}
                           onMouseEnter={() => setCursor(i())}
                           onClick={() => run(hit)}>
-                    <span class="palette-kind">{hit.kind === "view" ? "View" : "Subject"}</span>
-                    <span class="palette-label">{hit.label}</span>
+                    <span class="palette-kind">
+                      {hit.kind === "view" ? "View" : hit.kind === "subject" ? "Subject" : "Ask"}
+                    </span>
+                    <span class="palette-label">
+                      {hit.kind === "ask" && asking() ? "Working it out…" : hit.label}
+                    </span>
                     <span class="palette-detail">{hit.detail}</span>
                   </button>
                 </li>

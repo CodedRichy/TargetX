@@ -13,6 +13,13 @@
  * account is for and put the button there. And still say nothing when there is
  * genuinely nothing to offer - no endpoint, or no Clerk to sign in against -
  * because a button that cannot work is the same bug wearing a coat.
+ *
+ * Signed IN, asking is a row in the results instead (see `Palette.tsx`) - it
+ * had to be, because a local hit used to swallow Enter and make the router
+ * unreachable. Signed OUT it stays exactly here, in the no-results branch,
+ * which is the position these tests defend: the account is named at the moment
+ * it would have been used and never as a standing row over a box that works
+ * without one.
  */
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -122,11 +129,14 @@ describe("nothing is offered that could not be honoured", () => {
     expect(screen.queryByRole("button", { name: /Sign in to ask/ })).toBeNull();
   });
 
-  it("offers Enter, not sign-in, once signed in", () => {
+  it("offers the ask row, not sign-in, once signed in", () => {
+    // Signed in, asking is a row in the results rather than a line of
+    // fineprint. It has to be: the fineprint only rendered when the list came
+    // back empty, and a list that is never empty made it unreachable.
     state.signed = true;
     open();
     type(UNMATCHED);
-    expect(screen.getByText(new RegExp(`Press Enter to ask ${ASSISTANT}`))).toBeTruthy();
+    expect(screen.getByRole("option", { name: new RegExp(`Ask ${ASSISTANT}`) })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Sign in to ask/ })).toBeNull();
   });
 });

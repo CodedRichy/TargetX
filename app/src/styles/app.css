@@ -1089,3 +1089,16 @@ tr.row:hover .del { opacity: 1; }
   color: var(--text-faint);
 }
 .palette-answer.definition { background: var(--surface-2); }
+
+/* The router's reply, and the row that reaches it.
+   The reply sits above the list rather than inside its empty state: asking is
+   a row now, so the list is never empty when asking is on offer. */
+.palette-remote {
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  margin: 0;
+  padding: var(--s3) var(--s5);
+}
+/* The ask row is an action, not a destination. Brand-coloured kind marker so
+   it separates from the View and Subject rows it sits among. */
+.palette-hit .palette-kind { white-space: nowrap; }

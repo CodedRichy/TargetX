@@ -7,9 +7,17 @@
  * cannot invent anything. The remote router is strictly a fallback, and the two
  * rules below are what keep it one:
  *
- *   - Enter runs the local hit when there is one, and only reaches the network
- *     when there is nothing to press. A palette that asked on every Enter would
- *     bill a metered API for answers the machine already had.
+ *   - Enter runs what is HIGHLIGHTED, and the engine's own answer keeps the
+ *     cursor off the ask row whenever it has one. A palette that asked on every
+ *     Enter would bill a metered API for answers the machine already had.
+ *
+ *     This used to read "Enter only reaches the network when there is nothing
+ *     to press", which was the rule and also the bug: views match on raw words
+ *     like `attendance` and `marks`, so a real question nearly always produced
+ *     something to press, and the thing to press silently disabled the router.
+ *     Asking is a row now. The cost discipline is unchanged and is asserted
+ *     below; what changed is that it is a preference about ORDER rather than a
+ *     gate on whether asking is reachable at all.
  *   - Nothing but the question and the course list is ever sent. Marks,
  *     attendance and CGPA stay here, which is what lets an academic tracker put
  *     a question box on top of a third-party model at all.
@@ -78,6 +86,65 @@ afterEach(() => { cleanup(); askRemote.mockReset(); });
 beforeEach(() => {
   askRemote.mockResolvedValue({
     ok: true, action: { kind: "view", view: "attendance" }, remaining: 39,
+  });
+});
+
+describe("the router cannot be shut out by a local match", () => {
+  /*
+   * The defect these exist for, reported from a real build: "i cant ask it
+   * anything because the suggestions keep coming up".
+   *
+   * Asking used to require the result list to be EMPTY - Enter ran the
+   * highlighted hit whenever there was one, and the offer to ask lived in the
+   * no-results branch. Views match on raw words, and those words are
+   * `attendance`, `marks`, `results`, `sync`: the vocabulary questions are made
+   * of. So a real question almost always produced a hit, and the hit silently
+   * disabled the only route that could have answered it.
+   */
+  it("still offers to ask when a subject and a view both matched", () => {
+    open();
+    // Matches the ML subject AND the attendance view, which is precisely the
+    // case that used to leave no way through to the router.
+    type("machine learning attendance");
+    expect(screen.getAllByRole("option").length).toBeGreaterThan(1);
+    expect(screen.getByRole("option", { name: /Ask / })).toBeTruthy();
+  });
+
+  it("quotes the question back, so the row is about what was typed", () => {
+    open();
+    type("machine learning attendance");
+    expect(screen.getByRole("option", { name: /machine learning attendance/ })).toBeTruthy();
+  });
+
+  it("asks on Ctrl+Enter whatever is highlighted", async () => {
+    open();
+    // A subject is under the cursor and plain Enter would rightly open it.
+    // This is the escape hatch for a student who wants the router anyway.
+    const input = type("machine learning");
+    fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
+    await vi.waitFor(() => expect(askRemote).toHaveBeenCalledTimes(1));
+  });
+
+  it("stays open when the router had nothing, so the reply can be read", async () => {
+    // A route CLOSES the palette - that is what routing means, and it is
+    // asserted elsewhere. A refusal has to do the opposite: the reply is the
+    // only thing the student gets, and it is rendered here.
+    askRemote.mockResolvedValue({
+      ok: false, kind: "limit",
+    });
+    const onClose = vi.fn();
+    edit((d) => { d.semesters = { S5: { courses: [] } }; d.activeSemester = "S5"; d.history = {}; });
+    addCourse();
+    updateCourse(0, ML);
+    render(() => <Palette open={true} onClose={onClose} />);
+    fireEvent.keyDown(type("zzzqqq"), { key: "Enter" });
+    await vi.waitFor(() => expect(askRemote).toHaveBeenCalled());
+    expect(onClose).not.toHaveBeenCalled();
+    // And the reply is actually on screen. It used to render only inside the
+    // no-results branch, which the ask row now prevents from ever appearing -
+    // so this line is the whole reason that block was hoisted out.
+    await vi.waitFor(() =>
+      expect(screen.getByText(/all the questions for today/)).toBeTruthy());
   });
 });
 
@@ -166,10 +233,13 @@ describe("the engine answers first", () => {
 });
 
 describe("the router is the fallback", () => {
-  it("asks only once local matching found nothing", async () => {
+  it("asks once local matching found nothing", async () => {
     open();
     const input = type("zzzqqq");
-    expect(screen.getByText(/Nothing here matches/)).toBeTruthy();
+    // Signed in, asking is the row itself, so it is the only thing here to
+    // press - which is what "nothing matched" now looks like. The old
+    // "Nothing here matches" line belongs to the signed-out branch.
+    expect(screen.getByRole("option", { name: /Ask / })).toBeTruthy();
     fireEvent.keyDown(input, { key: "Enter" });
     await vi.waitFor(() => expect(askRemote).toHaveBeenCalledTimes(1));
   });
