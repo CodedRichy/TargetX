@@ -294,7 +294,13 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
       // is what tells them apart: it spans the subjects, or there is nothing
       // for these rows to be the working for.
       if (words.length === 0) {
-        if (answer() === null) continue;
+        const said = answer();
+        // A definition is not about this student, so no subject is its
+        // working. Observed live: "what can you do" was answered correctly
+        // from the glossary and then listed all seven subjects underneath it,
+        // because an answer of any kind was being read as an answer that
+        // spans the subjects. Only a computed one does.
+        if (said === null || said.isDefinition) continue;
         score = RANK_NAMED;
       }
       if (score === 0) continue;
@@ -353,10 +359,24 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
      * The trap this row removes only ever applied to someone who COULD ask.
      */
     if (askConfigured() && signedIn()) {
+      // Named after what it would cost, when it would cost anything.
+      //
+      // Observed live: a student asked "who are you", the glossary answered it
+      // on the spot, and they pressed Enter anyway - because the ask row was
+      // the only row, so the cursor was on it. That spent a question from the
+      // daily allowance to be told something already on screen. The row stays
+      // selectable, because a second opinion is a legitimate thing to want;
+      // it just stops looking like the way to get the first one.
+      const answered = answer() !== null;
       const askRow: Hit = {
         kind: "ask",
-        label: `Ask ${ASSISTANT}`,
-        detail: `“${q}”`,
+        label: answered ? `Ask ${ASSISTANT} anyway` : `Ask ${ASSISTANT}`,
+        // Still quotes the question - a test defends that, and rightly: the
+        // row has to be about what was typed. The cost is appended, not
+        // substituted for it.
+        detail: answered
+          ? `“${q}” · uses one of today's questions`
+          : `“${q}”`,
         // Set by the component, which owns the request and its in-flight state.
         go: () => {},
       };
