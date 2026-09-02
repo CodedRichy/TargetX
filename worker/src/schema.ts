@@ -30,10 +30,47 @@ export type ViewId = (typeof VIEWS)[number];
  * record to a third party for no gain. What leaves the machine is a question
  * and a course list. The answer is computed at home.
  */
+/**
+ * The engine's verdict per subject, and the only thing about a student's
+ * standing that ever leaves the machine.
+ *
+ * Mirrors `Status` in the app's engine, which computes it from marks and
+ * attendance the model never sees. It is deliberately a verdict rather than a
+ * measurement: "SHORTAGE" says a subject needs attention, and says nothing
+ * about how far short it is, what the percentage is, or what was scored.
+ *
+ * It is here because an assistant that cannot see which subject is the
+ * problem can only give advice that fits any student, and advice that fits
+ * any student is what makes it read as a lookup table. The cost is real and
+ * is stated in PRIVACY.md rather than glossed: a verdict IS information about
+ * this student, and it is sent.
+ */
+export const STATUSES = [
+  "SAFE", "TIGHT", "PENDING", "INCOMPLETE",
+  "SHORTAGE", "DEBARRED", "FAILED", "UNREACHABLE",
+] as const;
+export type SubjectStatus = (typeof STATUSES)[number];
+
+/**
+ * The last few exchanges, so a follow-up means something.
+ *
+ * Without this every question is the student's first: "what about ML?" after
+ * a question about DAA lands on a model that has never heard of DAA. Capped
+ * hard and never persisted - it is conversation, not a record.
+ */
+export interface AskTurn {
+  question: string;
+  answer?: string;
+}
+
 export interface AskRequest {
   question: string;
-  subjects: Array<{ code: string; name: string }>;
+  subjects: Array<{ code: string; name: string; status?: SubjectStatus }>;
+  history?: AskTurn[];
 }
+
+/** How many prior exchanges are worth the tokens. */
+const MAX_HISTORY = 3;
 
 /**
  * What the assistant says, as opposed to where it sends you.
@@ -68,21 +105,67 @@ export type Action = (
 
 const REASONS = ["off_topic", "unclear", "no_match"] as const;
 
-/** Long enough for two sentences. Anything longer is not an aside. */
-const SAY_MAX = 240;
+/**
+ * Room for advice, not just for an aside.
+ *
+ * This was 240 - two sentences, set when `say` was a remark beside a route.
+ * The assistant is now asked for advice, for how to use the week before an
+ * exam, for what to do about being behind. That job does not fit in a remark,
+ * and a cap set for the old one silently truncated the new one into
+ * uselessness.
+ */
+const SAY_MAX = 600;
+
+const NUMBER_WORDS = "zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|half|quarter|dozen";
+/**
+ * Vocabulary that means "this student's record" rather than "the world".
+ *
+ * The distinction this file has to make is not between prose with numbers and
+ * prose without. It is between a quantity that is advice - "aim for two passes
+ * over the syllabus" - and a quantity that is a CLAIM ABOUT THIS STUDENT -
+ * "you are at seventy percent". The first is the assistant being useful. The
+ * second is the app stating a figure it did not compute, which is the one
+ * thing TargetX must never do.
+ *
+ * Banning every number caught both, and that was the easy rule rather than the
+ * right one: it left the assistant unable to give ordinary advice without
+ * sounding like it was dodging something.
+ */
+const RECORD_TERMS = "attendance|attended|absent|present|bunk|bunked|skip|skipped|cie|internal|internals|marks|mark|scored|scoring|score|sgpa|cgpa|gpa|grade|grades|credits|credit|percent|percentage|class|classes|lecture|lectures|period|periods|semester|sem|series|ese|endsem|exam|exams|target|condonation|eligible|eligibility|shortage|debarred";
+
+const ONE_NUMBER = new RegExp("^[^a-z0-9]*(?:" + NUMBER_WORDS + "|\\d+)[^a-z0-9]*$", "i");
+const RECORD_NEAR = new RegExp("\\b(?:" + RECORD_TERMS + ")\\b", "i");
 
 /**
- * Numbers, spelled out.
+ * Does this text state a figure about the student?
  *
- * Banning digits alone would be a rule about typography rather than about
- * claims: "you are at seventy five percent" asserts a figure exactly as much
- * as "75%" does, and a model asked not to use digits will reach for it. The
- * engine's own line, rendered directly beneath this sentence, is where every
- * figure belongs - so the assistant refers to a quantity ("your attendance")
- * and never names one.
+ * The unit is the SENTENCE, and a sentence is rejected when it contains both
+ * a quantity and a word from the student's record. Proximity was tried first
+ * and measured too narrow - "two of your subjects are short on attendance"
+ * puts seven words between the number and the record word, and it is plainly
+ * a claim. Co-occurrence inside one sentence catches it, while still allowing
+ * "aim for two passes over the syllabus - your attendance is the other thing
+ * to watch", where the quantity and the record word are in different
+ * sentences and the advice is not about a figure at all.
+ *
+ * Deliberately errs towards rejecting. A wrongly dropped sentence costs the
+ * student some warmth; a wrongly kept one costs them a figure that
+ * contradicts the engine's, printed directly underneath it.
  */
-const NUMBER_WORD =
-  /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|half|quarter|percent|percentage)\b/i;
+export function statesAFigure(text: string): boolean {
+  // Always: a percent sign, and any decimal. Neither appears in advice, and
+  // both are the shape of something that was computed.
+  if (text.includes("%")) return true;
+  if (new RegExp("\\d+\\.\\d").test(text)) return true;
+
+  for (const sentence of text.split(new RegExp("[.!?]+"))) {
+    if (!RECORD_NEAR.test(sentence)) continue;
+    if (sentence.split(new RegExp("\\s+")).some((w) => ONE_NUMBER.test(w))) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /**
  * Accept a sentence from the model, or drop it.
@@ -98,8 +181,7 @@ export function cleanSay(raw: unknown): string | undefined {
   // pad a short answer into something that looks longer.
   const text = raw.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
   if (text === "" || text.length > SAY_MAX) return undefined;
-  if (/\d/.test(text)) return undefined;
-  if (NUMBER_WORD.test(text)) return undefined;
+  if (statesAFigure(text)) return undefined;
   // A link is a place to send a student that nobody here has vetted.
   if (/:\/\/|www\./i.test(text)) return undefined;
   return text;
@@ -162,11 +244,35 @@ export function parseAskRequest(raw: unknown): AskRequest | null {
   const subjects: AskRequest["subjects"] = [];
   for (const s of o.subjects) {
     if (typeof s !== "object" || s === null) return null;
-    const { code, name } = s as Record<string, unknown>;
+    const { code, name, status } = s as Record<string, unknown>;
     if (typeof code !== "string" || typeof name !== "string") return null;
     if (code.length > 24 || name.length > 120) return null;
-    subjects.push({ code, name });
+    // An unrecognised status is dropped rather than rejected: a client from a
+    // future build sending a verdict this worker has not heard of should get
+    // an answer without one, not an error.
+    const known = typeof status === "string"
+      && (STATUSES as readonly string[]).includes(status);
+    subjects.push(known ? { code, name, status: status as SubjectStatus }
+                        : { code, name });
   }
 
-  return { question, subjects };
+  const history: AskTurn[] = [];
+  if (o.history !== undefined) {
+    if (!Array.isArray(o.history)) return null;
+    // Trimmed rather than refused: an over-long history is a client being
+    // generous, not a client being wrong.
+    for (const t of o.history.slice(-MAX_HISTORY)) {
+      if (typeof t !== "object" || t === null) return null;
+      const { question: q, answer: a } = t as Record<string, unknown>;
+      if (typeof q !== "string" || q.trim() === "" || q.length > 400) return null;
+      if (a !== undefined && (typeof a !== "string" || a.length > 600)) return null;
+      history.push(a === undefined ? { question: q } : { question: q, answer: a });
+    }
+  }
+
+  // Only when the client sent one. A request without history parses to
+  // exactly what it did before this field existed.
+  return history.length > 0
+    ? { question, subjects, history }
+    : { question, subjects };
 }

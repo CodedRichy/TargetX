@@ -249,17 +249,33 @@ describe("the router is the fallback", () => {
     fireEvent.keyDown(type("zzzqqq"), { key: "Enter" });
     await vi.waitFor(() => expect(askRemote).toHaveBeenCalled());
 
-    const [question, subjects] = askRemote.mock.calls[0] as [string, unknown[]];
+    const [question, subjects] =
+      askRemote.mock.calls[0] as [string, Array<Record<string, unknown>>];
     expect(question).toBe("zzzqqq");
-    // Asserted as an exact payload rather than as "no digits appear": a course
-    // code has digits in it, so a regex over the JSON would fail on every real
-    // subject while proving nothing. What matters is that the seeded course's
-    // 39 of 50 classes and its 38/34/9 marks are not in here, and an equality
-    // check on the whole array says that and nothing weaker.
-    expect(subjects).toEqual([
-      { code: "CST305", name: "Machine Learning" },
-      { code: "CST303", name: "Computer Networks" },
-    ]);
+    // A course code has digits in it, so a regex over the JSON would fail on
+    // every real subject while proving nothing. What matters is that the
+    // seeded course's 39 of 50 classes and its 38/34/9 marks are not in here.
+    //
+    // `status` joined this payload deliberately: it is the engine's verdict,
+    // it is what lets the assistant name which subject is the problem, and it
+    // is a member of a fixed set rather than a measurement. Asserted as an
+    // exact key list so a field carrying an actual figure cannot be added to
+    // a subject without this failing.
+    const KNOWN = ["SAFE", "TIGHT", "PENDING", "INCOMPLETE",
+                   "SHORTAGE", "DEBARRED", "FAILED", "UNREACHABLE"];
+    expect(subjects.map((s) => s.code)).toEqual(["CST305", "CST303"]);
+    expect(subjects.map((s) => s.name))
+      .toEqual(["Machine Learning", "Computer Networks"]);
+    for (const s of subjects) {
+      expect(Object.keys(s).sort()).toEqual(["code", "name", "status"]);
+      expect(KNOWN).toContain(s.status);
+    }
+    // The figures themselves, named, so this fails loudly if one ever rides
+    // along in a field nobody thought about.
+    const json = JSON.stringify(subjects);
+    for (const figure of ["39", "50", "38", "34", "78"]) {
+      expect(json).not.toContain(figure);
+    }
   });
 
   it("tells the student what happened when the router declines", async () => {

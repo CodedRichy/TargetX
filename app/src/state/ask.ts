@@ -1,5 +1,6 @@
 import { accessToken } from "./auth";
 import type { View } from "./nav";
+import type { Status } from "../engine";
 
 /**
  * The remote half of the ask box.
@@ -24,29 +25,36 @@ export type AskAction = (
   | { kind: "none"; reason: "off_topic" | "unclear" | "no_match" }
 ) & { say?: string };
 
-/** Two sentences. Matches the worker's own cap. */
-const SAY_MAX = 240;
-const NUMBER_WORD =
-  /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|half|quarter|percent|percentage)\b/i;
+/** Room for advice, not just an aside. Matches the worker's own cap. */
+const SAY_MAX = 600;
+const NUMBER_WORDS = "zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|half|quarter|dozen";
+const RECORD_TERMS = "attendance|attended|absent|present|bunk|bunked|skip|skipped|cie|internal|internals|marks|mark|scored|scoring|score|sgpa|cgpa|gpa|grade|grades|credits|credit|percent|percentage|class|classes|lecture|lectures|period|periods|semester|sem|series|ese|endsem|exam|exams|target|condonation|eligible|eligibility|shortage|debarred";
+const ONE_NUMBER = new RegExp("^[^a-z0-9]*(?:" + NUMBER_WORDS + "|\\d+)[^a-z0-9]*$", "i");
+const RECORD_NEAR = new RegExp("\\b(?:" + RECORD_TERMS + ")\\b", "i");
 
 /**
- * The same check the worker runs, run again here.
+ * A quantity about this student, as opposed to a quantity in advice.
  *
- * Not redundancy for its own sake. The worker is the layer that can be
- * redeployed without the app changing, and the app is the layer that ships to
- * a student and then stays exactly as it is for months. TargetX's whole
- * position is that it never states a number it cannot show the working for,
- * and that promise is made by the binary on their machine - so the binary is
- * where it has to be enforced, not only by a server that could be replaced.
- *
- * A sentence naming a quantity is dropped and the route survives.
+ * Same rule as the worker's `statesAFigure`, and the duplication is the
+ * point - see `cleanSay` below. Rejected per sentence: a sentence carrying
+ * both a number and a word from the student's record is making a claim about
+ * their record, and every such claim belongs to the engine.
  */
+function statesAFigure(text: string): boolean {
+  if (text.includes("%")) return true;
+  if (new RegExp("\\d+\\.\\d").test(text)) return true;
+  for (const sentence of text.split(new RegExp("[.!?]+"))) {
+    if (!RECORD_NEAR.test(sentence)) continue;
+    if (sentence.split(new RegExp("\\s+")).some((w) => ONE_NUMBER.test(w))) return true;
+  }
+  return false;
+}
+
 export function cleanSay(raw: unknown): string | undefined {
   if (typeof raw !== "string") return undefined;
   const text = raw.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
   if (text === "" || text.length > SAY_MAX) return undefined;
-  if (/\d/.test(text)) return undefined;
-  if (NUMBER_WORD.test(text)) return undefined;
+  if (statesAFigure(text)) return undefined;
   if (/:\/\/|www\./i.test(text)) return undefined;
   return text;
 }
@@ -121,10 +129,31 @@ export function parseReply(raw: unknown): AskOutcome | null {
  * still readable without an account; this one box is what an account buys, and
  * the caller says that in a sentence rather than pushing a sign-in wall.
  */
+/**
+ * A subject as the router sees it: what it is called, and the engine's verdict.
+ *
+ * The verdict and nothing else. "SHORTAGE" is enough for the assistant to name
+ * which subject to worry about, and carries no percentage, no mark and no
+ * count - so the thing that makes it useful is not the thing that would make
+ * it a disclosure of the record. PRIVACY.md states plainly that this is sent.
+ */
+export interface AskSubject {
+  code: string;
+  name: string;
+  status?: Status;
+}
+
+/** One prior exchange, so a follow-up question means something. */
+export interface AskTurn {
+  question: string;
+  answer?: string;
+}
+
 export async function askRemote(
   question: string,
-  subjects: Array<{ code: string; name: string }>,
+  subjects: AskSubject[],
   signal?: AbortSignal,
+  history: AskTurn[] = [],
 ): Promise<AskOutcome> {
   if (!askConfigured()) return { ok: false, kind: "unconfigured" };
 
@@ -141,7 +170,17 @@ export async function askRemote(
     res = await fetch(`${ENDPOINT.replace(/\/+$/, "")}/ask`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ question: q, subjects: subjects.slice(0, 60) }),
+      body: JSON.stringify({
+        question: q,
+        subjects: subjects.slice(0, 60),
+        // Last three, trimmed to the worker's caps. Conversation, never a
+        // record: this lives for as long as the palette is open and is never
+        // written to disk.
+        history: history.slice(-3).map((t) => ({
+          question: t.question.slice(0, 400),
+          ...(t.answer === undefined ? {} : { answer: t.answer.slice(0, 600) }),
+        })),
+      }),
       signal,
     });
   } catch {

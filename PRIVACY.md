@@ -19,6 +19,7 @@ code, the file is named so it can be read rather than trusted.
 | What | Where | Leaves the machine? |
 |---|---|---|
 | Your marks, attendance, credits, targets and semester history | `state.json` and up to three backups in your user application-data folder | No |
+| A one-word verdict per subject (`SAFE`, `SHORTAGE`, …) | Computed from the above, never stored | Only when you ask a question the app could not answer itself |
 | A duplicate of the same record | Browser storage inside the application | No |
 | Your college portal password | Nowhere. It is held in memory for the length of one sign-in and discarded | No |
 | Your college portal session cookie | The application's memory only, discarded when you quit | Sent only to your own college's portal |
@@ -50,20 +51,40 @@ fourth happens only if you choose to sign in.
    marks, standing and the regulations are all answered on your own machine,
    offline, and only a phrasing the app does not recognise is forwarded.
 
-   **What is sent:** your question, and the code and title of the subjects you
-   are registered for — the course list, so the question can be matched to a
-   subject.
+   **What is sent:** your question; the code and title of the subjects you are
+   registered for; a one-word verdict on each of those subjects; and the last
+   three questions you asked in the same session, so a follow-up like "what
+   about ML?" means something.
 
-   **What is not sent:** marks, attendance, CGPA, your name, your register
-   number, your password. None of it. See `app/src/state/ask.ts`, which is the
-   only file that decides what goes into that request.
+   **The verdict needs stating plainly, because it is information about you.**
+   It is one word from a fixed list — `SAFE`, `TIGHT`, `PENDING`, `SHORTAGE`,
+   `DEBARRED`, `FAILED`, `UNREACHABLE`, `INCOMPLETE` — computed on your machine
+   by the app. `SHORTAGE` says a subject needs attention. It does not say what
+   your attendance is, how many classes you have missed, or how far below the
+   line you are, because those numbers are never sent. It is there because an
+   assistant that cannot see which subject is the problem can only give advice
+   that would fit anybody.
 
-   **What comes back is not an answer.** It is a destination: one of five
-   screens, or one of the subjects you sent. The reply is parsed into a fixed
-   type before the app acts on it, and anything outside that type — including a
-   subject code you did not send — is rejected. There is no field in it that
-   could carry a figure about you, so the model cannot state one even if asked
-   to. See `worker/src/schema.ts`.
+   **What is not sent:** marks, attendance percentages, counts of classes,
+   CGPA, SGPA, grades, your name, your register number, your password. None of
+   it. See `app/src/state/ask.ts`, which is the only file that decides what
+   goes into that request, and `app/src/state/ask.test.ts`, which fails if
+   anything else is ever added to it.
+
+   **The conversation is not a record.** Those three previous questions live in
+   memory for as long as the question box is open. Closing it discards them.
+   They are never written to disk and never sent anywhere else.
+
+   **What comes back is a destination, and at most a sentence.** The
+   destination is one of five screens or one of the subjects you sent, parsed
+   into a fixed type before the app acts on it; anything outside that type,
+   including a subject code you did not send, is rejected. The sentence is the
+   assistant's own words, and it may never contain a figure about you: any
+   sentence carrying a quantity alongside a word from your record is thrown
+   away before you see it. That check runs twice — once on the server and once
+   inside the app on your machine, so it holds even if the server is changed.
+   Every number you see is computed by the app from your own records. See
+   `worker/src/schema.ts` and `cleanSay` in `app/src/state/ask.ts`.
 
    **What is logged:** the question text, the outcome, how many subjects were
    sent, and how long it took — so the app can learn which phrasings it failed
@@ -72,8 +93,8 @@ fourth happens only if you choose to sign in.
    record of what people ask rather than a record of what a named student asks.
    See `worker/src/log.ts`.
 
-Your marks are never sent anywhere, by anyone, for any reason. There is no
-endpoint that would receive them.
+Your marks, your attendance figures and your CGPA are never sent anywhere, by
+anyone, for any reason. There is no endpoint that would receive them.
 
 ## Your password
 

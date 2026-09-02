@@ -14,7 +14,7 @@ describe("the app does not trust the worker to have checked", () => {
   it.each([
     "You are at 78% in that subject.",
     "You can miss three more classes.",
-    "About half of them are gone.",
+    "About half your attendance marks are gone.",
     "See https://example.com.",
   ])("drops %j even though the worker should have", (say) => {
     expect(cleanSay(say)).toBeUndefined();

@@ -102,19 +102,74 @@ describe("askRemote", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("sends only the question and the course list - never a figure", async () => {
+  it("sends the question, the course list and a verdict - never a figure", async () => {
     const f = reply({ action: { kind: "view", view: "ledger" }, remaining: 9 });
     vi.stubGlobal("fetch", f);
     const { askRemote } = await load(ENDPOINT, "tok");
-    await askRemote("where are my marks", [{ code: "CST301", name: "Formal Languages" }]);
+    await askRemote("where are my marks",
+      [{ code: "CST301", name: "Formal Languages", status: "SHORTAGE" }]);
 
     const { url, init, body } = sent(f);
     expect(url).toBe(`${ENDPOINT}/ask`);
     expect((init.headers as Record<string, string>).authorization).toBe("Bearer tok");
     // The exact shape matters: anything extra here is an academic record
-    // leaving the machine.
-    expect(Object.keys(body).sort()).toEqual(["question", "subjects"]);
-    expect(body.subjects).toEqual([{ code: "CST301", name: "Formal Languages" }]);
+    // leaving the machine. `status` was added deliberately and is the ONLY
+    // thing about the student's standing that goes - an assistant that cannot
+    // see which subject is the problem can only give advice that fits any
+    // student. It is a verdict, and a verdict carries no measurement.
+    expect(Object.keys(body).sort()).toEqual(["history", "question", "subjects"]);
+    expect(body.subjects).toEqual([
+      { code: "CST301", name: "Formal Languages", status: "SHORTAGE" },
+    ]);
+  });
+
+  it("sends no figure inside the verdict, whatever the engine computed", async () => {
+    // The guard that matters: `status` must stay a member of a fixed set. A
+    // future refactor that let a percentage or a mark ride along in this
+    // field would break the privacy claim without breaking a type.
+    const f = reply({ action: { kind: "view", view: "home" } });
+    vi.stubGlobal("fetch", f);
+    const { askRemote } = await load(ENDPOINT, "tok");
+    await askRemote("how am i doing", [
+      { code: "CST301", name: "Formal Languages", status: "SHORTAGE" },
+      { code: "CST302", name: "Graph Theory", status: "SAFE" },
+    ]);
+    const subjects = sent(f).body.subjects as Array<Record<string, unknown>>;
+    // Course codes have always contained digits; that is a name, not a
+    // figure. What must hold is that a subject carries nothing BUT its
+    // identity and a verdict from a fixed set.
+    const KNOWN = ["SAFE", "TIGHT", "PENDING", "INCOMPLETE",
+                   "SHORTAGE", "DEBARRED", "FAILED", "UNREACHABLE"];
+    for (const s of subjects) {
+      expect(Object.keys(s).sort()).toEqual(["code", "name", "status"]);
+      expect(KNOWN).toContain(s.status);
+      expect(String(s.status)).not.toMatch(/[0-9]/);
+    }
+  });
+
+  it("carries the last few exchanges so a follow-up means something", async () => {
+    const f = reply({ action: { kind: "none", reason: "no_match" } });
+    vi.stubGlobal("fetch", f);
+    const { askRemote } = await load(ENDPOINT, "tok");
+    await askRemote("what about ML", [], undefined, [
+      { question: "how is daa", answer: "It is the one to watch." },
+      { question: "why", answer: "Attendance." },
+    ]);
+    expect(sent(f).body.history).toEqual([
+      { question: "how is daa", answer: "It is the one to watch." },
+      { question: "why", answer: "Attendance." },
+    ]);
+  });
+
+  it("keeps only the last three exchanges", async () => {
+    const f = reply({ action: { kind: "none", reason: "no_match" } });
+    vi.stubGlobal("fetch", f);
+    const { askRemote } = await load(ENDPOINT, "tok");
+    await askRemote("and now", [], undefined,
+      [1, 2, 3, 4, 5].map((n) => ({ question: `q${n}` })));
+    expect(sent(f).body.history).toEqual([
+      { question: "q3" }, { question: "q4" }, { question: "q5" },
+    ]);
   });
 
   it("trims a question to the worker's cap instead of being rejected at the edge", async () => {

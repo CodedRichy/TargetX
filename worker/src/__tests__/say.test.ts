@@ -16,30 +16,55 @@ import { cleanSay, parseAction } from "../schema";
 
 const CODES = new Set(["CST305"]);
 
-describe("a sentence may not name a quantity", () => {
+describe("a quantity about the student is a claim; a quantity in advice is not", () => {
   it.each([
     "You are at 78% in that subject.",
     "You can miss 3 more classes.",
     "Your CGPA is 8.2.",
-  ])("drops %j for its digits", (text) => {
+    "You are at seventy five percent there.",
+    "You can miss three more classes before it costs you.",
+    "About half your attendance marks are gone.",
+    "That subject is down to sixty percent.",
+    "You need forty marks in the final.",
+    "Two of your subjects are short on attendance.",
+  ])("drops %j - it states a figure about this student", (text) => {
+    // The engine prints the real number directly underneath this sentence.
+    // A figure from the model is at best redundant and at worst a
+    // contradiction the student has to resolve.
     expect(cleanSay(text)).toBeUndefined();
   });
 
   it.each([
-    "You are at seventy five percent there.",
-    "You can miss three more before it costs you.",
-    "About half your attendance marks are gone.",
-    "That subject is down to sixty percent.",
-  ])("drops %j for spelling the number out", (text) => {
-    // Banning digits alone would be a rule about typography. "Seventy five
-    // percent" asserts a figure exactly as much as "75%", and a model told
-    // not to use digits will reach for it.
-    expect(cleanSay(text)).toBeUndefined();
+    "Aim for two passes over the syllabus rather than one slow read.",
+    "Most people find the first three chapters carry the rest.",
+    "Give it thirty minutes a day and it stops being frightening.",
+    "Start with whatever is closest to a deadline.",
+    "Try working problems rather than reading them.",
+  ])("keeps %j - it is advice, not a claim about them", (text) => {
+    // Banning every number caught both cases, and that was the easy rule
+    // rather than the right one: it left the assistant unable to give
+    // ordinary advice without sounding like it was dodging something.
+    expect(cleanSay(text)).toBe(text);
+  });
+
+  it("rejects a decimal anywhere, because advice does not have decimals", () => {
+    expect(cleanSay("Try for 7.5 hours a week.")).toBeUndefined();
+  });
+
+  it("rejects a percent sign anywhere", () => {
+    expect(cleanSay("Even 10% more effort compounds.")).toBeUndefined();
   });
 
   it("keeps a sentence that refers to a quantity without naming one", () => {
     const text = "Your attendance in that subject is the thing to watch.";
     expect(cleanSay(text)).toBe(text);
+  });
+
+  it("catches a number separated from the record word by a few words", () => {
+    // Proximity is the whole mechanism, so the reach is asserted rather than
+    // left to whatever the constant happens to be.
+    expect(cleanSay("You have three of them left in that class."))
+      .toBeUndefined();
   });
 });
 
@@ -49,9 +74,9 @@ describe("what else it may not do", () => {
     expect(cleanSay("Check www.ktu.edu.in.")).toBeUndefined();
   });
 
-  it("drops anything past two sentences' worth", () => {
-    expect(cleanSay("a".repeat(241))).toBeUndefined();
-    expect(cleanSay("a".repeat(240))).toBe("a".repeat(240));
+  it("drops anything past what advice needs", () => {
+    expect(cleanSay("a".repeat(601))).toBeUndefined();
+    expect(cleanSay("a".repeat(600))).toBe("a".repeat(600));
   });
 
   it("flattens control characters and padding rather than rejecting them", () => {

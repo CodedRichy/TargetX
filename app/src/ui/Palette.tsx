@@ -4,6 +4,7 @@ import { rows } from "../state/store";
 import { VIEWS, setView } from "../state/nav";
 import type { View } from "../state/nav";
 import { askConfigured, askRemote } from "../state/ask";
+import type { AskTurn } from "../state/ask";
 import { ASSISTANT, answerFor, defineFor, detectTopic } from "../state/answers";
 import { trace } from "../state/trace";
 import type { Topic } from "../state/answers";
@@ -182,6 +183,8 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
   const [remote, setRemote] = createSignal<string | null>(null);
   let input: HTMLInputElement | undefined;
   let inflight: AbortController | undefined;
+  /** The exchange so far, for as long as the palette is open. */
+  let turns: AskTurn[] = [];
   let shell: HTMLDivElement | undefined;
   let scrim: HTMLDivElement | undefined;
 
@@ -492,7 +495,10 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
       const out = await askRemote(q, rows().map((r) => ({
         code: r.course.code ?? "",
         name: courseLabel(r.course),
-      })), ctl.signal);
+        // The engine's verdict, so the assistant can name which subject is
+        // the problem. A verdict, never a figure - see `AskSubject`.
+        status: r.status,
+      })), ctl.signal, turns);
 
       if (!out.ok) {
         trace("router refused", out.kind);
@@ -508,6 +514,12 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
 
       const a = out.action;
       trace("router said", JSON.stringify(a));
+      // Kept so "what about ML?" after a question about DAA lands on a model
+      // that has heard of DAA. A plain array, not a signal and not persisted:
+      // it is conversation for as long as the box is open, and the box being
+      // closed is the student ending the conversation.
+      turns.push({ question: q, ...(a.say ? { answer: a.say } : {}) });
+      if (turns.length > 3) turns.shift();
 
       /*
        * A sentence keeps the palette open; a bare route does not.
@@ -553,7 +565,16 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
 
   const onKey = (e: KeyboardEvent) => {
     const list = hits();
-    if (e.key === "Escape") { e.preventDefault(); props.onClose(); return; }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      // Closing the box ends the conversation. A student who comes back an
+      // hour later is asking something new, and carrying the old thread into
+      // it would make the assistant answer a question they have forgotten
+      // asking.
+      turns = [];
+      props.onClose();
+      return;
+    }
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setCursor((c) => Math.min(c + 1, Math.max(0, list.length - 1)));
