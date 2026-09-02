@@ -16,7 +16,10 @@ import {
   normaliseGrade, toFloat, verifyCredits,
 } from "../engine";
 import type { Course, DaywiseAttendance, SemesterHistory, Timetable, TypeKey } from "../engine";
-import { parseDaywiseAttendance, parseTimetable } from "./etlab-schedule";
+import {
+  describeMonthControls, parseDaywiseAttendance, parseTimetable,
+} from "./etlab-schedule";
+import type { MonthControl } from "./etlab-schedule";
 
 export class EtlabError extends Error {
   /**
@@ -628,6 +631,23 @@ export async function fetchSubjectTypes(): Promise<Record<string, TypeKey>> {
  * that finds no days, or a transport error must not surface as a sync failure,
  * because the academic record has already synced by the time this runs.
  */
+/**
+ * What the attendance page offers for changing month, from the last fetch.
+ *
+ * Issue #13 is closed as far as keeping months goes, but one question behind
+ * it is open: can a PAST month be asked for, or does the portal only ever
+ * serve the current one? Guessing parameter names at a college's server is the
+ * wrong way to find out - if the page can show another month, the control that
+ * does it is already in the HTML the sync just fetched. So it is read from
+ * there, on a page that was going to be fetched anyway, with no extra request.
+ *
+ * Set on every attendance fetch and never cleared to null by one that failed,
+ * matching the rule the schedule pages already follow.
+ */
+let lastMonthControls: MonthControl[] | null = null;
+
+export const monthControls = (): MonthControl[] | null => lastMonthControls;
+
 export async function fetchDaywiseAttendance(): Promise<DaywiseAttendance | null> {
   const links = await discoverLinks().catch(() => ({} as Record<string, string>));
   const paths = [...(links["attendance"] ? [links["attendance"]] : []), ...ATTENDANCE_PATHS];
@@ -636,7 +656,10 @@ export async function fetchDaywiseAttendance(): Promise<DaywiseAttendance | null
       const response = await get(path);
       if (response.status >= 400) continue;
       const parsed = parseDaywiseAttendance(response.body);
-      if (parsed.length) return parsed;
+      if (parsed.length) {
+        lastMonthControls = describeMonthControls(response.body);
+        return parsed;
+      }
     } catch { /* bonus page; never fatal to a sync */ }
   }
   return null;
@@ -708,6 +731,8 @@ export interface SyncResult {
    * any failure, so a 404 or an unreadable page here never touches the record.
    */
   daywiseAttendance?: DaywiseAttendance | null;
+  /** What the attendance page offers for changing month. See `monthControls`. */
+  monthControls?: MonthControl[] | null;
   timetable?: Timetable | null;
 }
 
@@ -839,6 +864,8 @@ export async function fullSync(
   // academic record above stands whatever these do.
   try { result.daywiseAttendance = await fetchDaywiseAttendance(); }
   catch { result.daywiseAttendance = null; }
+  // Read off the page the line above already fetched, so it costs no request.
+  result.monthControls = monthControls();
   try { result.timetable = await fetchTimetable(); }
   catch { result.timetable = null; }
 

@@ -65,6 +65,7 @@ export function Data() {
         <PasteImport />
         <GradeCardImport />
         <PortalCheck />
+        <MonthReach />
       </div>
 
       <h3 class="group-head">This app &amp; your data</h3>
@@ -509,6 +510,65 @@ function Catalogue() {
  * ability to ask the OS to launch things is a poor trade for saving one
  * window.
  */
+/**
+ * What the portal offers for changing month (issue #13).
+ *
+ * The month archive can only accumulate forward, and whether it could reach
+ * back for a September the app was not running for depends on whether the
+ * portal serves a past month at all. The last sync read the page's own
+ * navigation off the HTML it already had; this shows what it found, so the
+ * question can be answered from a real portal instead of guessed at.
+ *
+ * Shown only once a sync has actually looked. Before that there is nothing to
+ * report and a card saying so is noise on a screen that already has plenty.
+ */
+function MonthReach() {
+  const [copied, setCopied] = createSignal(false);
+  const found = () => state.monthControls ?? [];
+  const reachable = () => found().some((c) => c.kind !== "none");
+  const report = () => found().map((c) => `${c.kind}: ${c.detail}`).join("\n");
+
+  return (
+    <Show when={found().length > 0}>
+      <section class="card">
+        <h3>Can TargetX show you past months?</h3>
+        <p class="lede">
+          TargetX keeps every month it syncs, but the portal serves one month at
+          a time - so months from before you installed it are only reachable if
+          the portal will hand them over on request.
+        </p>
+
+        <p class="fineprint">
+          <Show when={reachable()} fallback={
+            <>The last sync found <strong>no control on the attendance page
+            that names a month or a year</strong>. If that holds, the portal
+            only ever serves the current month and TargetX cannot reach back -
+            it can only keep what it sees from now on.</>
+          }>
+            The last sync found a control that names a month. That is the thing
+            past months would be fetched through, so backfilling the rest of
+            your semester is likely possible.
+          </Show>
+        </p>
+
+        <details class="diagnostic" open>
+          <summary>What it found — safe to send, no marks or attendance in it</summary>
+          <p class="lede">
+            Element and attribute names read off the page, nothing from the
+            table itself. No subject, no day, no mark, no attendance. Nothing
+            was uploaded anywhere; the page was read during your own sync.
+          </p>
+          <pre class="num">{report()}</pre>
+          <button type="button" class="link" onClick={() => {
+            void navigator.clipboard?.writeText(report());
+            setCopied(true);
+          }}>{copied() ? "Copied" : "Copy"}</button>
+        </details>
+      </section>
+    </Show>
+  );
+}
+
 function About() {
   const [dir] = createResource(logDir);
 

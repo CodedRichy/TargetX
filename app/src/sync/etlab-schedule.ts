@@ -312,3 +312,82 @@ export function parseTimetable(html: string): Timetable {
   }
   return { grid, substitutions: parseSubstitutions(html) };
 }
+
+/* --- can a past month be asked for? (issue #13) ---------------------------- */
+
+/**
+ * Describe whatever control the attendance page has for changing month.
+ *
+ * The archive added in 0.4.0 keeps every month TargetX syncs, but it can only
+ * accumulate forward - it cannot reach back for a September the app was not
+ * running for. Whether it could depends on one fact nobody has checked: does
+ * the portal serve a past month on request?
+ *
+ * The honest way to find out is to read the page's own navigation rather than
+ * guess parameter names at a college's server. If the page can show another
+ * month, it must contain the control that does it - a select, a form field, or
+ * a link. So this looks for exactly that and reports the shape.
+ *
+ * Everything it returns is structure: element names, attribute names, and the
+ * hrefs of month-ish links with every digit left in ONLY where it is part of a
+ * query key or path segment that names a month. No table content, no marks, no
+ * attendance, no name, no register number - the report is meant to be readable
+ * out loud to someone helping, which the page itself never is.
+ */
+export interface MonthControl {
+  /** `select`, `link`, `form-field`, or `none`. */
+  kind: "select" | "link" | "form-field" | "none";
+  /** What to say about it, already safe to share. */
+  detail: string;
+}
+
+const MONTH_WORDS =
+  "january|february|march|april|may|june|july|august|september|october|november|december";
+
+/** A name or id that looks like it selects a month or a year. */
+const MONTHISH = /(^|[^a-z])(month|mon|mnth|year|yr|period|date|from|to)([^a-z]|$)/i;
+
+export function describeMonthControls(html: string): MonthControl[] {
+  const found: MonthControl[] = [];
+
+  // A <select> whose name looks like a month, or whose options are month names.
+  const selects = html.match(/<select\b[\s\S]*?<\/select>/gi) ?? [];
+  for (const select of selects) {
+    const name = /\b(?:name|id)\s*=\s*["']([^"']+)["']/i.exec(select)?.[1] ?? "";
+    const optionCount = (select.match(/<option\b/gi) ?? []).length;
+    const namesMonths = new RegExp(MONTH_WORDS, "i").test(select);
+    if (MONTHISH.test(name) || namesMonths) {
+      found.push({
+        kind: "select",
+        detail: `<select name="${name || "(unnamed)"}"> with ${optionCount} options`
+          + (namesMonths ? ", options are month names" : ""),
+      });
+    }
+  }
+
+  // A link carrying a month in its query or path.
+  const hrefs = [...html.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi)]
+    .map((m) => m[1]!)
+    .filter((href) => MONTHISH.test(href) || new RegExp(MONTH_WORDS, "i").test(href));
+  for (const href of [...new Set(hrefs)].slice(0, 6)) {
+    found.push({ kind: "link", detail: href });
+  }
+
+  // A form input that would post a month.
+  const inputs = [...html.matchAll(/<input\b[^>]*>/gi)].map((m) => m[0]);
+  for (const input of inputs) {
+    const name = /\bname\s*=\s*["']([^"']+)["']/i.exec(input)?.[1] ?? "";
+    const type = /\btype\s*=\s*["']([^"']+)["']/i.exec(input)?.[1] ?? "text";
+    if (name && MONTHISH.test(name)) {
+      found.push({ kind: "form-field", detail: `<input type="${type}" name="${name}">` });
+    }
+  }
+
+  if (found.length === 0) {
+    found.push({
+      kind: "none",
+      detail: "no select, link or field on the page names a month or a year",
+    });
+  }
+  return found;
+}

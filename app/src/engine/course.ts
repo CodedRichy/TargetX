@@ -136,6 +136,18 @@ export interface AppState {
    * most recent pull, so a record written by an older build still opens.
    */
   daywiseMonths?: DaywiseArchive;
+  /**
+   * What the portal's attendance page offers for changing month, as seen by
+   * the last sync that read the page.
+   *
+   * Not a feature: an open question, written down. The archive above can only
+   * accumulate forward, and whether it could reach back depends on whether the
+   * portal serves a past month at all. Rather than guess parameter names at a
+   * college's server, the page's own navigation is read off the HTML the sync
+   * already fetched. Structure only - element and attribute names - so what is
+   * stored, shown and pasted carries no record in it.
+   */
+  monthControls?: { kind: string; detail: string }[] | null;
   /** The weekly timetable and its substitutions, as last synced. See above. */
   timetable?: Timetable | null;
 }

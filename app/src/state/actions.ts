@@ -87,6 +87,7 @@ export function applySync(result: SyncResult) {
       s.daywiseMonths = fileMonth(s.daywiseMonths ?? {}, result.daywiseAttendance);
     }
     if (result.timetable) s.timetable = result.timetable;
+    if (result.monthControls) s.monthControls = result.monthControls;
 
     // The diff runs against the freshly-merged state, not against `result`:
     // history precedence may have rejected an incoming SGPA, and only what
