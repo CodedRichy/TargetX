@@ -160,7 +160,7 @@ function longestAlias(q: string, pool: Term[]): Term | null {
 const HOWTO = [
   /\bhow (?:do|can|does|often)\b/, /\bcan i\b/, /\bwhere (?:is|are|do|does)\b/,
   /\bwhat can\b/, /\bis my\b/, /\bare my\b/, /\bwhat (?:is|are|does|do)\b/,
-  /\bwhats\b/,
+  /\bwhats\b/, /\bwho (?:are|is|r)\b/,
 ];
 
 export function lookupCapability(query: string): Term | null {
@@ -182,7 +182,33 @@ export function lookupCapability(query: string): Term | null {
  * claim. Neither is computed from the student's record, and both are things
  * TargetX can state because they are true of TargetX, not of them.
  */
+/**
+ * What the assistant is called.
+ *
+ * It needed a name because it now says things rather than only opening screens,
+ * and an answer that appears with no attribution reads as the app asserting a
+ * fact rather than as something having worked it out.
+ *
+ * Tex is already inside TargetX, which is why it does not need explaining, and
+ * it is one syllable so it fits a button label without being shortened again.
+ * Every user-facing use of the name reads this constant - renaming it is a one
+ * line change, and no string anywhere spells it out.
+ */
+export const ASSISTANT = "Tex";
+
 export const CAPABILITIES: Term[] = [
+  {
+    // First in the list, and the first thing anybody asks it. Observed live: a
+    // student typed "who are you", then "what are you?", and both went out to
+    // the router - which refused the second as off-topic. The assistant could
+    // not say what it was. Answered here because it is a fact about this app,
+    // needs no network, and costs nothing from the daily allowance.
+    name: ASSISTANT,
+    aliases: ["who are you", "what are you", "who r u", "what r u",
+              "who you are", "your name", "who is tex", "what is tex",
+              "who am i talking to"],
+    body: `The assistant inside TargetX. Ask about your attendance, internal marks, what a subject still needs in the final, or what a KTU term means, and the answer is computed on this machine from your own records - no figure here is guessed or written by a model. Questions it cannot work out locally go to a small router that only ever replies with which screen to open, never with a number.`,
+  },
   {
     name: "What TargetX does",
     aliases: ["targetx", "this app", "the app", "it do", "you do", "tex"],

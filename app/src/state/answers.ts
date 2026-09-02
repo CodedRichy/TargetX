@@ -2,21 +2,12 @@ import { absenceCost, courseLabel, freeSkips, requiredEseCell } from "../engine"
 import type { Course, Evaluation } from "../engine";
 import { goalPlan, goalRequirement, overall, rows, state, summary, targets } from "./store";
 import type { View } from "./nav";
-import { lookupCapability, lookupTerm } from "./glossary";
+import { ASSISTANT, lookupCapability, lookupTerm } from "./glossary";
 
-/**
- * What the assistant is called.
- *
- * It needed a name because it now says things rather than only opening screens,
- * and an answer that appears with no attribution reads as the app asserting a
- * fact rather than as something having worked it out.
- *
- * Tex is already inside TargetX, which is why it does not need explaining, and
- * it is one syllable so it fits a button label without being shortened again.
- * Every user-facing use of the name reads this constant - renaming it is a one
- * line change, and no string anywhere spells it out.
- */
-export const ASSISTANT = "Tex";
+// Defined in ./glossary, which needs it for the term that answers "who are
+// you" and cannot import it back from here without a cycle. Re-exported
+// because this module is where every caller reads it from.
+export { ASSISTANT } from "./glossary";
 
 /**
  * Answers, computed here, said in the box.

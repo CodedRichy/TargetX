@@ -61,6 +61,25 @@ const OPENERS = new Set([
  * list. A student typing "cn" wants the subject; a student typing "what
  * happens if I miss the series exam" does not want a subject at all.
  */
+/**
+ * Things a student says to a person, not to a search box.
+ *
+ * Observed live: "hi" put History at the top of the list with the cursor on
+ * it, because "hi" is a substring of "History" - a perfectly good match to a
+ * word nobody was searching for. Enter then navigated. A greeting has no
+ * result; it has a reply, so it goes to the one row that can give one.
+ */
+const GREETINGS = new Set([
+  "hi", "hey", "hello", "yo", "hii", "hiii", "helo", "hlo", "sup",
+  "thanks", "thank", "ty", "ok", "okay", "test", "testing",
+]);
+
+function isGreeting(q: string): boolean {
+  const words = q.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  return words.length > 0 && words.length <= 2
+    && words.every((w) => GREETINGS.has(w));
+}
+
 function readsAsQuestion(q: string): boolean {
   const trimmed = q.trim();
   if (trimmed === "") return false;
@@ -249,9 +268,36 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
       });
     }
 
+    /*
+     * Subject rows, ranked and then culled.
+     *
+     * Observed live: typing "hi" listed MACHINE LEARNING, because h and i
+     * appear in that order somewhere inside "machine". A subject matched by
+     * scattered letters is noise next to one matched by its actual name, and
+     * it was pushing the row the student wanted further down a list they were
+     * already complaining was in the way. Scattered matches are kept only
+     * when nothing matched properly - there, a weak row still beats no row.
+     */
+    const scored: { hit: Hit; score: number }[] = [];
     for (const row of rows()) {
       const label = courseLabel(row.course);
-      if (!anyTerm(label) && !anyTerm(row.course.code ?? "")) continue;
+      let score = 0;
+      for (const w of words) {
+        score = Math.max(score, rank(label, w, loose),
+                                rank(row.course.code ?? "", w, loose));
+      }
+      // Nothing nameable left after the stop list means one of two things,
+      // and they are opposites. "How many can I miss" is a question about
+      // every subject, so every subject answers it. "What are you?" is a
+      // question about none of them - and it listed all seven, observed live,
+      // because both cases arrive here looking identical. The engine's answer
+      // is what tells them apart: it spans the subjects, or there is nothing
+      // for these rows to be the working for.
+      if (words.length === 0) {
+        if (answer() === null) continue;
+        score = RANK_NAMED;
+      }
+      if (score === 0) continue;
       // Only facts the engine already settled. A subject with no attendance on
       // record says so rather than being given a percentage.
       const att = row.ev.attendance;
@@ -272,11 +318,13 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
       const detail = att === null
         ? "attendance not recorded"
         : `${budget === null ? "" : budget + " · "}${att.toFixed(0)}% · CIE ${row.ev.cie} of ${row.ev.cieMax}`;
-      out.push({
-        kind: "subject", label, detail,
-        go: () => setView("ledger"),
+      scored.push({
+        hit: { kind: "subject", label, detail, go: () => setView("ledger") },
+        score,
       });
     }
+    const strongest = scored.reduce((m, r) => Math.max(m, r.score), 0);
+    for (const r of scored) if (r.score === strongest) out.push(r.hit);
 
     /*
      * Asking is a row, not a fallback.
