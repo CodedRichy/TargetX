@@ -333,6 +333,15 @@ export type AttendanceStatus =
   | "dutyleave" | "leave" | "od" | "duty";
 
 export interface DaywisePeriod {
+  /**
+   * What was taught, when the portal says so.
+   *
+   * It rides in the hover text of each cell and was discarded on every sync.
+   * It is the only field here that says what a student MISSED rather than
+   * that they missed something, and it cannot be recovered later - the page
+   * shows one month, and last month's topics go with it.
+   */
+  topic?: string;
   status: AttendanceStatus;
   /** Subject code + name, or null for an empty / holiday period. */
   subject: string | null;
@@ -340,6 +349,15 @@ export interface DaywisePeriod {
 
 /** One day: its label (`1st`, `2nd`, ...) and its period-by-period statuses. */
 export interface DaywiseDay {
+  /**
+   * The day this row is, as `YYYY-MM-DD`.
+   *
+   * The portal prints "1st", "6th" and no month, so two months of attendance
+   * were indistinguishable once stored - and a record that cannot tell
+   * September from October cannot be stacked or compared. Optional because a
+   * row whose label is not a day of the month has no date to give.
+   */
+  date?: string;
   label: string;
   periods: DaywisePeriod[];
 }

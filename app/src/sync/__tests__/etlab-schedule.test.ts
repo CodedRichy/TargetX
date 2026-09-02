@@ -210,3 +210,47 @@ describe("parseTimetable", () => {
     expect(parsed.substitutions).toEqual([]);
   });
 });
+
+describe("the day-wise grid is dated, so two months can be told apart", () => {
+  const GRID = `
+    <h3>Attendance for September 2026</h3>
+    <table id="itsthetable"><tbody>
+      <tr><th>1st</th>
+        <td class="present"><a href="#">CST305 MACHINE LEARNING<span>Gradient descent</span></a></td>
+        <td class="absent"><a href="#">CST303 COMPUTER NETWORKS<span>Routing</span></a></td>
+      </tr>
+      <tr><th>2nd</th><td class="holiday" colspan="2"></td></tr>
+    </tbody></table>`;
+
+  it("stamps each row with a real date instead of an ordinal", () => {
+    // "1st" and "6th" carry no month, so a stored grid could not be told from
+    // the next month's - which makes it impossible to stack, compare or trust.
+    const days = parseDaywiseAttendance(GRID);
+    expect(days[0]!.date).toBe("2026-09-01");
+    expect(days[1]!.date).toBe("2026-09-02");
+    // The label is kept as printed: it is what the portal shows, and the UI
+    // renders the student's own page back to them.
+    expect(days[0]!.label).toBe("1st");
+  });
+
+  it("keeps the topic that was taught, which was being thrown away", () => {
+    const days = parseDaywiseAttendance(GRID);
+    expect(days[0]!.periods[0]!.topic).toBe("Gradient descent");
+    expect(days[0]!.periods[0]!.subject).toBe("CST305 MACHINE LEARNING");
+    // A colspanned holiday is not a period with a topic.
+    expect(days[1]!.periods[0]!.topic).toBeUndefined();
+  });
+
+  it("falls back to the clock when the page names no month", () => {
+    // Wrong far less often than stamping nothing, and a grid with no anchor
+    // cannot be stored at all.
+    const bare = GRID.replace("<h3>Attendance for September 2026</h3>", "");
+    const days = parseDaywiseAttendance(bare, new Date("2026-11-20T00:00:00Z"));
+    expect(days[0]!.date).toBe("2026-11-01");
+  });
+
+  it("reads an ISO month when that is what the page prints", () => {
+    const iso = GRID.replace("September 2026", "2026-10");
+    expect(parseDaywiseAttendance(iso)[0]!.date).toBe("2026-10-01");
+  });
+});

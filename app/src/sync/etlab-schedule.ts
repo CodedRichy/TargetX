@@ -101,6 +101,60 @@ function attendanceSubject(cell: string): string | null {
   return stripTagsSpace(raw) || null;
 }
 
+/**
+ * What was actually taught in that period.
+ *
+ * The portal puts it in the hover `<span>` that `attendanceSubject` cuts away,
+ * and it was being discarded on every sync - the one field in this whole
+ * pipeline that says what a student MISSED rather than that they missed
+ * something. Kept now because it cannot be recovered later: the page shows one
+ * month, and last month's topics are gone the moment the page moves on.
+ */
+function attendanceTopic(cell: string): string | null {
+  const span = /<span[^>]*>([\s\S]*?)<\/span>/i.exec(cell);
+  return span ? (stripTagsSpace(span[1]!) || null) : null;
+}
+
+const MONTHS = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+];
+
+/**
+ * Which month this grid is.
+ *
+ * The rows say "1st", "6th" and nothing else, so two months of attendance are
+ * indistinguishable once stored - and a record that cannot tell September from
+ * October cannot be stacked, compared or trusted. The page names its month
+ * somewhere (a heading, a picker); this finds it wherever it is rather than
+ * depending on a layout, and falls back to the clock, because a grid stamped
+ * with the month it was fetched in is wrong far less often than one stamped
+ * with nothing.
+ */
+export function parseDaywiseMonth(html: string, now = new Date()): { month: number; year: number } {
+  const text = html.replace(/<[^>]+>/g, " ");
+  const named = new RegExp(
+    "(" + MONTHS.join("|") + ")[a-z]*\\s*,?\\s*(20\\d{2})", "i",
+  ).exec(text);
+  if (named) {
+    return { month: MONTHS.indexOf(named[1]!.toLowerCase()) + 1, year: Number(named[2]) };
+  }
+  const iso = /(20\d{2})-(\d{2})(?!\d)/.exec(text);
+  if (iso) {
+    const m = Number(iso[2]);
+    if (m >= 1 && m <= 12) return { month: m, year: Number(iso[1]) };
+  }
+  return { month: now.getMonth() + 1, year: now.getFullYear() };
+}
+
+/** "1st" -> 1. Null when the label is not a day of the month at all. */
+function dayNumber(label: string): number | null {
+  const n = /(\d{1,2})/.exec(label);
+  if (!n) return null;
+  const value = Number(n[1]);
+  return value >= 1 && value <= 31 ? value : null;
+}
+
 /** The attendance grid, by id when present, else the first period grid found. */
 function selectAttendanceTable(html: string): string | null {
   const byId = /<table[^>]*id="itsthetable"[\s\S]*?<\/table>/i.exec(html);
@@ -117,9 +171,13 @@ function selectAttendanceTable(html: string): string | null {
  * expanded to eight holiday periods so every day has the same shape and the UI
  * grid never has to special-case a short row.
  */
-export function parseDaywiseAttendance(html: string): DaywiseAttendance {
+export function parseDaywiseAttendance(
+  html: string, now = new Date(),
+): DaywiseAttendance {
   const table = selectAttendanceTable(html);
   if (!table) return [];
+  const { month, year } = parseDaywiseMonth(html, now);
+  const pad = (n: number) => String(n).padStart(2, "0");
 
   const days: DaywiseDay[] = [];
   for (const row of rowsOf(tbodyOf(table))) {
@@ -135,11 +193,17 @@ export function parseDaywiseAttendance(html: string): DaywiseAttendance {
       // A colspanned holiday covers every period; its (empty) text is not a
       // per-period subject, so those cells carry none.
       const subject = span > 1 ? null : attendanceSubject(cell);
-      for (let i = 0; i < span; i++) periods.push({ status, subject });
+      const topic = span > 1 ? null : attendanceTopic(cell);
+      for (let i = 0; i < span; i++) {
+        periods.push(topic === null ? { status, subject } : { status, subject, topic });
+      }
     }
 
     if (!periods.length) continue;
-    days.push({ label, periods });
+    const day = dayNumber(label);
+    days.push(day === null
+      ? { label, periods }
+      : { label, date: `${year}-${pad(month)}-${pad(day)}`, periods });
   }
   return days;
 }

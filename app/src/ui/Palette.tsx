@@ -616,10 +616,25 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
         void ask();
         return;
       }
-      // Enter means one thing now: run what is highlighted. Asking is a row in
+      // Enter means one thing: run what is highlighted. Asking is a row in
       // that list, so it no longer needs a rule of its own - and cannot be
       // shut out by a match that happened to score.
+      //
+      // One exception, and it is about money rather than about matching. When
+      // the engine has ALREADY answered and the ask row is the only row left,
+      // the cursor has nowhere else to sit - so Enter, the most reflexive key
+      // there is, spends a question from the daily allowance to be told
+      // something already on the screen. Observed twice. Enter follows the
+      // answer to its working instead; asking stays one deliberate act away,
+      // by click or by Ctrl+Enter, both of which still do exactly what they
+      // say.
       const hit = list[cursor()];
+      const said = answer();
+      if (said && hit?.kind === "ask") {
+        setView(said.view);
+        props.onClose();
+        return;
+      }
       if (hit) { run(hit); return; }
       void ask();
     }

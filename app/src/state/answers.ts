@@ -1,5 +1,8 @@
-import { absenceCost, courseLabel, freeSkips, requiredEseCell } from "../engine";
-import type { Course, Evaluation } from "../engine";
+import {
+  absenceCost, componentMax, courseLabel, freeSkips, requiredEseCell, specFor,
+  toOptionalFloat,
+} from "../engine";
+import type { Course, Evaluation, MarkInput, TypeKey } from "../engine";
 import { goalPlan, goalRequirement, overall, rows, state, summary, targets } from "./store";
 import type { View } from "./nav";
 import { ASSISTANT, lookupCapability, lookupTerm } from "./glossary";
@@ -34,7 +37,7 @@ export { ASSISTANT } from "./glossary";
 /** The question shapes the engine can answer outright. */
 export const TOPICS = [
   "skip_cost", "budget", "eligibility", "tomorrow",
-  "attendance_now", "marks_now", "need_to_pass", "standing",
+  "attendance_now", "marks_now", "series_1", "series_2", "need_to_pass", "standing",
 ] as const;
 export type Topic = (typeof TOPICS)[number];
 
@@ -120,6 +123,29 @@ function cieLine(row: { course: Course; ev: Evaluation }): string {
   return cieCeiling > cie
     ? `${scored}, up to ${mk(cieCeiling)} with everything still to come`
     : `${scored}, and that is settled`;
+}
+
+/**
+ * One component of the internal, scaled the way the college scales it.
+ *
+ * Observed live: a student asked "how bad are my internal 1 marks" and was
+ * given the whole CIE. The number they asked for was sitting in the record as
+ * `s1`, out of a maximum the portal itself publishes - and there was no
+ * question shape that could reach it. The raw mark AND the scaled one, because
+ * the portal shows the first and the CIE is built from the second, and a
+ * student comparing the two otherwise concludes the app is wrong.
+ */
+function componentLine(row: { course: Course; ev: Evaluation }, key: "s1" | "s2"): string {
+  const label = courseLabel(row.course);
+  const spec = specFor(row.course.type as TypeKey | undefined);
+  const part = spec.components.find((c) => c.key === key);
+  if (!part) return `${label} — no ${key === "s1" ? "first" : "second"} series in this course`;
+  const raw = toOptionalFloat((row.course as Record<string, MarkInput>)[key]);
+  const max = componentMax(row.course, key, part.rawMax);
+  if (raw === null) return `${label} — ${part.header} not published yet`;
+  const scaled = (raw / max) * part.weight;
+  const n = (v: number) => v.toFixed(1).replace(/\.0$/, "");
+  return `${label} — ${part.header} ${n(raw)} of ${n(max)}, worth ${n(scaled)} of ${n(part.weight)} in the CIE`;
 }
 
 /** The classes a student can still miss for nothing, per course. */
@@ -327,6 +353,14 @@ export function answerFor(topic: Topic, code?: string): Answer | null {
     };
   }
 
+  if (topic === "series_1" || topic === "series_2") {
+    const key = topic === "series_1" ? "s1" : "s2";
+    const lines = picked.map((r) => componentLine(r, key));
+    if (picked.length === 1) return { headline: lines[0]!, lines: [], view: "ledger" };
+    const which = topic === "series_1" ? "first" : "second";
+    return { headline: `Your ${which} series, per subject:`, lines, view: "ledger" };
+  }
+
   if (topic === "marks_now") {
     const lines = picked.map(cieLine);
     if (picked.length === 1) {
@@ -463,6 +497,13 @@ export function detectTopic(query: string): Topic | null {
   // here it catches only what is left: "ml marks", "my internals", "what did i
   // score" - the plainest question a student types, and one that used to fall
   // all the way through to the router.
+  // Before the aggregate, because "internal 1" and "series 2" name a specific
+  // paper and answering them with the whole CIE answers a different question.
+  const seriesish = has("series", "internal", "internals", "sessional", "test");
+  if (seriesish || has("s1", "s2")) {
+    if (has("1", "one", "first", "s1") && !has("2", "two", "second", "s2")) return "series_1";
+    if (has("2", "two", "second", "s2")) return "series_2";
+  }
   if (has("marks", "mark", "score", "scored", "internal", "internals", "cie")) {
     return "marks_now";
   }

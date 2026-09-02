@@ -107,3 +107,38 @@ describe("the plainest question there is", () => {
       .toBe("skip_cost");
   });
 });
+
+describe("a question about one paper is not a question about the whole internal", () => {
+  it.each([
+    ["how bad are my internal 1 marks", "series_1"],
+    ["what did i get in series 1", "series_1"],
+    ["series 2 marks", "series_2"],
+    ["how was my second internal", "series_2"],
+    ["s1 marks", "series_1"],
+  ])("reads %j as %s", (q, topic) => {
+    // Observed live: "how bad are my internal 1 marks" was answered with the
+    // whole CIE. The number asked for was sitting in the record as `s1`, and
+    // no question shape could reach it.
+    expect(detectTopic(q)).toBe(topic);
+  });
+
+  it("still reads a plain marks question as the aggregate", () => {
+    expect(detectTopic("ml marks")).toBe("marks_now");
+    expect(detectTopic("what are my internals")).toBe("marks_now");
+  });
+
+  it("quotes the raw mark and what it is worth, both from the engine", () => {
+    const answer = answerFor("series_1", "CST305");
+    expect(answer?.headline).toContain("Machine Learning");
+    // Re-derived, never copied from a run: the portal shows the raw mark and
+    // the CIE is built from the scaled one, and a student comparing the two
+    // otherwise concludes the app is wrong.
+    expect(answer!.headline).toContain("30");
+    expect(answer!.headline).toMatch(/worth .* in the CIE/);
+  });
+
+  it("says a paper is unpublished rather than calling it zero", () => {
+    updateCourse(0, { s2: null });
+    expect(answerFor("series_2", "CST305")?.headline).toMatch(/not published yet/);
+  });
+});
