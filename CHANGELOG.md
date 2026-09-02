@@ -48,6 +48,57 @@ this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   regulations. Enough of them and this stops being a maybe.
 
 
+## [0.4.0] - 2026-09-03
+
+### Changed
+
+- **The assistant answers you now, instead of only pointing.** Until this
+  version the question box could do exactly one thing: send you to a screen. It
+  had no way to say anything, because the reply it was allowed to give had no
+  place to put a sentence in. So a question like *how do I study for series 2*
+  arrived, was understood, and came back as a silent jump to a screen you were
+  probably already looking at.
+
+  It can write to you now, and it will: advice, an explanation, an answer to a
+  follow-up question, or a reply to *hello*. It has a name - Tex - and it will
+  tell you so if you ask. It remembers the last three things you asked while the
+  box is open, so *what about the other one* means something.
+
+  **It still cannot state a number about you, and that has not been relaxed.**
+  Any sentence it writes that puts a quantity next to a word from your record is
+  thrown away before it reaches you, and that check now runs twice: once on our
+  server and once inside the app on your own machine, so it holds even if the
+  server changes. Every figure you see is worked out on your own machine from
+  your own records, and the screen it sends you to shows the working.
+
+- **What gets sent when you ask has changed, so the privacy note changed with
+  it.** Alongside your question and your course list, the app now sends one word
+  per subject saying how it stands - `SAFE`, `TIGHT`, `SHORTAGE` and five
+  others - because an assistant that cannot see which subject is the problem can
+  only give advice that would fit anybody. It is a verdict, not a measurement: it
+  says a subject needs attention, never what your attendance is or how many
+  classes you have missed. Your marks, your percentages and your CGPA are still
+  never sent anywhere. `PRIVACY.md` and the privacy page say all of this in
+  full.
+
+### Fixed
+
+- **Typing a question stopped filling the list with the wrong subject.**
+  Matching compared letters anywhere inside a word, so `hi` matched *mac**hi**ne
+  learning* and `1` matched *PCCST**5**01*. Typing `hi how are you` listed
+  Machine Learning three times. Matches now start at word boundaries, and rows
+  are ranked rather than taken first-found, so the closest thing to what you
+  typed is the thing under your cursor.
+
+- **Asking no longer costs you two questions.** Pressing Enter on the ask row
+  when an answer was already on screen sent the question again. Enter now takes
+  the answer already in front of you.
+
+- **Four questions were answered wrongly.** *How many can I skip*, what a
+  component mark means, what happens with one paper left, and what counts as
+  standing - each now answers the question that was asked, and quotes both the
+  raw mark and the scaled one where a subject has both.
+
 ## [0.3.3] - 2026-09-02
 
 ### Fixed
