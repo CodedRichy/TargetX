@@ -5,6 +5,7 @@ import { VIEWS, setView } from "../state/nav";
 import type { View } from "../state/nav";
 import { askConfigured, askRemote } from "../state/ask";
 import { ASSISTANT, answerFor, defineFor, detectTopic } from "../state/answers";
+import { trace } from "../state/trace";
 import type { Topic } from "../state/answers";
 import { authBusy, authConfigured, signIn, signedIn } from "../state/auth";
 import { morph } from "./morph";
@@ -114,24 +115,35 @@ function terms(q: string): string[] {
  * Worse than a bad row: a local hit stops Enter from reaching the router, so a
  * phantom match silently disables the one path that could have answered.
  */
-function matches(haystack: string, needle: string, loose = true): boolean {
-  if (!needle) return true;
+function rank(haystack: string, needle: string, loose = true): number {
+  if (!needle) return RANK_NAMED;
   const h = haystack.toLowerCase();
   const n = needle.toLowerCase();
-  if (h.includes(n)) return true;
+  if (h.includes(n)) return RANK_NAMED;
   // Initials, which work in a sentence because they cannot over-match: the
   // initials of "Computer Networks" are exactly "cn" and nothing else. Losing
   // this was the cost of the fix above - "what do i need to pass cn" is four
   // terms, so the loose path is closed and "cn" stopped resolving. This gives
   // it back without giving back "one" matching Computer Networks.
-  if (n.length >= 2 && initials(h) === n) return true;
-  if (!loose) return false;
+  if (n.length >= 2 && initials(h) === n) return RANK_NAMED;
+  if (!loose) return 0;
   let i = 0;
   for (const ch of h) {
     if (ch === n[i]) i += 1;
-    if (i === n.length) return true;
+    if (i === n.length) return RANK_SCATTERED;
   }
-  return false;
+  return 0;
+}
+
+/**
+ * A term that names the subject: its code, its name, or its initials exactly.
+ */
+const RANK_NAMED = 2;
+/** A term whose letters merely appear in the name, in order, anywhere. */
+const RANK_SCATTERED = 1;
+
+function matches(haystack: string, needle: string, loose = true): boolean {
+  return rank(haystack, needle, loose) > 0;
 }
 
 /** "Computer Networks" -> "cn". Words only; "and"/"of" are not initials. */
@@ -188,10 +200,21 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
     // question is about every subject and every subject answers.
     const words = terms(q);
     const loose = words.length === 1;
-    const named = words.length === 0 ? undefined : rows().find((r) =>
-      words.some((w) => matches(courseLabel(r.course), w, loose)
-                     || matches(r.course.code ?? "", w, loose)));
-    return answerFor(topic, named?.course.code);
+    // The BEST match, not the first one. "cn" is the initials of Computer
+    // Networks and also a subsequence of Ma-c-hi-n-e Learning, and taking the
+    // first row that matched by any rule made "cn attendance" answer about
+    // Machine Learning - the wrong subject, stated with full confidence.
+    let named: { course: { code?: string | null } } | undefined;
+    let best = 0;
+    for (const r of words.length === 0 ? [] : rows()) {
+      let score = 0;
+      for (const w of words) {
+        score = Math.max(score, rank(courseLabel(r.course), w, loose),
+                                rank(r.course.code ?? "", w, loose));
+      }
+      if (score > best) { best = score; named = r; }
+    }
+    return answerFor(topic, named?.course.code ?? undefined);
   });
 
   const hits = createMemo<Hit[]>(() => {
@@ -363,6 +386,15 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
 
   const run = (hit: Hit | undefined) => {
     if (!hit) return;
+    // What was asked, what the engine said about it, and what the box offered
+    // - one line, at the moment the student committed to it.
+    trace("asked", JSON.stringify({
+      q: query().trim(),
+      topic: detectTopic(query().trim()),
+      answer: answer()?.headline ?? null,
+      chose: `${hit.kind}:${hit.label}`,
+      rows: hits().map((h) => `${h.kind}:${h.label}`),
+    }));
     // The ask row is the one hit that does not navigate. It stays in the
     // palette because the answer lands here, and closing on the way to it
     // would throw away the thing the student pressed Enter for.
@@ -395,6 +427,7 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
       })), ctl.signal);
 
       if (!out.ok) {
+        trace("router refused", out.kind);
         setRemote(
           out.kind === "signin" ? "Sign in from the profile menu to ask questions."
           : out.kind === "limit" ? "That is all the questions for today. The rest of the app is unchanged."
@@ -406,6 +439,7 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
       }
 
       const a = out.action;
+      trace("router said", JSON.stringify(a));
       if (a.kind === "view") { setView(a.view); props.onClose(); return; }
       if (a.kind === "subject") {
         const hit = rows().find((r) => r.course.code === a.code);
@@ -471,8 +505,9 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
                     app asserting a fact rather than as something that was
                     worked out - and the two deserve different trust. */}
                 <p class="palette-answer-who">
-                  {said().isDefinition ? `${ASSISTANT} · from the KTU regulations`
-                                       : `${ASSISTANT} · from your own record`}
+                  {said().isGap ? `${ASSISTANT} · what I am missing`
+                    : said().isDefinition ? `${ASSISTANT} · from the KTU regulations`
+                                          : `${ASSISTANT} · from your own record`}
                 </p>
                 <p class="palette-answer-head">{said().headline}</p>
                 <Show when={said().lines.length > 0}>

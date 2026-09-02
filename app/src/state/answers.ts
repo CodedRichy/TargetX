@@ -43,7 +43,7 @@ export const ASSISTANT = "Tex";
 /** The question shapes the engine can answer outright. */
 export const TOPICS = [
   "skip_cost", "budget", "eligibility", "tomorrow",
-  "attendance_now", "need_to_pass", "standing",
+  "attendance_now", "marks_now", "need_to_pass", "standing",
 ] as const;
 export type Topic = (typeof TOPICS)[number];
 
@@ -59,6 +59,17 @@ export interface Answer {
    * something computed about them.
    */
   isDefinition?: boolean;
+  /**
+   * True when this says what the app is MISSING rather than what it knows.
+   *
+   * "Can I skip tomorrow" is the headline feature and it returned silence for
+   * any student without a timetable - the question fell through to the router
+   * and the box offered a screen, so the app looked like it had never heard of
+   * its own advertised trick. Saying which record is absent is an answer; a
+   * blank is not. Attributed differently because it asserts nothing about this
+   * student, so it must not read as though it were computed from their record.
+   */
+  isGap?: boolean;
   /** Supporting lines, one per subject where the question spans several. */
   lines: string[];
   /** Where to go for the full working. The answer is not a substitute for it. */
@@ -95,6 +106,29 @@ function skipLine(course: Course): string | null {
   return free === null || free <= 1
     ? `${label} — free, but the next one is not`
     : `${label} — free (${free} to spare before it costs a mark)`;
+}
+
+/**
+ * What a course has scored internally, and what it could still reach.
+ *
+ * Both ends, because `cie` alone reads as a verdict on a semester that is not
+ * over: a course sitting at 39 with an unwritten series exam has not lost the
+ * other 11 marks, it has not been given them yet. `cieCeiling` is the engine's
+ * own name for that distinction and this sentence is the only place a student
+ * sees the two side by side.
+ */
+function cieLine(row: { course: Course; ev: Evaluation }): string {
+  const label = courseLabel(row.course);
+  const { cie, cieMax, cieCeiling } = row.ev;
+  if (cieMax <= 0) return `${label} — no internal marks recorded`;
+  // One decimal, the same as the ledger's CIE column. A student reads this
+  // sentence and then goes and looks at the table; two roundings of the same
+  // figure would read as two different figures.
+  const mk = (v: number) => v.toFixed(1).replace(/\.0$/, "");
+  const scored = `${label} — ${mk(cie)} of ${mk(cieMax)} internal`;
+  return cieCeiling > cie
+    ? `${scored}, up to ${mk(cieCeiling)} with everything still to come`
+    : `${scored}, and that is settled`;
 }
 
 /** The classes a student can still miss for nothing, per course. */
@@ -217,7 +251,15 @@ export function answerFor(topic: Topic, code?: string): Answer | null {
 
   if (topic === "tomorrow") {
     const courses = tomorrowCourses();
-    if (courses.length === 0) return null;
+    if (courses.length === 0) {
+      const haveGrid = (state.timetable?.grid ?? []).length > 0;
+      return {
+        headline: haveGrid
+          ? "Nothing scheduled tomorrow, so there is nothing to miss."
+          : "I need your timetable before I can price tomorrow — sync it and ask again.",
+        lines: [], view: "attendance", isGap: !haveGrid,
+      };
+    }
     const lines = courses.map(skipLine).filter((l): l is string => l !== null);
     if (lines.length === 0) return null;
     const free = courses.every((c) => {
@@ -292,6 +334,14 @@ export function answerFor(topic: Topic, code?: string): Answer | null {
       headline: "What each subject needs in the final:",
       lines, view: "ledger",
     };
+  }
+
+  if (topic === "marks_now") {
+    const lines = picked.map(cieLine);
+    if (picked.length === 1) {
+      return { headline: lines[0]!, lines: [], view: "ledger" };
+    }
+    return { headline: "Your internal marks so far:", lines, view: "ledger" };
   }
 
   const line = topic === "skip_cost" ? skipLine
@@ -370,6 +420,25 @@ export function detectTopic(query: string): Topic | null {
     || q.includes(" pass mark ") || q.includes(" pass marks ");
   if (explains && !personal) return null;
 
+  /**
+   * An exam is not a class, and missing one is not an absence.
+   *
+   * "What happens if I miss the series exam" was answered with what one more
+   * ABSENCE costs, and "what if I miss an exam" with how many classes are free
+   * to skip. Both are confident answers to a question nobody asked, and both
+   * come from the attendance branches below, which count classes and know
+   * nothing about exams. When the thing being missed is named as an exam, none
+   * of them apply and the question belongs to the router.
+   *
+   * Deliberately narrow: only the MISSING verbs are gated. "What do I need to
+   * pass the exam" names an exam too and is answered exactly, so gating on the
+   * exam word alone would trade two misfires for a worse silence.
+   */
+  if (has("exam", "exams", "test", "series", "viva", "practical")
+      && has("miss", "missed", "skip", "skipped", "bunk", "absent")) {
+    return null;
+  }
+
   if (has("tomorrow", "tmrw", "tommorow", "tommorw")) return "tomorrow";
 
   // Ordered before the attendance branches: "what do i need to pass" contains
@@ -398,6 +467,14 @@ export function detectTopic(query: string): Topic | null {
   // The plainest question there is, and the one that used to fall through: the
   // detector only fired on forward-looking words, so "can i miss one" was
   // answered and "what is my attendance" was routed to a screen.
+  // After every attendance branch, because "how many marks does one absence
+  // cost" is a question about skipping that happens to say "marks". Placed
+  // here it catches only what is left: "ml marks", "my internals", "what did i
+  // score" - the plainest question a student types, and one that used to fall
+  // all the way through to the router.
+  if (has("marks", "mark", "score", "scored", "internal", "internals", "cie")) {
+    return "marks_now";
+  }
   if (has("attendance", "attended", "present")) return "attendance_now";
   return null;
 }
