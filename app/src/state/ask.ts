@@ -18,10 +18,38 @@ import type { View } from "./nav";
  */
 
 /** Mirrors the worker's `Action`. Kept in sync by the tests, not by import. */
-export type AskAction =
+export type AskAction = (
   | { kind: "view"; view: View }
   | { kind: "subject"; code: string; view: View }
-  | { kind: "none"; reason: "off_topic" | "unclear" | "no_match" };
+  | { kind: "none"; reason: "off_topic" | "unclear" | "no_match" }
+) & { say?: string };
+
+/** Two sentences. Matches the worker's own cap. */
+const SAY_MAX = 240;
+const NUMBER_WORD =
+  /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|half|quarter|percent|percentage)\b/i;
+
+/**
+ * The same check the worker runs, run again here.
+ *
+ * Not redundancy for its own sake. The worker is the layer that can be
+ * redeployed without the app changing, and the app is the layer that ships to
+ * a student and then stays exactly as it is for months. TargetX's whole
+ * position is that it never states a number it cannot show the working for,
+ * and that promise is made by the binary on their machine - so the binary is
+ * where it has to be enforced, not only by a server that could be replaced.
+ *
+ * A sentence naming a quantity is dropped and the route survives.
+ */
+export function cleanSay(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const text = raw.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+  if (text === "" || text.length > SAY_MAX) return undefined;
+  if (/\d/.test(text)) return undefined;
+  if (NUMBER_WORD.test(text)) return undefined;
+  if (/:\/\/|www\./i.test(text)) return undefined;
+  return text;
+}
 
 export type AskOutcome =
   | { ok: true; action: AskAction; remaining: number }
@@ -57,9 +85,10 @@ export function parseReply(raw: unknown): AskOutcome | null {
   if (typeof a !== "object" || a === null) return null;
   const act = a as Record<string, unknown>;
   const remaining = typeof o.remaining === "number" ? o.remaining : 0;
+  const say = cleanSay(act.say);
 
   if (act.kind === "view" && isView(act.view)) {
-    return { ok: true, action: { kind: "view", view: act.view }, remaining };
+    return { ok: true, action: { kind: "view", view: act.view, say }, remaining };
   }
   if (act.kind === "subject" && typeof act.code === "string") {
     return {
@@ -68,6 +97,7 @@ export function parseReply(raw: unknown): AskOutcome | null {
         kind: "subject",
         code: act.code,
         view: isView(act.view) ? act.view : "attendance",
+        say,
       },
       remaining,
     };
@@ -77,7 +107,7 @@ export function parseReply(raw: unknown): AskOutcome | null {
     const known = reason === "off_topic" || reason === "unclear" || reason === "no_match";
     return {
       ok: true,
-      action: { kind: "none", reason: known ? reason : "unclear" },
+      action: { kind: "none", reason: known ? reason : "unclear", say },
       remaining,
     };
   }

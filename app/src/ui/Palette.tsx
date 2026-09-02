@@ -488,19 +488,42 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
 
       const a = out.action;
       trace("router said", JSON.stringify(a));
-      if (a.kind === "view") { setView(a.view); props.onClose(); return; }
-      if (a.kind === "subject") {
-        const hit = rows().find((r) => r.course.code === a.code);
-        if (hit) { setView(a.view); props.onClose(); return; }
-        setRemote("That subject is not in this semester.");
+
+      /*
+       * A sentence keeps the palette open; a bare route does not.
+       *
+       * The screen still changes either way - it changes underneath, and the
+       * student is already there when they press Escape. Closing on top of a
+       * sentence would show it for one frame and take it away, which is worse
+       * than never having written it.
+       */
+      if (a.kind === "view") {
+        setView(a.view);
+        if (a.say) { setRemote(a.say); return; }
+        props.onClose();
         return;
       }
+      if (a.kind === "subject") {
+        const hit = rows().find((r) => r.course.code === a.code);
+        if (hit) {
+          setView(a.view);
+          if (a.say) { setRemote(a.say); return; }
+          props.onClose();
+          return;
+        }
+        setRemote(a.say ?? "That subject is not in this semester.");
+        return;
+      }
+      // Its own words when it has them. The canned lines stay as the floor:
+      // `say` is dropped whenever it names a figure, and a refusal with no
+      // explanation at all reads as the app breaking rather than declining.
       setRemote(
-        a.reason === "off_topic"
+        a.say
+        ?? (a.reason === "off_topic"
           ? "That one is outside what TargetX knows about."
           : a.reason === "no_match"
             ? "Nothing in your record matches that."
-            : "Not sure what that is asking. Try naming the subject.",
+            : "Not sure what that is asking. Try naming the subject."),
       );
     } finally {
       if (inflight === ctl) inflight = undefined;
