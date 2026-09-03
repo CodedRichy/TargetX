@@ -1,7 +1,10 @@
 {
   "detector": {
     "ignoreRules": [],
-    "ignoreFiles": [],
+    "ignoreFiles": [
+      "docs/index.html",
+      "docs/privacy.html"
+    ],
     "ignoreValues": [
       {
         "rule": "side-tab",
@@ -20,6 +23,11 @@
         ],
         "createdAt": "2026-08-18T07:26:46.691Z",
         "reason": "Claude: the flow doc is deliberately built from the app's own tokens.css; Space Grotesk is TargetX's shipped display face, so swapping it here would make the document misrepresent the product"
+      },
+      {
+        "rule": "overused-font",
+        "value": "space grotesk",
+        "createdAt": "2026-09-03T10:15:24.993Z"
       }
     ]
   }
