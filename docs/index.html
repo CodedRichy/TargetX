@@ -287,53 +287,80 @@
   <!-- ======================= the last sync release ======================= -->
   <section class="band" id="whats-next">
     <div class="wrap band-inner">
-      <p class="mark">A note from<b>me</b></p>
+      <p class="mark">A note from<b>Rishi</b></p>
       <div>
-        <h2 class="claim">0.4.0 is the last release built on etlab sync.</h2>
+        <h2 class="claim">I built this because of one number.</h2>
         <div class="prose">
-          <p>Not because it stopped working. It works — this release fixes two
-          things students reported, and the assistant answers properly for the
-          first time. It is the best version there has been.</p>
-          <p>It is the last one because reading your portal on your behalf has a
-          ceiling that no amount of careful engineering raises. A product that
-          signs in with your password cannot be <em>sold to</em> your college —
-          it would not survive a security review, and it should not. Which means
-          the people who could pay for this, so that you never have to, can never
-          be customers. And it can be switched off by someone else on an ordinary
-          afternoon, with no notice and nothing I could do about it.</p>
-          <p>The questions I actually want to answer are on the other side of that
-          wall anyway. Which students are about to lose exam eligibility. What a
-          class is collectively struggling with. Whether the internal marks a
-          college submits are even right. None of that is reachable from one
-          student&rsquo;s login, and all of it matters more than a number on my
-          own screen.</p>
-          <p>So I am building the thing that does not have the problem — properly,
-          with an institution&rsquo;s own data and its own permission. The
-          regulation engine underneath this app, the part that took longest and
-          is tested hardest, is the part that carries over.</p>
+          <p>
+            I was sitting at 76% attendance and thought I was fine. Everyone
+            says 75 is the line. Then I actually read Regulations 2024 and found
+            R&nbsp;7.5.ii &mdash; attendance is not only the eligibility gate, it
+            is <em>worth five internal marks</em>, in bands. At 76% I had already
+            given away two of them. In every subject. All semester. And nothing
+            had told me: not the portal, not any of the calculators, nobody.
+          </p>
+          <p>
+            That annoyed me enough to build this. Then it turned into 862 tests,
+            because once you are the thing telling people what they need to
+            score, being approximately right is not good enough.
+          </p>
+          <p>
+            <strong>This release, 0.4.0, is the last one built on etlab
+            sync.</strong> Not because it broke &mdash; it works better than it
+            ever has. Two things students reported are fixed in it, and Tex
+            finally answers you properly instead of silently jumping you to a
+            screen.
+          </p>
+          <p>
+            The real reason is harder to say out loud. To keep working on this I
+            would need someone to pay for it, and the only people who could are
+            colleges &mdash; and no college is ever going to buy software that
+            logs into their portal with their students&rsquo; passwords. They
+            would be right to refuse. I would refuse. On top of that, the whole
+            thing can be switched off on any ordinary afternoon by someone at
+            etlab who has never heard of me, and there would be nothing I could
+            do about it. That is not a foundation. I would rather say so than
+            let the repo go quiet and have you work it out yourselves.
+          </p>
+          <p>
+            And honestly, the questions I have started caring about are on the
+            other side of that wall anyway. Which students are about to lose
+            exam eligibility, while there is still time to fix it. What a whole
+            class is struggling with, not just me. Whether the internal marks a
+            college submits to KTU are even correct. None of that is reachable
+            from one student&rsquo;s login, and all of it matters more than a
+            number on my own screen.
+          </p>
+          <p>
+            So I am going to go and build that properly &mdash; with a
+            college&rsquo;s own data, and its own permission, instead of around
+            it. The regulation engine underneath this app is the part that took
+            longest and is tested hardest, and it is the part that comes with me.
+          </p>
         </div>
 
         <dl class="facts">
           <div class="fact">
-            <dt>Nothing is taken away</dt>
-            <dd>This build keeps working for as long as your portal does. It stays free, it stays on your machine, and the licence still says so — that was never a policy I could quietly withdraw.</dd>
+            <dt>You lose nothing</dt>
+            <dd>This build keeps working for as long as your portal does. Free, on your own machine, and written into the licence rather than promised &mdash; so it was never something I could quietly take back.</dd>
           </div>
           <div class="fact">
-            <dt>Still worth reporting a wrong number</dt>
-            <dd>A figure that disagrees with your portal is still a bug I want to know about, and the engine it lives in is the one being carried forward.</dd>
+            <dt>Still tell me if a number is wrong</dt>
+            <dd>A figure that disagrees with your portal is still a bug, I still want to know, and the engine it lives in is the one I am carrying forward. Reporting it now helps the next thing too.</dd>
           </div>
           <div class="fact">
-            <dt>Thank you, genuinely</dt>
-            <dd>Every issue anyone opened made this better. Two of them — <a href="https://github.com/CodedRichy/TargetX/issues/12">#12</a> and <a href="https://github.com/CodedRichy/TargetX/issues/13">#13</a> — are fixed in this very release.</dd>
+            <dt>Thank you &mdash; really</dt>
+            <dd>Every issue anyone opened made this better. Two of them, <a href="https://github.com/CodedRichy/TargetX/issues/12">#12</a> and <a href="https://github.com/CodedRichy/TargetX/issues/13">#13</a>, are fixed in this exact release. Someone took the time to write those, and it mattered.</dd>
           </div>
         </dl>
 
         <div class="prose">
           <p>
-            I started this because I was a student who wanted to know what mark I
-            actually needed, and the portal would not tell me. That part is
-            finished, and it is yours.<br>
-            &mdash; Rishi
+            I wanted to know what I needed to score, and the portal would not
+            tell me. That question is answered now, and the answer is yours to
+            keep.<br>
+            &mdash; Rishi, still a KTU student, still checking his own attendance
+            in this thing
           </p>
         </div>
       </div>
@@ -582,6 +609,9 @@
       </div>
     </div>
     <p class="foot-note">
+      Built by <strong>Rishi Praseeth Krishnan</strong>, a KTU B.Tech student who
+      wanted to know what he had to score and could not find out.
+      <br><br>
       Not affiliated with, endorsed by, or operated by APJ Abdul Kalam
       Technological University. TargetX reads the regulations and the published
       curriculum; where it disagrees with your college’s official record, the

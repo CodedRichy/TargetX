@@ -19,21 +19,14 @@ you pick your own course types.
 
 > ### 0.4.0 is the last release built on etlab sync
 >
-> Not because it stopped working. Because a product that signs into your
-> college's portal with your password can never be *sold to* your college — and
-> it can be switched off by someone else on any given afternoon. That is not a
-> foundation to build a decade on.
+> Not because it broke — it works better than it ever has. It is the last one
+> because to keep going I would need someone to pay for it, and the only people
+> who could are colleges, who are never going to buy software that signs into
+> their portal with their students' passwords. They would be right to refuse.
+> And it can be switched off any afternoon by someone who has never heard of me.
 >
-> So I am building the thing that does not have that problem. TargetX stays
-> free, stays yours, and keeps working exactly as it does today. See
-> [what happens next](#what-happens-next).
-
-### [**Download TargetX**](https://codedrichy.github.io/TargetX/) — Windows, macOS, Linux
-
-Free for students, forever. Your record is a file on your own machine, and every
-figure on every screen is computed there. No account is needed to use any of
-it — sign-in exists only for the question box, and nothing else changes if you
-never do.
+> **Nothing is taken away from you.** This build keeps working for as long as
+> your portal does. See [what happens next](#what-happens-next).
 
 ---
 
@@ -258,37 +251,52 @@ condonation floor — flags `DEBARRED`.
 
 ## What happens next
 
-TargetX started because I was a student who wanted to know what mark I actually
-needed, and the portal would not tell me. That part is finished, and it works.
+I built this because of one number.
 
-The next part is not a bigger version of this. Reading a portal on your behalf,
-however carefully, has a ceiling that no amount of good engineering raises:
+I was at 76% attendance and thought I was fine — everyone says 75 is the line.
+Then I read Regulations 2024 properly and found R 7.5.ii: attendance is not just
+the eligibility gate, it is worth **five internal marks**, in bands. At 76% I had
+already given two of them away. In every subject. All semester. Nothing had told
+me — not the portal, not any calculator.
 
-- **It cannot be sold to a college.** A product that signs in with a student's
-  password does not survive a security review, and it should not. That means
-  the people who could actually pay for this — so that you never have to — can
-  never be customers.
-- **It can be switched off by someone else.** Not by a lawsuit. By a CAPTCHA, on
-  an ordinary afternoon, with no notice and no recourse.
-- **The interesting problems are on the other side of it.** Which students are
-  about to lose exam eligibility, what a class is collectively struggling with,
-  whether the internal marks a college submits are even right — none of that is
-  reachable from one student's login.
+That annoyed me enough to build this, and then it turned into 862 tests, because
+once you are the thing telling people what they need to score, approximately
+right is not good enough.
 
-So the work is moving to the layer where those questions can be answered
-properly and legitimately, with the institution's own data and the
-institution's own permission. The regulation engine in this repository — the
-part that took the longest and is tested hardest — is the part that carries
-over.
+**Why this is the last sync release.** To keep working on it I would need someone
+to pay for it, and the only people who could are colleges. No college is going to
+buy software that logs into their portal with their students' passwords — they
+would be right to refuse, and I would refuse too. And the whole thing can be
+switched off on any ordinary afternoon by someone at etlab who has never heard of
+me. That is not a foundation to build a decade on, and I would rather say so than
+let this repo go quiet and leave people to work it out.
 
-**Nothing is being taken away from you.** This build keeps working for as long
-as your portal does. It stays free, it stays on your machine, and the licence
-still says so.
+**Where I am going instead.** The questions I have started caring about are on the
+far side of that wall anyway:
 
-If you are a student who used this, thank you — genuinely. Every issue anyone
-opened made it better, and two of them ([#12](https://github.com/CodedRichy/TargetX/issues/12),
-[#13](https://github.com/CodedRichy/TargetX/issues/13)) are fixed in this very
-release.
+- which students are about to lose exam eligibility, while there is still time
+- what a whole class is struggling with, not just me
+- whether the internal marks a college submits to KTU are even correct
+
+None of that is reachable from one student's login. So I am going to build it
+properly — with a college's own data and its own permission, instead of around
+them. The regulation engine in this repository is the part that took longest and
+is tested hardest, and it is the part that comes with me.
+
+**You lose nothing.** This build keeps working for as long as your portal does.
+Free, on your own machine, written into the licence rather than promised — so it
+was never something I could quietly take back.
+
+**Still tell me if a number is wrong.** A figure that disagrees with your portal
+is still a bug, and the engine it lives in is the one I am carrying forward.
+Reporting it now helps the next thing too.
+
+And thank you, genuinely. Every issue anyone opened made this better — two of
+them ([#12](https://github.com/CodedRichy/TargetX/issues/12),
+[#13](https://github.com/CodedRichy/TargetX/issues/13)) are fixed in this exact
+release. Someone took the time to write those, and it mattered.
+
+— Rishi, still a KTU student, still checking his own attendance in this thing
 
 ## Why this exists — what the existing tools get wrong
 
