@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TargetX — KTU 2024 CGPA calculator and attendance tracker</title>
-<meta name="description" content="Free desktop app for the KTU 2024 scheme. Works out the mark you still need in each exam, how many classes you can miss, and the CIE marks your attendance is already costing you.">
+<title>TargetX — the mark you still need, and what attendance is costing you</title>
+<meta name="description" content="Free desktop app for KTU students. If your college runs etlab, it works for you. Works out the mark you still need in each exam, how many classes you can miss, and the CIE marks your attendance is already costing you.">
 <link rel="canonical" href="https://codedrichy.github.io/TargetX/">
 
-<meta property="og:title" content="TargetX — the mark you still need, for the KTU 2024 scheme">
-<meta property="og:description" content="Every other KTU calculator tells you what you already scored. TargetX tells you what you need — and counts the internal marks your attendance is quietly costing you.">
+<meta property="og:title" content="TargetX — the mark you still need">
+<meta property="og:description" content="Every other KTU tool tells you what you already scored. TargetX tells you what you need — and counts the internal marks your attendance is quietly costing you. If your college runs etlab, it works for you.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://codedrichy.github.io/TargetX/">
 <meta property="og:site_name" content="TargetX">
@@ -16,9 +16,9 @@
 <meta property="og:image" content="https://codedrichy.github.io/TargetX/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="TargetX: every calculator tells you what you scored, this one tells you what you need. A five-step stair showing the CIE marks attendance earns.">
+<meta property="og:image:alt" content="TargetX: every other tool tells you what you scored, this one tells you what you need. A five-step stair showing the CIE marks attendance earns.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="TargetX — the mark you still need, for the KTU 2024 scheme">
+<meta name="twitter:title" content="TargetX — the mark you still need">
 <meta name="twitter:description" content="Attendance is worth 5 internal marks under R 7.5.ii. At 76% you have already lost two, and nothing else will tell you.">
 <meta name="twitter:image" content="https://codedrichy.github.io/TargetX/og.png">
 
@@ -51,7 +51,7 @@
   "url": "https://codedrichy.github.io/TargetX/",
   "downloadUrl": "https://github.com/CodedRichy/TargetX/releases/latest",
   "screenshot": "https://codedrichy.github.io/TargetX/home.png",
-  "description": "Desktop tracker for the KTU 2024 scheme. Works out the mark still needed in each exam against both pass conditions, how many classes can still be missed, and the CIE marks attendance is costing under Regulation 7.5.ii.",
+  "description": "Desktop tracker for KTU students whose college runs etlab. Works out the mark still needed in each exam against both pass conditions, how many classes can still be missed, and the CIE marks attendance is costing under Regulation 7.5.ii.",
   "inLanguage": "en",
   "isAccessibleForFree": true,
   "offers": {
@@ -87,6 +87,7 @@
     <nav>
       <a href="#marks" class="opt">The marks</a>
       <a href="#what" class="opt">What it does</a>
+      <a href="#whats-next" class="opt">What&rsquo;s next</a>
       <a href="#download">Download</a>
       <a href="https://github.com/CodedRichy/TargetX" class="away">Source</a>
     </nav>
@@ -104,13 +105,13 @@
   <div class="wrap">
     <section class="hero">
       <div>
-        <p class="eyebrow">KTU B.Tech · <em>2024 scheme</em> · Regulations 2024</p>
-        <h1>Every other calculator tells you what you already scored.<br>
+        <h1>Every other tool tells you what you already scored.<br>
           <span class="quiet">This one tells you what you still need.</span></h1>
         <p class="hero-lede">
-          TargetX reads your marks and attendance, applies the KTU rules as
-          written, and answers the only question worth asking before an exam:
-          <strong>what do I have to score in this paper?</strong>
+          Three ways into one record — your <strong>semester</strong>, your
+          <strong>attendance</strong>, and <strong>Tex</strong>, which answers
+          in your own words and shows the working. If your college runs etlab,
+          it works for you.
         </p>
         <div class="hero-actions">
           <a class="btn btn-primary" id="hero-dl" href="https://github.com/CodedRichy/TargetX/releases">
@@ -180,7 +181,7 @@
           <p>
             So a student sitting comfortably above the <span class="num">75%</span>
             line is still forfeiting marks, in every subject, quietly, all semester.
-            No portal shows this. No other calculator computes it. It is the single
+            No portal shows this. Nothing else computes it. It is the single
             largest number most students never see.
           </p>
         </div>
@@ -283,6 +284,62 @@
   </section>
 
   <!-- ============================ download ============================ -->
+  <!-- ======================= the last sync release ======================= -->
+  <section class="band" id="whats-next">
+    <div class="wrap band-inner">
+      <p class="mark">A note from<b>me</b></p>
+      <div>
+        <h2 class="claim">0.4.0 is the last release built on etlab sync.</h2>
+        <div class="prose">
+          <p>Not because it stopped working. It works — this release fixes two
+          things students reported, and the assistant answers properly for the
+          first time. It is the best version there has been.</p>
+          <p>It is the last one because reading your portal on your behalf has a
+          ceiling that no amount of careful engineering raises. A product that
+          signs in with your password cannot be <em>sold to</em> your college —
+          it would not survive a security review, and it should not. Which means
+          the people who could pay for this, so that you never have to, can never
+          be customers. And it can be switched off by someone else on an ordinary
+          afternoon, with no notice and nothing I could do about it.</p>
+          <p>The questions I actually want to answer are on the other side of that
+          wall anyway. Which students are about to lose exam eligibility. What a
+          class is collectively struggling with. Whether the internal marks a
+          college submits are even right. None of that is reachable from one
+          student&rsquo;s login, and all of it matters more than a number on my
+          own screen.</p>
+          <p>So I am building the thing that does not have the problem — properly,
+          with an institution&rsquo;s own data and its own permission. The
+          regulation engine underneath this app, the part that took longest and
+          is tested hardest, is the part that carries over.</p>
+        </div>
+
+        <dl class="facts">
+          <div class="fact">
+            <dt>Nothing is taken away</dt>
+            <dd>This build keeps working for as long as your portal does. It stays free, it stays on your machine, and the licence still says so — that was never a policy I could quietly withdraw.</dd>
+          </div>
+          <div class="fact">
+            <dt>Still worth reporting a wrong number</dt>
+            <dd>A figure that disagrees with your portal is still a bug I want to know about, and the engine it lives in is the one being carried forward.</dd>
+          </div>
+          <div class="fact">
+            <dt>Thank you, genuinely</dt>
+            <dd>Every issue anyone opened made this better. Two of them — <a href="https://github.com/CodedRichy/TargetX/issues/12">#12</a> and <a href="https://github.com/CodedRichy/TargetX/issues/13">#13</a> — are fixed in this very release.</dd>
+          </div>
+        </dl>
+
+        <div class="prose">
+          <p>
+            I started this because I was a student who wanted to know what mark I
+            actually needed, and the portal would not tell me. That part is
+            finished, and it is yours.<br>
+            &mdash; Rishi
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="band" id="download">
     <div class="wrap band-inner">
       <p class="mark">Get<b>the app</b></p>
