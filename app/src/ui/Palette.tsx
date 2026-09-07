@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js";
+import { activeProfile } from "../state/schemes";
 import { courseLabel } from "../engine";
 import { rows } from "../state/store";
 import { VIEWS, setView } from "../state/nav";
@@ -10,6 +11,8 @@ import { trace } from "../state/trace";
 import type { Topic } from "../state/answers";
 import { authBusy, authConfigured, signIn, signedIn } from "../state/auth";
 import { morph } from "./morph";
+import { Face } from "./tex/Face";
+import { moodLabel, overallMood } from "./tex/mood";
 
 /**
  * The command palette.
@@ -344,7 +347,7 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
         : plan.state === "surplus"
           ? `can miss ${plan.skip} more`
           : plan.attend === null
-            ? "cannot reach 75% this semester"
+            ? `cannot reach ${activeProfile().attendanceMin.toFixed(0)}% this semester`
             : `must attend ${plan.attend} in a row`;
       const detail = att === null
         ? "attendance not recorded"
@@ -645,7 +648,17 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
       <div ref={scrim} class="palette-scrim" onClick={props.onClose}>
         <div ref={shell} class="palette" role="dialog" aria-modal="true" aria-label="Search"
              onClick={(e) => e.stopPropagation()}>
-          <div class="palette-field">
+          {/* Tex sits IN the field's row, not above it.
+              He used to vanish the moment the palette opened: the header pill
+              is hidden while this stands in for it (see the morph below), so
+              the only face on screen disappeared at exactly the moment the
+              student started talking to him. A face that leaves when you
+              address it is worse than never having drawn one.
+              Left of the field rather than centred above it - centred reads
+              as a chatbot's landing page and pushes the answer below the
+              fold, and the answer is the reason anyone opened this. */}
+          <div class="palette-head">
+            <Face size={40} mood={overallMood()} label={moodLabel(overallMood())} />
             <input ref={input} class="palette-input" value={query()}
                    placeholder={`Ask ${ASSISTANT} — how many classes can I miss in ML?`}
                    aria-label="Search subjects and views"

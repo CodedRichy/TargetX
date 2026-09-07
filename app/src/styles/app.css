@@ -667,13 +667,10 @@ tr.row:hover .del { opacity: 1; }
   border-radius: var(--radius-card);
 }
 
-/* The field and its close button share a line; the field takes what is left. */
-.palette-field {
-  align-items: center;
-  border-block-end: 1px solid var(--hairline);
-  display: flex;
-}
-.palette-field .palette-input {
+/* Tex, the field and its close button share a line; the field takes what is
+   left. `.palette-head` is laid out in screens.css, which owns Tex's row -
+   these two rules only make the field inside it behave. */
+.palette-head .palette-input {
   border-block-end: 0;
   flex: 1 1 auto;
   min-inline-size: 0;

@@ -21,6 +21,7 @@ import { Mark } from "./Mark";
 import { Palette, usePaletteShortcut } from "./Palette";
 import { Popover } from "./Popover";
 import { Face } from "./tex/Face";
+import { activeProfile } from "../state/schemes";
 import { runLaunchCheck, saveFindings } from "../state/launch";
 import { autoRefresh, refreshAll, refreshFailures, refreshing } from "../state/autosync";
 import type { SourceResult } from "../state/autosync";
@@ -126,10 +127,17 @@ export function GoalBar() {
         </span>
       </Show>
       <Show when={summary().lowAttendance.length > 0}>
+        {/* The threshold is the active profile's, not KTU's - this pill was
+            still quoting 75 after the numbers moved into scheme profiles, so
+            a college on 80 read "3 short of 75%" beside a list built at 80.
+            The regulation citation goes with it: R 6.2 is a fact about KTU's
+            document and says nothing about a profile someone authored, so it
+            is shown only when KTU's document is what we are computing on. */}
         <span class="pill shortage"
               style={belowTarget() > 0 ? {} : { "margin-left": "auto" }}
-              title="Below the 75% eligibility rule (R 6.2). A different list.">
-          {summary().lowAttendance.length} short of 75%
+              title={`Below the ${activeProfile().attendanceMin.toFixed(0)}% eligibility rule`
+                + `${activeProfile().builtIn ? " (R 6.2)" : ""}. A different list.`}>
+          {summary().lowAttendance.length} short of {activeProfile().attendanceMin.toFixed(0)}%
         </span>
       </Show>
       <Show when={summary().impossible.length > 0}>
