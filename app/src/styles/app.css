@@ -368,6 +368,16 @@ select.cell-input { text-align: left; width: auto; }
   letter-spacing: var(--tracking-wide);
   padding: 2px var(--s2);
 }
+/* `.pill` names two different things: the interactive header pill defined
+   near the top of this file, and the status badge defined just above. Same
+   specificity, and the badge rule lands later, so it was quietly turning the
+   button's `inline-flex` into `inline-block` - which does not merely change
+   the box, it kills the button's OWN `gap` and `align-items`, since neither
+   applies to a non-flex container. The drawer toggle carries an icon and a
+   label, so it rendered with the two touching and the icon off the text
+   baseline. A button keeps button layout; badges are left alone. */
+button.pill { align-items: center; display: inline-flex; gap: var(--s2); }
+
 .pill.safe { background: var(--good-wash); color: var(--good); }
 .pill.tight, .pill.shortage { background: var(--warn-wash); color: var(--warn); }
 .pill.failed, .pill.debarred, .pill.unreachable {
