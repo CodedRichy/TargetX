@@ -32,6 +32,8 @@ export function moodLabel(mood: Mood): string {
     case "alarmed": return "Tex, concerned about your attendance";
     case "concerned": return "Tex, watching your attendance";
     case "pleased": return "Tex, happy with where you stand";
+    case "attentive": return "Tex, reading what you are typing";
+    case "thinking": case "thinking-away": return "Tex is thinking";
     default: return "Tex";
   }
 }

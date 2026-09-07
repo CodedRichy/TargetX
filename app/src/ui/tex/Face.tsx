@@ -130,19 +130,28 @@ export function Face(props: {
       }}>
         <path d={blob(def().body.width, def().body.height, def().body.roundness)}
               fill={def().colors.body} />
+        {/* Capsules, not ovals. An ellipse curves the whole way round and
+            reads as a dot at any size; a capsule has straight parallel sides
+            and semicircular caps, which is what gives the face its character
+            and what makes a squint legible - shortening an ellipse just makes
+            a smaller dot, shortening a capsule closes an eye. `rx` at half the
+            width is what rounds the caps into true semicircles; anything less
+            is a rounded rectangle and looks like one. */}
         {[left(), right()].map((e) => (
-          <ellipse fill={def().colors.eyes}
-                   style={{
-                     cx: `${e.cx}px`, cy: `${e.cy}px`,
-                     rx: `${e.rx}px`, ry: `${e.ry}px`,
-                     transform: `rotate(${e.angle}deg)`,
-                     "transform-origin": `${e.cx}px ${e.cy}px`,
-                     "transition": "cx var(--dur-slow) var(--ease), "
-                       + "cy var(--dur-slow) var(--ease), "
-                       + "rx var(--dur-fast) var(--ease), "
-                       + "ry var(--dur-fast) var(--ease), "
-                       + "transform var(--dur-slow) var(--ease)",
-                   }} />
+          <rect fill={def().colors.eyes}
+                style={{
+                  x: `${e.cx - e.rx}px`, y: `${e.cy - e.ry}px`,
+                  width: `${e.rx * 2}px`, height: `${e.ry * 2}px`,
+                  rx: `${Math.min(e.rx, e.ry)}px`, ry: `${Math.min(e.rx, e.ry)}px`,
+                  transform: `rotate(${e.angle}deg)`,
+                  "transform-origin": `${e.cx}px ${e.cy}px`,
+                  "transition": "x var(--dur-slow) var(--ease), "
+                    + "y var(--dur-slow) var(--ease), "
+                    + "width var(--dur-fast) var(--ease), "
+                    + "height var(--dur-fast) var(--ease), "
+                    + "rx var(--dur-fast) var(--ease), "
+                    + "transform var(--dur-slow) var(--ease)",
+                }} />
         ))}
       </g>
     </svg>

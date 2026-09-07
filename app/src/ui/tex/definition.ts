@@ -145,6 +145,45 @@ export const TEX: AvatarDefinition = {
       perspective: 1.2,
     },
 
+    /**
+     * Attentive - the student is typing.
+     *
+     * Head down a few degrees and the eyes shortened, which is what reading
+     * looks like on a face with no eyelids to lower. The whole point is that
+     * the direction of attention is TOWARD the field: a mascot that keeps
+     * staring out of the screen while you write to it is a picture, not a
+     * listener.
+     */
+    attentive: {
+      head: { x: 7, y: 0, z: 0 },
+      eyes: pair(eye(25, 46, 0, 0), 37),
+      perspective: 1,
+    },
+
+    /**
+     * Thinking, and its mirror - the pair is the animation.
+     *
+     * Eyes up and off to one side, because that is the direction people
+     * actually look when recalling something, and a waiting face that keeps
+     * eye contact reads as frozen rather than as busy. The renderer's own
+     * transitions carry him between the two, so the drift costs nothing but
+     * a signal that flips.
+     *
+     * This is the honest state for a request in flight. A spinner says the
+     * app is busy; this says HE is, which is the difference between waiting
+     * for software and waiting for someone.
+     */
+    thinking: {
+      head: { x: -11, y: -17, z: 0 },
+      eyes: pair(eye(23, 40, 0, -8), 37),
+      perspective: 1.15,
+    },
+    "thinking-away": {
+      head: { x: -13, y: 15, z: 0 },
+      eyes: pair(eye(23, 40, 0, -8), 37),
+      perspective: 1.15,
+    },
+
     /** Mid-blink. Held for a few frames by the renderer, never selected. */
     blink: {
       head: { x: 0, y: 0, z: 0 },
@@ -154,4 +193,16 @@ export const TEX: AvatarDefinition = {
   },
 };
 
-export type Mood = "neutral" | "pleased" | "concerned" | "alarmed";
+/**
+ * Every face he can wear.
+ *
+ * Two kinds in one union on purpose. The first four are what he thinks of
+ * your RECORD and are derived from the engine's verdicts (`mood.ts`); the
+ * rest are what he is doing right NOW in a conversation. They never compete,
+ * because the interaction states only exist while the assistant is open and
+ * always outrank the standing mood there - what he is doing this second is
+ * more informative than what he thinks of your semester.
+ */
+export type Mood =
+  | "neutral" | "pleased" | "concerned" | "alarmed"
+  | "attentive" | "thinking" | "thinking-away";
