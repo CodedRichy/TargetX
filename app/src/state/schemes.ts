@@ -90,6 +90,31 @@ export function createProfile(baseId: string, name: string): Scheme {
 }
 
 /**
+ * Take in a profile someone else authored.
+ *
+ * Deliberately routed through the same shape as `createProfile` rather than
+ * writing the incoming object into `customSchemes` directly: the id is minted
+ * here and `builtIn` is set here, so no file can name an id that collides
+ * with a profile already on this machine, and no file can arrive verified.
+ * `importScheme` (engine/schemeIO.ts) has already refused anything whose
+ * numbers the engine could misread by the time this is called - this function
+ * assumes that and does no second validation, because a second copy of those
+ * rules is exactly what that file exists to prevent.
+ */
+export function importProfile(incoming: Omit<Scheme, "id" | "builtIn">): Scheme {
+  const id = freshId();
+  edit((s) => {
+    s.customSchemes = [...(s.customSchemes ?? []), { ...incoming, id, builtIn: false }];
+    s.scheme = id;
+  });
+  // Same identity reason as `createProfile`: hand the engine the store's own
+  // proxy, not the plain object built above.
+  const stored = resolveScheme(id, state.customSchemes);
+  setActiveScheme(stored);
+  return stored;
+}
+
+/**
  * Change a custom profile's numbers in place.
  *
  * Refuses anything that is not already a custom profile - a built-in `id`,
