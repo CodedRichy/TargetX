@@ -1,0 +1,721 @@
+/*
+ * The phone layer.
+ *
+ * One rule governs this file: THE PAGE NEVER SCROLLS SIDEWAYS. Not by a
+ * pixel, at any width, on any screen. A horizontal scrollbar on a phone is
+ * not a cosmetic complaint - a student swipes down a list of subjects, the
+ * whole page slides left instead, and every number they were reading walks
+ * off the edge. `tools/mobile-fit.mjs` measures this and fails the build if
+ * it comes back.
+ *
+ * Vertical scrolling stays. The setup wizard is six paragraphs long and no
+ * phone is six paragraphs tall; the only way to not scroll down would be to
+ * delete the words. Down is normal, sideways is a bug.
+ *
+ * Where something genuinely cannot fit - the ledger's fourteen columns, the
+ * timetable's eight periods - it is NOT squeezed until it is illegible. It
+ * either scrolls inside its own frame, or it is re-laid out for the shape of
+ * the screen. This file does the first, as the floor that guarantees the rule;
+ * the card and day-view layouts that replace those tables build on top of it.
+ *
+ * Loaded last, so it wins on equal specificity without needing `!important`.
+ */
+
+/*
+ * The tab bar exists in the markup at every width and is shown only below the
+ * breakpoint. Declared OUTSIDE the media query so the default is "hidden":
+ * were it only styled inside, a desktop window would render five unstyled
+ * buttons in the document flow.
+ */
+.tabbar { display: none; }
+
+/* The breakpoint. 720px rather than a phone-exact number: a small window on a
+   laptop has the same problem as a phone and deserves the same answer, and the
+   existing sheets already turn at 719-720 in several places. */
+@media (max-width: 720px) {
+
+  /* --- the shell ---------------------------------------------------------- */
+
+  /*
+   * The page scrolls. On the desktop it must not.
+   *
+   * tokens.css pins `html, body, #root` to `height: 100%` and gives the body
+   * `overflow: hidden`, which is right for a window with its own title bar:
+   * the app fills the frame exactly and each pane scrolls inside it. On a
+   * phone it means the document is exactly one screen tall and everything
+   * below the fold is unreachable - the target row under the header on
+   * Semester was simply gone, with no scrollbar to say so, because the body
+   * had been told there is nothing to scroll.
+   *
+   * `min-height` rather than `height`, so a short screen still fills the
+   * display and a long one is allowed to be long.
+   */
+  html, body, #root {
+    height: auto;
+    min-height: 100%;
+  }
+  body {
+    /* Vertical scrolling back on; sideways stays off as the last-resort guard
+       that `tools/mobile-fit.mjs` deliberately does not count as a fix. */
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+
+  /*
+   * One column, and the analytics drawer below the table rather than beside
+   * it.
+   *
+   * `.app` is `grid-template-columns: 1fr auto` with `.drawer` at a fixed
+   * 340px, so the grid's minimum width was "whatever the ledger needs" PLUS
+   * 340 - which measured 516px and did not care how narrow the screen was.
+   * That, not the wide table, was what still scrolled the page sideways after
+   * the tables were contained: a fixed column cannot be scrolled out of the
+   * way, because nothing about it is overflow.
+   *
+   * Nothing is dropped. The drawer keeps every chart it has; it stops being a
+   * second column and becomes a full-width row under the one it used to sit
+   * beside. (The design calls for it to become a sheet opened from the ledger;
+   * this is the layout that has to be right first, either way.)
+   */
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "head"
+      "notice"
+      "goal"
+      "ledger"
+      "drawer";
+    /*
+     * The page scrolls, not a box inside it.
+     *
+     * `.app` is `height: 100%` with the ledger on a `1fr` row, which on a
+     * desktop is right: the table scrolls under a fixed header and the window
+     * never moves. On a phone it means the viewport is the whole budget and
+     * every row after it is cut - the empty state read "Enter series marks
+     * and" and simply stopped, mid-sentence, where the panel began.
+     *
+     * Height goes back to the content, and the document does the scrolling.
+     * One scrollbar-free surface that grows, rather than a stack of little
+     * clipped ones competing for a screen that has no spare height.
+     */
+    height: auto;
+    min-height: 100%;
+  }
+  .drawer,
+  .drawer.wide {
+    width: auto;
+    max-width: 100%;
+  }
+
+  /*
+   * The header was the single largest offender, and it broke FOUR of the five
+   * screens rather than one: measured at 838px wide regardless of viewport, it
+   * set the floor for Home, Attendance, History and Data alike. Its children
+   * are flex items at their natural width, and flex items do not shrink below
+   * their content unless told to - so wordmark + four tabs + the Ask field +
+   * semester pills + refresh + bell + profile + window buttons simply added up
+   * and pushed the document out.
+   *
+   * It becomes two rows that wrap, and the pieces that have somewhere better
+   * to be on a phone go there instead.
+   */
+  .head {
+    flex-wrap: wrap;
+    gap: var(--s2);
+    padding: var(--s2) var(--s3);
+    /* Below the status bar / notch. Zero on anything that has no inset. */
+    padding-top: calc(var(--s2) + env(safe-area-inset-top, 0px));
+  }
+
+  /* Every direct child may shrink. Without this one line, a single wide child
+     re-inflates the header no matter what else is done to it. */
+  .head > * { min-width: 0; }
+
+  /*
+   * The view tabs move to a bottom bar, within thumb reach, so they leave the
+   * header entirely rather than being shrunk into illegibility. Hidden here,
+   * rendered there - see `.tabbar` below.
+   */
+  .head .tabs { display: none; }
+
+  /*
+   * The wordmark button goes with them, because it IS one of them.
+   *
+   * `.homebtn` looks like a logo and is not: it is the Home button, and its
+   * accessible name says so ("Home. Where you stand and what needs doing").
+   * Once Home is a tab at the bottom, leaving it here puts TWO Home buttons on
+   * screen at once, at opposite corners, one of them disguised as branding.
+   * A phone app does not need to tell you which app you are in - the icon you
+   * tapped did that - so the header loses it and the bar keeps it.
+   */
+  .head .homebtn { display: none; }
+
+  /*
+   * The analytics panel toggle keeps its icon and drops its word. It is one of
+   * eight controls competing for a 360px strip, and the icon already carries
+   * the meaning - a panel appearing beside a page.
+   */
+  .head .drawer-toggle { padding: var(--s2); }
+  .head .drawer-toggle span { display: none; }
+
+  /*
+   * Ask gets a row of its own, full width.
+   *
+   * It was briefly squeezed to an icon to buy header space, and that was the
+   * wrong trade twice over. `.ask` is not a button - it is a search field
+   * (`cursor: text`, elastic width, a 12rem floor), and the sentence inside it
+   * is what says "type your question here". Shrunk to a circle it reads as
+   * one more icon among five, and Tex is one of the three ways into the record
+   * that this app is sold on, not an accessory.
+   *
+   * The header already wraps, so the field takes the second row entirely
+   * rather than competing with the semester pills for the first. `order`
+   * puts it after the controls regardless of its position in the markup.
+   *
+   * `margin-inline: auto` is cancelled deliberately: on desktop it centres the
+   * field within leftover space, and with the wordmark gone on mobile that
+   * same rule stranded it in the middle of the row with dead gaps either side.
+   */
+  /*
+   * Row one is the controls; row two is Ask.
+   *
+   * `.profile` is pushed to the far edge and the rest stay left, which is where
+   * a phone user's thumb expects each of them: refresh and notifications are
+   * things you do to the screen you are on, the account is a place you leave to.
+   * Clustered together at the left they read as one undifferentiated row of
+   * grey circles, and the avatar - the only one that is not an action - was the
+   * easiest to hit by accident.
+   */
+  .head .profile { margin-inline-start: auto; order: 1; }
+  .head .refresh,
+  .head .bell,
+  .head .drawer-toggle { order: 1; }
+
+  /*
+   * The semester strip gets a row of its own, under the controls rather than
+   * over them.
+   *
+   * It is first in the DOM because on a desktop it sits inline between the
+   * tabs and the account, and once the header wraps that source order put S1
+   * to S8 ABOVE refresh, notifications and the account - the app's own
+   * controls pushed below a list of semesters, which is not the order anyone
+   * reads a header in. `order` fixes the phone without moving anything for
+   * the desktop, where nothing wraps and order never applies.
+   */
+  .head .sems {
+    flex: 1 1 100%;
+    order: 5;
+    overflow-x: auto;
+    min-inline-size: 0;
+  }
+
+  .head .ask {
+    justify-content: center;
+    order: 10;
+    flex: 1 1 100%;
+    min-inline-size: 0;
+    max-inline-size: none;
+    margin-inline: 0;
+    padding: var(--s2) var(--s4);
+  }
+  /* The label stays and truncates if it must - a field with words in it is
+     still a field; a field with nothing in it is a box. */
+  .head .ask > span:not(.kbd) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* No keyboard on a phone, so no shortcut hint. */
+  .head .ask .kbd { display: none; }
+
+  /* No keyboard, no shortcut hint, anywhere. */
+  .kbd { display: none; }
+
+  /*
+   * Window controls. `WindowChrome` already declines to render on Android via
+   * `isAndroid()` in `state/platform.ts`; this covers the other case - a
+   * narrow desktop window - where the buttons DO belong to a real window and
+   * must keep working. So: not hidden on desktop, only compacted.
+   */
+  .winbtn { inline-size: 2.2rem; }
+
+  /*
+   * The semester pills scroll inside themselves. Eight semesters plus the add
+   * button is wider than any phone, and this is the one place in the app where
+   * a sideways swipe is the right gesture - it is a single short strip the
+   * student is picking from, not a page.
+   */
+  .sems {
+    flex: 1 1 auto;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sems::-webkit-scrollbar { display: none; }
+  .sem { flex: 0 0 auto; }
+
+  /* The profile block keeps the avatar and drops the two lines of text beside
+     it, which measured 120px on their own. */
+  .profile .profile-lines { display: none; }
+
+  /*
+   * The goal bar - the same flex trap as the header, one row further down.
+   *
+   * Its children measured 507px together and `overflow-x` was visible, so it
+   * did not scroll, it simply made the document 507px wide and took the whole
+   * Semester screen sideways with it. It was the last real overflow left after
+   * the header and the tables were dealt with, and it hid behind the launch
+   * overlay in the measurements twice.
+   *
+   * It wraps rather than scrolls: it is a label, a target input and a summary
+   * line, which read perfectly well as two rows and badly as a swipe.
+   */
+  .goalbar {
+    flex-wrap: wrap;
+    gap: var(--s2) var(--s3);
+    padding: var(--s2) var(--s3);
+  }
+  .goalbar > * { min-width: 0; }
+
+  /* --- the setup wizard ---------------------------------------------------- */
+
+  /*
+   * Setup has its own shell - `.setup-head`, not `.head` - and so needed its
+   * own answer. It is also the FIRST thing a new student ever sees, and it was
+   * the screen still visibly clipped ("Your goa…") after the main header was
+   * fixed, because the measurement harness seeds `onboarded: true` and so
+   * never rendered it. Fixed here; covered in `mobile-fit.mjs` now too.
+   */
+  .setup-frame { padding: var(--s4); }
+  .setup-head {
+    flex-wrap: wrap;
+    gap: var(--s3);
+    margin-bottom: var(--s5);
+  }
+  .setup-head > * { min-width: 0; }
+
+  .steps {
+    margin-left: 0;
+    gap: var(--s3);
+  }
+
+  /*
+   * Only the step you are ON keeps its words.
+   *
+   * "Start / Your marks / Your goal" is 3 labels plus the wordmark, and they
+   * do not fit beside each other on a phone. The labels are bare text nodes
+   * in `Setup.tsx` rather than elements, so they cannot be selected directly
+   * - collapsing them with `font-size: 0` and restoring the numbers is the
+   * way to reach them without editing that file.
+   *
+   * The result reads "(1) Start (2) (3)": you still know which step you are
+   * on, what it is called, and how many are left. Numbering all three and
+   * naming none would have kept the geometry and lost the orientation.
+   */
+  .steps li { font-size: 0; gap: 0; }
+  .steps li .num { font-size: var(--text-xs); }
+  .steps li.now { font-size: var(--text-xs); gap: var(--s2); }
+
+  /* --- tables that cannot fit --------------------------------------------- */
+
+  /*
+   * The three wide tables - the ledger at 1050px, History at 866px, the
+   * attendance grids at 820px - are contained rather than squeezed. Each gets
+   * its own scroll frame, so the TABLE moves and the page does not.
+   *
+   * This is the floor, not the destination. The ledger becomes per-subject
+   * cards and the timetable becomes a day view; both are a better answer than
+   * a sideways swipe. But those are layout rewrites, and the no-sideways rule
+   * has to hold before them, during them, and after them.
+   */
+  /*
+   * `min-width: 0` is the load-bearing half of this rule, not `overflow-x`.
+   *
+   * `.ledger` is a GRID ITEM of `.app`, and a grid item's default `min-width`
+   * is `auto` - meaning "never smaller than my content". So the 1010px table
+   * inflated the item, the item inflated the grid, and `overflow-x: auto`
+   * never engaged because the box was never smaller than what was inside it.
+   * Exactly the same trap as the header's flex children.
+   */
+  .app > * { min-width: 0; }
+
+  /*
+   * The ledger stops being a scroll box and goes back to being content.
+   *
+   * `app.css` gives it `overflow: auto`, which on a phone clipped everything
+   * inside it - table AND empty state - to a single screen of height. The
+   * scrolling moves inward to `.ledger-scroll`, which wraps only the table
+   * (see `Ledger.tsx`), so the ledger grows and the page scrolls.
+   */
+  .ledger {
+    min-width: 0;
+    max-width: 100%;
+    overflow: visible;
+    padding-inline: var(--s3);
+  }
+
+  /* --- the ledger, as cards ------------------------------------------------ */
+
+  /*
+   * Fourteen columns do not become a phone screen by getting narrower.
+   *
+   * Sliding the table sideways works and is what `.ledger-scroll` is for, but
+   * it means the two figures a student actually opens the app for - where they
+   * stand and what the exam still has to deliver - live off the right edge,
+   * and every row has to be read twice. The row is the same fourteen cells;
+   * this lays them out as a card instead of a line, target-led: the grade and
+   * what it costs at the top, the working underneath.
+   *
+   * Nothing is dropped and nothing is duplicated. The ESE box and the target
+   * picker are the SAME controls the desktop has - they are inputs, and a
+   * second copy for phones would be a second thing to keep in step. The `Cr`,
+   * `Att mk`, `Total` and `Pass` cells keep their `data-label` in front of the
+   * number, because out of a column a bare figure says nothing.
+   */
+  .ledger table,
+  .ledger thead,
+  .ledger tbody,
+  .ledger tr,
+  .ledger td { display: block; }
+
+  /* The header row named columns that no longer exist as columns. Every cell
+     now carries its own label, so this would be the same words twice. */
+  .ledger thead { display: none; }
+
+  .ledger tbody tr.row {
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-card);
+    display: grid;
+    gap: var(--s2) var(--s3);
+    grid-template-areas:
+      "course  course  grade"
+      "code    code    grade"
+      "cie     att     attmk"
+      "ese     total   pass"
+      "target  need    need"
+      "status  status  remove";
+    grid-template-columns: 1fr 1fr auto;
+    margin-block-end: var(--s3);
+    padding: var(--s4);
+  }
+
+  .ledger tbody tr.row > td {
+    border: 0;
+    min-width: 0;
+    padding: 0;
+    text-align: start;
+  }
+
+  .ledger tr.row > [data-col="code"]      { grid-area: code; }
+  .ledger tr.row > [data-col="course"]    { grid-area: course; }
+  .ledger tr.row > [data-col="credits"]   { display: none; }
+  .ledger tr.row > [data-col="cie"]       { grid-area: cie; }
+  .ledger tr.row > [data-col="attendance"]{ grid-area: att; }
+  .ledger tr.row > [data-col="attmk"]     { grid-area: attmk; }
+  .ledger tr.row > [data-col="ese"]       { grid-area: ese; }
+  .ledger tr.row > [data-col="total"]     { grid-area: total; }
+  .ledger tr.row > [data-col="grade"]     { grid-area: grade; justify-self: end; }
+  .ledger tr.row > [data-col="pass"]      { grid-area: pass; }
+  .ledger tr.row > [data-col="target"]    { grid-area: target; }
+  .ledger tr.row > [data-col="need"]      { grid-area: need; }
+  .ledger tr.row > [data-col="status"]    { grid-area: status; }
+  .ledger tr.row > [data-col="remove"]    { grid-area: remove; justify-self: end; }
+
+  /*
+   * Credits are the one cell that goes.
+   *
+   * It is a single digit that never changes during a semester, it is already
+   * editable in the row's own detail panel, and on a card it would cost a
+   * whole labelled line to say "4". Everything else earns its space.
+   */
+
+  /* The label a column heading used to supply, in front of the figure. */
+  .ledger tr.row > td[data-label]::before {
+    color: var(--text-faint);
+    content: attr(data-label);
+    display: block;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: var(--tracking-wide);
+    margin-block-end: 2px;
+    text-transform: uppercase;
+  }
+  /* Except where the cell IS its own label: the code is the subject's name in
+     the student's timetable, the course title is a sentence, and the grade is
+     a letter the eye finds without being told what it is. */
+  /* `td` spelled out on each: without it these lose on specificity to the
+     rule above, which names an element more, and every card was headed with
+     the word CODE over its own subject code. */
+  .ledger tr.row > td[data-col="code"]::before,
+  .ledger tr.row > td[data-col="course"]::before,
+  .ledger tr.row > td[data-col="grade"]::before,
+  .ledger tr.row > td[data-col="status"]::before { content: none; }
+
+  /* The subject's name is the card's title, and its code the line under it -
+     the other way round from the table, where Code comes first because it is
+     the narrow column. On a card the student is looking for "Operating
+     Systems", not for PCCST503. */
+  .ledger tr.row > [data-col="course"] {
+    color: var(--text);
+    font-size: var(--text-lg);
+    font-weight: 500;
+    line-height: 1.25;
+    max-width: none;
+    white-space: normal;
+  }
+  .ledger tr.row > [data-col="code"] { margin-block-end: var(--s2); }
+  .ledger tr.row > [data-col="grade"] {
+    align-self: start;
+    font-size: var(--text-xl);
+  }
+  /*
+   * An editable cell has to look editable when there is no pointer.
+   *
+   * app.css draws `.cell-input` with a transparent border that appears on
+   * hover - right for a dense desktop grid, where a visible box on every cell
+   * would be a wall of outlines and the pointer is always available to ask.
+   * A finger cannot hover. On the phone these read as plain text, and the ESE
+   * box in particular showed as a bare "/60" floating in the card with nothing
+   * to say it was the field the whole screen is built to be filled in.
+   */
+  .ledger tr.row .cell-input {
+    border-color: var(--hairline);
+    text-align: start;
+    width: 100%;
+  }
+  .ledger tr.row select.cell-input { width: 100%; }
+
+  /*
+   * Same reason, worse consequence: `.del` is `opacity: 0` until the row is
+   * hovered, so on a phone the remove button was invisible AND still in the
+   * tab order - unreachable by touch, and a trap for anything driving the app
+   * by keyboard. It is drawn quietly rather than loudly: still the faintest
+   * thing on the card, but present.
+   */
+  .ledger tr.row .del {
+    font-size: var(--text-lg);
+    opacity: 1;
+    padding: var(--s1) var(--s2);
+  }
+
+  /* The detail row spans the card rather than a column count that no longer
+     exists, and its own two-column panels stack. */
+  .ledger tr.detail > td { padding: 0; }
+  .ledger .detail-grid { grid-template-columns: 1fr; }
+
+  .ledger-scroll,
+  .grid-frame,
+  .history-scroll {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /*
+   * History slid the whole page sideways on a real phone while this harness
+   * reported it green, and both facts had the same cause: the rule above used
+   * to name `.history-grid .card`, and History has no `.card` in it at all. A
+   * selector that matches nothing costs nothing and looks like a fix, which is
+   * the worst thing a stylesheet can contain.
+   *
+   * Two things had to be true. The wrapper above is one. The other is this:
+   * screens.css drops the grid to `1fr` below 1100px, and `1fr` is
+   * `minmax(auto, 1fr)` - the column's floor is its CONTENT, so a seven-column
+   * table pushed the track, the grid and the document out past the viewport no
+   * matter what the wrapper inside it did.
+   */
+  .history-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .history-grid > * { min-width: 0; }
+
+  /*
+   * `.screen` is History, Attendance and Data, and screens.css gives it
+   * `overflow: auto` so it scrolls INSIDE a fixed-height desktop grid. On a
+   * phone the grid is no longer fixed-height - the page scrolls instead - and
+   * that rule turns every one of these screens into a box that slides in both
+   * directions under a header that stays put. It is the same defect the ledger
+   * had, and the same fix: let the screen grow, and give the one element that
+   * genuinely cannot fit (the history table) its own scroller.
+   */
+  .screen {
+    max-width: 100%;
+    min-width: 0;
+    overflow: visible;
+    padding: var(--s5) var(--s3);
+  }
+
+  /* Heading and the CGPA figure sit on one flex line at desk width; on a phone
+     the figure takes its own line rather than squeezing the title into a
+     column of single letters. */
+  .screen-head { flex-wrap: wrap; gap: var(--s4); }
+  .screen-head > * { min-width: 0; }
+
+  /*
+   * `min-width: 820px` on the timetable is deliberate and stays - see the
+   * comment in calendar.css. Eight periods below that width stop being
+   * legible, so the fix is to let it scroll at its real size, never to shrink
+   * it under its own floor.
+   */
+
+  /*
+   * Header panels become a sheet spanning the screen.
+   *
+   * `Popover` measures its anchor and writes `right` as an inline style, which
+   * on a desktop hangs a 22rem panel under the control it belongs to. On a
+   * phone that arithmetic puts the panel's LEFT edge off the screen: anchored
+   * to the bell on a 411px display, a 352px panel starts at about -100px and
+   * the student reads half of it.
+   *
+   * `!important` is here for exactly one reason and it is not laziness: the
+   * `right` it fights is an inline style, and inline styles beat every
+   * stylesheet rule that is not marked. The alternative is to teach the
+   * component a breakpoint and have it decide not to write the style at all,
+   * which puts a phone measurement inside a component whose whole job is to
+   * measure - and would still leave this file overriding `inline-size`.
+   */
+  .pop {
+    /* Physical, not `inset-inline`: the declaration being overridden is the
+       physical `right` written inline, and mixing the two leaves the winner
+       depending on cascade order rather than on the mark. */
+    left: var(--s3) !important;
+    right: var(--s3) !important;
+    inline-size: auto;
+    max-block-size: 70vh;
+  }
+
+  /*
+   * The palette becomes a sheet, not a card floating over a blurred app.
+   *
+   * app.css drops a 38rem card 12vh down the screen with the app dimmed behind
+   * it. On a phone that left a 63px-tall field stranded near the top, the
+   * whole application blurred out beneath it, and - because the sheet covers
+   * the scrim entirely - no way back except the system back gesture, which
+   * closes the app. It also gave the answer, which can be a paragraph, a
+   * couple of centimetres to appear in.
+   *
+   * It hugs the top and grows with what is in it rather than claiming the
+   * whole screen: an empty palette that fills the display is a black void with
+   * one line of placeholder in it, and leaving the scrim visible underneath
+   * keeps tap-outside-to-close working as well.
+   *
+   * `100dvh` rather than `100vh` for the cap: the on-screen keyboard is the
+   * entire point of this surface, and `vh` measures the viewport as though it
+   * were not there, which puts the field being typed into underneath it.
+   */
+  .palette-scrim {
+    align-items: start;
+    padding-block-start: 0;
+  }
+  .palette {
+    border-inline: 0;
+    border-block-start: 0;
+    border-radius: 0 0 var(--radius-card) var(--radius-card);
+    inline-size: 100%;
+    max-block-size: 100dvh;
+  }
+  .palette-close {
+    background: none;
+    border: 0;
+    color: var(--text-faint);
+    display: inline-flex;
+    padding: var(--s4);
+  }
+  /* Three columns of a search hit do not fit; the kind and the detail move
+     under the label rather than squeezing it to two words. */
+  .palette-hit {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  /* --- charts -------------------------------------------------------------- */
+
+  /* SVG charts are sized by viewBox and scale willingly, but several carry an
+     explicit max-width in `ch` that exceeds a phone. */
+  svg { max-width: 100%; }
+
+  /* --- the bottom tab bar --------------------------------------------------- */
+
+  /*
+   * Replaces the header's tab row. Four destinations, thumb-height, above the
+   * gesture bar.
+   */
+  .tabbar {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 20;
+    display: flex;
+    background: var(--surface-1);
+    border-top: 1px solid var(--hairline);
+    /*
+     * Above the gesture bar, not under it.
+     *
+     * `env(safe-area-inset-bottom)` alone is not enough: Android's WebView
+     * reports it as 0 unless the page opts in with `viewport-fit=cover`, and
+     * this one deliberately does not - opting in would push every OTHER screen
+     * under the status bar too, to fix one bar at the bottom. So the inset is
+     * a floor of 14px with `max()`, and the env value still wins on any device
+     * that reports a bigger one (a tall gesture pill, a notched phone in
+     * landscape).
+     *
+     * Measured, not guessed: at 0 padding the system gesture pill drew
+     * straight through the word "Attendance".
+     */
+    padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  }
+  .tabbar button {
+    /* Five equal columns - 72px each at 360px. `min-width: 0` is what lets
+       them actually be equal; without it the widest label ("Attendance")
+       sets the width for all five and the bar overflows, which is the same
+       mistake the header made. */
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: var(--s2) 2px;
+    background: none;
+    border: 0;
+    color: var(--text-faint);
+    font: inherit;
+    /* 44px is the smallest target a thumb hits reliably. */
+    min-height: 44px;
+    cursor: pointer;
+  }
+  .tabbar button svg { width: 22px; height: 22px; }
+  .tabbar-label {
+    font-size: 10px;
+    letter-spacing: 0.01em;
+    /* "Attendance" is the long one. Ellipsis rather than wrap: a two-line
+       label makes one tab taller than its neighbours and the row ragged. */
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tabbar button[aria-current="true"] { color: var(--brand-bright); }
+  .tabbar button:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+
+  /* Room for the bar, so the last row of any list clears it rather than
+     sitting permanently underneath. Same floor as the bar's own inset. */
+  .app { padding-bottom: calc(56px + max(14px, env(safe-area-inset-bottom, 0px))); }
+
+  /* --- scrollbars ---------------------------------------------------------- */
+
+  /*
+   * No scrollbar furniture on a phone. Touch scrolling has never needed a
+   * visible track, and the WebView draws a desktop-style one that sits over
+   * the content. The surfaces still scroll; only the chrome goes.
+   */
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}

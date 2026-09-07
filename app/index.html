@@ -2,7 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      `minimum-scale=1` is load-bearing on Android and does nothing anywhere else.
+
+      Given content it decides is too wide, the Android WebView does not show a
+      sideways scrollbar - it ZOOMS THE PAGE OUT to fit, and it counts the
+      contents of a horizontally scrolling box towards that width even though
+      the box has already clipped them. Measured on a Pixel 7 (411 CSS px):
+      Semester came back reporting a 516px viewport and Attendance 788px, both
+      dimensions scaled by exactly the same factor, with nothing on either page
+      crossing the edge. The timetable, which is meant to slide inside its own
+      frame, was instead shrinking the entire app around itself - the header,
+      the tab bar and every word of body text.
+
+      `initial-scale=1` sets where the page starts; only `minimum-scale=1`
+      stops it going below that afterwards. Zooming IN is untouched, so pinch
+      to magnify still works and nothing here is an accessibility trade.
+    -->
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1, minimum-scale=1" />
     <title>TargetX</title>
   </head>
   <body>

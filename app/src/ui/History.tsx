@@ -126,35 +126,41 @@ export function History() {
 
       <div class="history-grid">
         <div>
-          <table>
-            <thead>
-              <tr>
-                <th class="left" scope="col">Semester</th>
-                <th scope="col">Published SGPA</th>
-                <th scope="col">Registered credits</th>
-                <th scope="col">Earned</th>
-                <th scope="col">Recomputed</th>
-                <th class="left" scope="col">Cross-check</th>
-                {/* No visible label: the column holds one control per row and
-                    each already names its own semester. A header word here
-                    would be read out before every cell in the table. */}
-                <th scope="col"><span class="sr-only">Remove semester</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* `Index`, not `For`. `For` keys by object identity and every
-                  recomputation of `rows()` builds fresh objects, so a commit
-                  threw away and rebuilt every `tr` in the table - taking the
-                  focused input with it. Measured before this change: from the
-                  first SGPA box, Tab moved focus to the body and the next Tab
-                  came back to the same box, so the credits column and every
-                  row below the first were unreachable by keyboard at all.
-                  `Index` keys by position and hands each row an accessor, so
-                  the input the student is typing in is the same element
-                  afterwards. */}
-              <Index each={rows()}>{(row) => <HistoryRow row={row()} />}</Index>
-            </tbody>
-          </table>
+          {/* Same wrapper the ledger has, for the same reason: seven columns of
+              published figures do not fit a phone, and the honest fix is to let
+              the TABLE slide under a still page rather than to let the page
+              itself slide and carry the header and tab bar off screen with it. */}
+          <div class="history-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th class="left" scope="col">Semester</th>
+                  <th scope="col">Published SGPA</th>
+                  <th scope="col">Registered credits</th>
+                  <th scope="col">Earned</th>
+                  <th scope="col">Recomputed</th>
+                  <th class="left" scope="col">Cross-check</th>
+                  {/* No visible label: the column holds one control per row and
+                      each already names its own semester. A header word here
+                      would be read out before every cell in the table. */}
+                  <th scope="col"><span class="sr-only">Remove semester</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* `Index`, not `For`. `For` keys by object identity and every
+                    recomputation of `rows()` builds fresh objects, so a commit
+                    threw away and rebuilt every `tr` in the table - taking the
+                    focused input with it. Measured before this change: from the
+                    first SGPA box, Tab moved focus to the body and the next Tab
+                    came back to the same box, so the credits column and every
+                    row below the first were unreachable by keyboard at all.
+                    `Index` keys by position and hands each row an accessor, so
+                    the input the student is typing in is the same element
+                    afterwards. */}
+                <Index each={rows()}>{(row) => <HistoryRow row={row()} />}</Index>
+              </tbody>
+            </table>
+          </div>
 
           <Show when={unconfirmed().length > 0}>
             <div class="notice">

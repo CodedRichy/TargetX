@@ -667,6 +667,21 @@ tr.row:hover .del { opacity: 1; }
   border-radius: var(--radius-card);
 }
 
+/* The field and its close button share a line; the field takes what is left. */
+.palette-field {
+  align-items: center;
+  border-block-end: 1px solid var(--hairline);
+  display: flex;
+}
+.palette-field .palette-input {
+  border-block-end: 0;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+/* Desktop closes with Escape or with a click on the scrim, neither of which a
+   phone has; mobile.css turns this on. */
+.palette-close { display: none; }
+
 .palette-input {
   appearance: none;
   background: transparent;

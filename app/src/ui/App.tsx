@@ -10,6 +10,7 @@ import { ASSISTANT } from "../state/answers";
 import { appearance, setTheme, startTheme, theme } from "../state/theme";
 import { Data } from "./Data";
 import { WindowChrome } from "./WindowChrome";
+import { TabBar } from "./TabBar";
 import { Drawer } from "./Drawer";
 import { Attendance } from "./Attendance";
 import { History } from "./History";
@@ -938,6 +939,12 @@ export function App() {
 
         <Palette open={paletteOpen()} onClose={() => setPaletteOpen(false)} />
         <SignedInToast />
+
+        {/* The view tabs, for widths where the header cannot hold them. Always
+            in the markup and shown only below 720px (`styles/mobile.css`), so
+            a narrow desktop window gets the same treatment as a phone and
+            there is no platform-conditional path to rot. */}
+        <TabBar />
       </div>
     </Show>
     </>

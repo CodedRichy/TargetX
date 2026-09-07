@@ -645,11 +645,25 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
       <div ref={scrim} class="palette-scrim" onClick={props.onClose}>
         <div ref={shell} class="palette" role="dialog" aria-modal="true" aria-label="Search"
              onClick={(e) => e.stopPropagation()}>
-          <input ref={input} class="palette-input" value={query()}
-                 placeholder={`Ask ${ASSISTANT} — how many classes can I miss in ML?`}
-                 aria-label="Search subjects and views"
-                 onInput={(e) => setQuery(e.currentTarget.value)}
-                 onKeyDown={onKey} />
+          <div class="palette-field">
+            <input ref={input} class="palette-input" value={query()}
+                   placeholder={`Ask ${ASSISTANT} — how many classes can I miss in ML?`}
+                   aria-label="Search subjects and views"
+                   onInput={(e) => setQuery(e.currentTarget.value)}
+                   onKeyDown={onKey} />
+            {/* Hidden above the breakpoint, where Escape and a click on the
+                scrim both close this and a third control would be clutter. On
+                a phone the sheet covers the scrim completely and there is no
+                Escape key, so without this the only way out of the palette was
+                the system back gesture - which quits the app. */}
+            <button type="button" class="palette-close" onClick={props.onClose}
+                    aria-label="Close search">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+                   stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
 
           {/* Everything below the field scrolls as one.
               The list used to be the only scrolling part, which was fine while

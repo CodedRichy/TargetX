@@ -13,6 +13,10 @@ import "./styles/app.css";
 import "./styles/screens.css";
 import "./styles/calendar.css";
 import "./styles/motion.css";
+/* Last of the sheets, deliberately: the phone layer overrides desktop layout
+   at narrow widths and needs to win on equal specificity, without `!important`
+   scattered through it. */
+import "./styles/mobile.css";
 
 import { render } from "solid-js/web";
 import { App } from "./ui/App";

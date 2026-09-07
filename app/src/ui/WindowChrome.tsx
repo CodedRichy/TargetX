@@ -21,17 +21,27 @@
  *     resize events for that reason.
  */
 import { Show, createSignal, onCleanup, onMount } from "solid-js";
+import { isDesktopShell } from "../state/platform";
 
 /**
- * True when running inside the desktop shell.
+ * True when running inside a shell that has a window to control.
  *
- * Mirrors `canSync` in `sync/etlab` and `canUpdate` in `sync/update` rather
- * than inventing a third detection. In a browser (`npm run dev`, and every
- * test) there is no window to control and this renders nothing - the page
- * still has the browser's own chrome.
+ * This tested `__TAURI_INTERNALS__` directly until Android existed, the same
+ * way `canSync` in `sync/etlab` and `canUpdate` in `sync/update` still do.
+ * That test asks "is there a Rust side", and while the only shell was a
+ * desktop window it was ALSO, by accident, a correct test for "is there a
+ * title bar to stand in for".
+ *
+ * On a phone it is still true and no longer means that: it painted minimise,
+ * maximise and close into the header of a window that cannot be minimised,
+ * maximised or closed. `isDesktopShell` asks the question this component
+ * actually has - see `state/platform.ts`.
+ *
+ * In a browser (`npm run dev`, and every test) it stays false exactly as
+ * before: there is no window to control, and the page has the browser's own
+ * chrome already.
  */
-export const hasOwnChrome = (): boolean =>
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+export const hasOwnChrome = (): boolean => isDesktopShell();
 
 /**
  * Glyphs at 10x10, stroked rather than filled.

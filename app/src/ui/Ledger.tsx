@@ -474,6 +474,19 @@ export function Ledger() {
           <button class="icon-btn" onClick={() => addCourse()}>Add a subject</button>
         </div>
       }>
+        {/* The table scrolls in its own frame rather than sharing the
+            ledger's.
+
+            `.ledger` carries `overflow: auto`, which on a desktop is correct:
+            the table scrolls under a fixed header and the window never moves.
+            On a phone that same rule clipped EVERYTHING in here to one screen
+            of height - the empty state above ended mid-sentence, at "Enter
+            series marks and", with the analytics panel starting underneath it.
+
+            Scrolling the table instead lets the ledger grow to its content and
+            the document do the scrolling, which is what a phone expects.
+            Inert on desktop, where the ledger's own frame still handles it. */}
+        <div class="ledger-scroll">
         <table>
           <thead>
             {/* `scope="col"` on every one, including the empty last: without
@@ -511,7 +524,7 @@ export function Ledger() {
                       and not be told it had opened. `button.code` in app.css
                       strips the browser chrome so this is the same drawing it
                       was. */}
-                  <td class="left">
+                  <td class="left" data-col="code" data-label="Code">
                     <button type="button" class="code num"
                             aria-expanded={open() === row.index}
                             aria-controls={`detail-${row.index}`}
@@ -519,9 +532,9 @@ export function Ledger() {
                       {row.course.code || "SET CODE"}
                     </button>
                   </td>
-                  <td class="left title">{row.course.name || dash}</td>
-                  <td class="num">{show(row.ev.credits)}</td>
-                  <td class="num">
+                  <td class="left title" data-col="course" data-label="Course">{row.course.name || dash}</td>
+                  <td class="num" data-col="credits" data-label="Cr">{show(row.ev.credits)}</td>
+                  <td class="num" data-col="cie" data-label="CIE">
                     <Show when={row.ev.assessed}
                           fallback={<span style={{ color: "var(--text-faint)" }}>{dash}</span>}>
                       {/* An internal missing a component mark or its
@@ -541,7 +554,7 @@ export function Ledger() {
                     </Show>
                     <CieParts course={row.course} ev={row.ev} />
                   </td>
-                  <td class="left">
+                  <td class="left" data-col="attendance" data-label="Attendance">
                     <AttendanceBar pct={row.ev.attendance} />{" "}
                     <span class="num" style={{
                       color: row.ev.attendance === null ? "var(--text-faint)"
@@ -574,7 +587,7 @@ export function Ledger() {
                       </span>
                     </Show>
                   </td>
-                  <td class="num" title="CIE marks from attendance">
+                  <td class="num" data-col="attmk" data-label="Att mk" title="CIE marks from attendance">
                     {/* `attMax`, not a literal 5. `CourseSpec.attMax` exists so
                         it can vary by course type, and constants.ts explicitly
                         instructs the next maintainer to spell out per-type
@@ -585,32 +598,32 @@ export function Ledger() {
                       /{specFor(row.course.type).attMax}
                     </span>
                   </td>
-                  <td>
+                  <td data-col="ese" data-label="ESE">
                     <Cell value={row.course.ese}
                           label={`ESE mark, out of ${row.ev.eseMax}`}
                           onInput={(v) => updateCourse(row.index, { ese: v })}
                           placeholder={`/${row.ev.eseMax}`} />
                   </td>
-                  <td class="num">{show(row.ev.total)}</td>
-                  <td class={`grade${row.ev.grade === "F" ? " f" : ""}${
+                  <td class="num" data-col="total" data-label="Total">{show(row.ev.total)}</td>
+                  <td data-col="grade" data-label="Gr" class={`grade${row.ev.grade === "F" ? " f" : ""}${
                     row.ev.grade === "S" || row.ev.grade === "A+" ? " top" : ""}`}>
                     {row.ev.grade ?? dash}
                   </td>
-                  <td><Need need={row.ev.needPass} best={row.ev.needPassBest}
+                  <td data-col="pass" data-label="Pass"><Need need={row.ev.needPass} best={row.ev.needPassBest}
                             applies={needApplies(row.ev)} /></td>
-                  <td class="left">
+                  <td class="left" data-col="target" data-label="Target">
                     <select class="cell-input" aria-label="Target grade" value={row.ev.target}
                             onChange={(e) => updateCourse(row.index, {
                               target: e.currentTarget.value as Letter })}>
                       <For each={TARGET_CHOICES}>{(g) => <option value={g}>{g}</option>}</For>
                     </select>
                   </td>
-                  <td><Need need={row.ev.needTarget} best={row.ev.needTargetBest}
+                  <td data-col="need" data-label="Need"><Need need={row.ev.needTarget} best={row.ev.needTargetBest}
                             applies={needApplies(row.ev)} /></td>
-                  <td class="left">
+                  <td class="left" data-col="status" data-label="Status">
                     <span class={`pill ${row.status.toLowerCase()}`}>{row.status}</span>
                   </td>
-                  <td>
+                  <td data-col="remove">
                     {/* The visible glyph IS the name unless one is given, so
                         without this a screen reader reads a row of buttons all
                         called "×". `title` does not win over text content. */}
@@ -626,6 +639,7 @@ export function Ledger() {
             )}</For>
           </tbody>
         </table>
+        </div>
         <div style={{ padding: "var(--s4) var(--s5)" }}>
           <button class="icon-btn" onClick={() => addCourse()}>+ Subject</button>
         </div>
