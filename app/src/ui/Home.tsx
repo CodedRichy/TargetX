@@ -94,7 +94,7 @@ export function Home() {
       lost += ATTENDANCE_MARK_MAX - ev.attMarks;
 
       const pct = ev.attendance;
-      if (pct !== null && pct >= ATTENDANCE_MIN && pct < ATTENDANCE_FULL_MARKS_PCT) {
+      if (pct !== null && pct >= ATTENDANCE_MIN && pct < ATTENDANCE_FULL_MARKS_PCT()) {
         blindSpot += 1;
       }
 
@@ -401,7 +401,7 @@ export function Home() {
               <p class="tile-verdict dim">
                 No attendance recorded yet. It is worth up to {ATTENDANCE_MARK_MAX} CIE
                 marks per subject, and all {ATTENDANCE_MARK_MAX} need{" "}
-                {ATTENDANCE_FULL_MARKS_PCT}%, not the {ATTENDANCE_MIN}% you are told
+                {ATTENDANCE_FULL_MARKS_PCT()}%, not the {ATTENDANCE_MIN}% you are told
                 about — so it is the cheapest thing here to fix.
               </p>
             }>
@@ -415,7 +415,7 @@ export function Home() {
                 <p class="tile-verdict">
                   <strong class="num">{attendanceCost().blindSpot}</strong> of them are
                   above {ATTENDANCE_MIN}% and losing marks anyway. Full marks start at{" "}
-                  <strong class="num">{ATTENDANCE_FULL_MARKS_PCT}%</strong> — sitting on{" "}
+                  <strong class="num">{ATTENDANCE_FULL_MARKS_PCT()}%</strong> — sitting on{" "}
                   {ATTENDANCE_MIN}% forfeits{" "}
                   <span class="unit">
                     <strong class="num">{FORFEIT_AT_ELIGIBILITY}</strong> of{" "}

@@ -63,7 +63,7 @@ export function Attendance() {
             {state.activeSemester} · the room you have above the {ATTENDANCE_MIN}%
             eligibility line, per subject. The meter marks both lines that
             matter: {ATTENDANCE_MIN}% to sit the exam, and{" "}
-            {ATTENDANCE_FULL_MARKS_PCT}% to stop losing internal marks.
+            {ATTENDANCE_FULL_MARKS_PCT()}% to stop losing internal marks.
           </p>
         </div>
       </div>
@@ -530,14 +530,14 @@ function TimetableSection() {
 function ThresholdMeter(props: { current: number }) {
   const pct = () => Math.max(0, Math.min(100, props.current));
   const tone = () => (
-    pct() >= ATTENDANCE_FULL_MARKS_PCT ? "" :
+    pct() >= ATTENDANCE_FULL_MARKS_PCT() ? "" :
     pct() >= ATTENDANCE_MIN ? " warn" : " bad"
   );
   /** What R 7.5.ii pays at this percentage. Engine-computed, never guessed. */
   const earned = () => attendanceMarks(pct()) ?? 0;
   const label = () =>
     `Attendance ${pct().toFixed(0)}%. Eligibility line ${ATTENDANCE_MIN}%. `
-    + `Full internal marks from ${ATTENDANCE_FULL_MARKS_PCT}%. `
+    + `Full internal marks from ${ATTENDANCE_FULL_MARKS_PCT()}%. `
     + `Currently earning ${earned()} of ${ATTENDANCE_MARK_MAX} attendance marks.`;
 
   return (
@@ -546,11 +546,11 @@ function ThresholdMeter(props: { current: number }) {
         {/* The bleed zone: eligible, but not earning full marks. */}
         <span class="meter-band" style={{
           left: `${ATTENDANCE_MIN}%`,
-          width: `${ATTENDANCE_FULL_MARKS_PCT - ATTENDANCE_MIN}%`,
+          width: `${ATTENDANCE_FULL_MARKS_PCT() - ATTENDANCE_MIN}%`,
         }} />
         <span class={`meter-fill${tone()}`} style={{ "inline-size": `${pct()}%` }} />
         <span class="meter-mark" style={{ left: `${ATTENDANCE_MIN}%` }} />
-        <span class="meter-mark strong" style={{ left: `${ATTENDANCE_FULL_MARKS_PCT}%` }} />
+        <span class="meter-mark strong" style={{ left: `${ATTENDANCE_FULL_MARKS_PCT()}%` }} />
       </div>
       {/* The right end prices the position in the unit that actually moves the
           student's grade. Repeating the 85% constant on every card said the

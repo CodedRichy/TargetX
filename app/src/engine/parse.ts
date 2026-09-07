@@ -1,4 +1,4 @@
-import { COURSE_TYPES } from "./constants";
+import { courseTypes } from "./scheme";
 import type { MarkInput } from "./types";
 import { clamp, round } from "./util";
 
@@ -40,9 +40,10 @@ export interface ParsedPaste {
  * mapping is wrong, and that is worth more than any heuristic about column
  * counts.
  */
-const RAW_MAX = (["s1", "s2", "other"] as const).map((key, index) =>
-  Math.max(...Object.values(COURSE_TYPES)
-    .map((spec) => spec.components[index]?.rawMax ?? 0))) as [number, number, number];
+const rawMax = (): [number, number, number] =>
+  (["s1", "s2", "other"] as const).map((key, index) =>
+    Math.max(...Object.values(courseTypes())
+      .map((spec) => spec.components[index]?.rawMax ?? 0))) as [number, number, number];
 
 /** `42/50` pairs, which is how most etlab themes print a mark. */
 const PAIR_G = /(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/g;
@@ -145,5 +146,6 @@ function marksFrom(rest: string): number[] | "empty" | "ambiguous" {
   const numbers = (rest.match(NUM_G) ?? []).map(Number);
   if (numbers.length === 0) return "empty";
   if (numbers.length > 3) return "ambiguous";
-  return numbers.every((value, i) => value <= RAW_MAX[i]!) ? numbers : "ambiguous";
+  const limits = rawMax();
+  return numbers.every((value, i) => value <= limits[i]!) ? numbers : "ambiguous";
 }

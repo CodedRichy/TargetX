@@ -15,6 +15,7 @@ import {
   requiredEseCell, requiredSgpaForCgpa, round, sgpa, statusFor, summarise,
   unconfirmedNames, unconfirmedSemesters,
 } from "../index";
+import { KTU_2024, resetActiveScheme, setActiveScheme } from "../scheme";
 import fixture from "./parity.json";
 import type { Course, Grade, Letter, SemesterHistory, TypeKey } from "../types";
 
@@ -114,16 +115,24 @@ describe("attendance is spent, not just displayed (R 7.5.ii)", () => {
 
   it("reports the marks earned on the same scale the CIE spends them", () => {
     // `attMax` is per-type by design, so the displayed figure has to follow
-    // the spec rather than the module default - a ledger quoting /5 while the
-    // CIE spends out of 10 is the same drift the single derivation kills.
-    // No shipped type differs today, so stand one up and put it back.
+    // the spec rather than the scheme's own figure - a ledger quoting /5
+    // while the CIE spends out of 10 is the same drift the single derivation
+    // kills. No shipped type differs today, so stand one up and put it back.
+    //
+    // Done by activating a scheme that authors the override, not by mutating
+    // the exported table: the engine resolves course types from the active
+    // scheme and caches them per scheme object, so a write to `COURSE_TYPES`
+    // would no longer reach it and the test would pass by not testing.
     const key: TypeKey = "TH 40/60";
-    const shipped = COURSE_TYPES[key];
-    COURSE_TYPES[key] = { ...shipped, attMax: 10 };
+    const shipped = KTU_2024.courseTypes[key];
+    setActiveScheme({
+      ...KTU_2024,
+      courseTypes: { ...KTU_2024.courseTypes, [key]: { ...shipped, attMax: 10 } },
+    });
     try {
       expect(evaluate(dsa({ attendance: 90 })).attMarks).toBe(10);
     } finally {
-      COURSE_TYPES[key] = shipped;
+      resetActiveScheme();
     }
   });
 

@@ -110,7 +110,7 @@ export function AttendanceTargetWhy() {
   return (
     <p class="chart-note">
       {pct(ATTENDANCE_MIN)} only admits you to the exam — R 7.5.ii pays all{" "}
-      {ATTENDANCE_MARK_MAX} CIE marks from {pct(ATTENDANCE_FULL_MARKS_PCT)}, so every
+      {ATTENDANCE_MARK_MAX} CIE marks from {pct(ATTENDANCE_FULL_MARKS_PCT())}, so every
       point between the two is marks lost in every subject before you write a word.
     </p>
   );
@@ -202,7 +202,7 @@ export function RegulationFloors() {
         </dd>
         <dt>Full attendance marks</dt>
         <dd>
-          {pct(ATTENDANCE_FULL_MARKS_PCT)} earns all {ATTENDANCE_MARK_MAX} CIE marks,
+          {pct(ATTENDANCE_FULL_MARKS_PCT())} earns all {ATTENDANCE_MARK_MAX} CIE marks,
           stepping down to 1 at {pct(ATTENDANCE_CONDONE)} (R 7.5.ii).
         </dd>
         <dt>Pass</dt>

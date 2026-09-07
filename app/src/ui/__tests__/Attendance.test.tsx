@@ -76,7 +76,7 @@ describe("the attendance screen", () => {
     const label = meter!.getAttribute("aria-label") ?? "";
     expect(label).toContain(`${plan.current.toFixed(0)}%`);
     expect(label).toContain(`${ATTENDANCE_MIN}%`);
-    expect(label).toContain(`${ATTENDANCE_FULL_MARKS_PCT}%`);
+    expect(label).toContain(`${ATTENDANCE_FULL_MARKS_PCT()}%`);
     // A subject above the full-marks line is not tinted as a warning.
     expect(c.querySelectorAll(".meter-fill.bad")).toHaveLength(0);
   });

@@ -1,5 +1,5 @@
 import { inferCredits, lookupCourse } from "./catalogue";
-import { DEFAULT_TYPE } from "./constants";
+import { activeScheme } from "./scheme";
 import { defaultTargets } from "./targets";
 import type { Targets } from "./targets";
 import type { Change } from "./changes";
@@ -13,7 +13,7 @@ import type {
  * reads as unassessed instead of as a student who scored nothing.
  */
 export function blankCourse(
-  code = "", name = "", credits: number | "" = 3, typeKey: TypeKey = DEFAULT_TYPE,
+  code = "", name = "", credits: number | "" = 3, typeKey: TypeKey = activeScheme().defaultType,
 ): Course {
   return {
     code, name, credits, type: typeKey,
@@ -52,7 +52,7 @@ export function courseFromCode(code: string): Course {
     code.toUpperCase(),
     listed?.name ?? "",
     listed?.credits ?? inferCredits(code),
-    listed?.type ?? DEFAULT_TYPE,
+    listed?.type ?? activeScheme().defaultType,
   );
 }
 

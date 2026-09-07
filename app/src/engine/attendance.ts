@@ -1,23 +1,31 @@
-import {
-  ATTENDANCE_MARK_BANDS, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN, DL_CAP_PCT,
-} from "./constants";
+import { activeScheme } from "./scheme";
 import type {
   AbsenceCost, AttendanceBand, AttendancePlan, Course, DaywiseAttendance,
   MarkInput,
 } from "./types";
 import { ceil, clamp, floor, round, toFloat, toOptionalFloat } from "./util";
 
-/** CIE marks earned by attendance alone, per R 7.5.ii. */
+/**
+ * CIE marks earned by attendance alone, per R 7.5.ii.
+ *
+ * The bands are the active scheme's. `maxMarks` lets a single course reserve
+ * a different number than the scheme does - the bands are stated on the
+ * scheme's own scale and rescaled into that course's reserve.
+ */
 export function attendanceMarks(
-  percent: MarkInput, maxMarks: number = ATTENDANCE_MARK_MAX,
+  percent: MarkInput, maxMarks: number = activeScheme().attendanceMarkMax,
 ): number | null {
   const value = toOptionalFloat(percent);
   if (value === null) return null;
-  for (const [floorPct, marks] of ATTENDANCE_MARK_BANDS) {
-    if (value >= floorPct) {
-      return maxMarks === ATTENDANCE_MARK_MAX
+  const scheme = activeScheme();
+  for (const { minPct, marks } of scheme.attendanceMarkBands) {
+    if (value >= minPct) {
+      // A scheme that awards nothing for attendance has no scale to rescale
+      // onto; every band is worth zero rather than a division by zero.
+      if (scheme.attendanceMarkMax === 0) return 0;
+      return maxMarks === scheme.attendanceMarkMax
         ? marks
-        : round((marks / ATTENDANCE_MARK_MAX) * maxMarks, 2);
+        : round((marks / scheme.attendanceMarkMax) * maxMarks, 2);
     }
   }
   return 0;
@@ -107,7 +115,7 @@ function consecutiveNeed(
  */
 export function nextAttendanceBand(
   attendedIn: MarkInput, heldIn: MarkInput,
-  dutyLeave: MarkInput = 0, dlCapPct: number = DL_CAP_PCT,
+  dutyLeave: MarkInput = 0, dlCapPct: number = activeScheme().dlCapPct,
 ): AttendanceBand | null {
   const attended = toOptionalFloat(attendedIn);
   const held = toOptionalFloat(heldIn);
@@ -119,9 +127,9 @@ export function nextAttendanceBand(
   const earned = attendanceMarks(current) ?? 0;
   const cap = dlCapPct / 100;
 
-  for (let i = ATTENDANCE_MARK_BANDS.length - 1; i >= 0; i -= 1) {
-    const band = ATTENDANCE_MARK_BANDS[i]!;
-    const [floorPct, marks] = band;
+  const bands = activeScheme().attendanceMarkBands;
+  for (let i = bands.length - 1; i >= 0; i -= 1) {
+    const { minPct: floorPct, marks } = bands[i]!;
     if (marks <= earned) continue;
     const fraction = floorPct / 100;
     if (fraction >= 1) continue;
@@ -154,7 +162,7 @@ export function nextAttendanceBand(
  */
 export function attendancePlan(
   attendedIn: MarkInput, heldIn: MarkInput, dutyLeave: MarkInput = 0,
-  floorPct: number = ATTENDANCE_MIN, dlCapPct: number = DL_CAP_PCT,
+  floorPct: number = activeScheme().attendanceMin, dlCapPct: number = activeScheme().dlCapPct,
 ): AttendancePlan | null {
   const attended = toOptionalFloat(attendedIn);
   const held = toOptionalFloat(heldIn);
@@ -239,9 +247,9 @@ export function effectiveAttendance(
 export function absenceCost(
   attendedIn: MarkInput, heldIn: MarkInput, dutyLeave: MarkInput = 0,
   skips: number = 1,
-  maxMarks: number = ATTENDANCE_MARK_MAX,
-  floorPct: number = ATTENDANCE_MIN,
-  dlCapPct: number = DL_CAP_PCT,
+  maxMarks: number = activeScheme().attendanceMarkMax,
+  floorPct: number = activeScheme().attendanceMin,
+  dlCapPct: number = activeScheme().dlCapPct,
 ): AbsenceCost | null {
   const attended = toOptionalFloat(attendedIn);
   const held = toOptionalFloat(heldIn);
@@ -285,16 +293,17 @@ export function absenceCost(
  */
 export function freeSkips(
   attendedIn: MarkInput, heldIn: MarkInput, dutyLeave: MarkInput = 0,
-  maxMarks: number = ATTENDANCE_MARK_MAX,
-  dlCapPct: number = DL_CAP_PCT,
+  maxMarks: number = activeScheme().attendanceMarkMax,
+  dlCapPct: number = activeScheme().dlCapPct,
 ): number | null {
-  const first = absenceCost(attendedIn, heldIn, dutyLeave, 0, maxMarks, ATTENDANCE_MIN, dlCapPct);
+  const floorPct = activeScheme().attendanceMin;
+  const first = absenceCost(attendedIn, heldIn, dutyLeave, 0, maxMarks, floorPct, dlCapPct);
   if (first === null) return null;
   const held = toFloat(heldIn);
   let n = 0;
   while (n < held) {
     const next = absenceCost(attendedIn, heldIn, dutyLeave, n + 1, maxMarks,
-                             ATTENDANCE_MIN, dlCapPct);
+                             floorPct, dlCapPct);
     if (next === null || next.marksAfter < first.marksBefore) break;
     n += 1;
   }

@@ -60,10 +60,10 @@ describe("the two attendance lines are different numbers", () => {
     const full = ATTENDANCE_MARK_BANDS
       .filter(([, m]) => m >= ATTENDANCE_MARK_MAX)
       .map(([pct]) => pct);
-    expect(Math.min(...full)).toBe(ATTENDANCE_FULL_MARKS_PCT);
+    expect(Math.min(...full)).toBe(ATTENDANCE_FULL_MARKS_PCT());
     // The whole argument: they are not the same line, and full marks is the
     // stricter one. If this ever inverts, the sentence on Home is backwards.
-    expect(ATTENDANCE_FULL_MARKS_PCT).toBeGreaterThan(ATTENDANCE_MIN);
+    expect(ATTENDANCE_FULL_MARKS_PCT()).toBeGreaterThan(ATTENDANCE_MIN);
   });
 
   it("costs a student exactly 2 of 5 marks to sit on the eligibility line", () => {

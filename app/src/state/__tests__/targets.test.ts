@@ -73,7 +73,7 @@ describe("the whole-document writers", () => {
     setAttendanceTarget(60);
     resetEverything();
     expect(targets().cgpa).toBeNull();
-    expect(targets().attendance).toBe(DEFAULT_ATTENDANCE_TARGET);
+    expect(targets().attendance).toBe(DEFAULT_ATTENDANCE_TARGET());
     expect(targets().sgpaBySemester).toEqual({});
   });
 
@@ -85,13 +85,13 @@ describe("the whole-document writers", () => {
   it("recovers the CGPA target out of a backup that predates the rest", () => {
     importJson(JSON.stringify({ semesters: { S1: { courses: [] } }, goal: { cgpa: 8 } }));
     expect(targets().cgpa).toBe(8);
-    expect(targets().attendance).toBe(DEFAULT_ATTENDANCE_TARGET);
+    expect(targets().attendance).toBe(DEFAULT_ATTENDANCE_TARGET());
     expect(targets().sgpaDefault).toBeNull();
   });
 
   it("recovers a backup with no goal at all", () => {
     importJson(JSON.stringify({ semesters: { S1: { courses: [] } } }));
     expect(targets().cgpa).toBeNull();
-    expect(targets().attendance).toBe(DEFAULT_ATTENDANCE_TARGET);
+    expect(targets().attendance).toBe(DEFAULT_ATTENDANCE_TARGET());
   });
 });

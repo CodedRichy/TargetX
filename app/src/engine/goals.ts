@@ -1,6 +1,4 @@
-import {
-  ATTENDANCE_CONDONE, GRADE_BANDS, GRADE_POINTS, TOTAL_PASS_MARK,
-} from "./constants";
+import { activeScheme, gradePoints } from "./scheme";
 import { specFor } from "./cie";
 import { courseLabel } from "./course";
 import { evaluate, isDebarred } from "./evaluate";
@@ -296,7 +294,7 @@ export function courseOptions(course: Course): CourseOption[] {
   if (ev.grade !== null) {
     // Already decided by a published grade.
     return [{
-      grade: ev.grade, gp: GRADE_POINTS[ev.grade], ese: ev.ese ?? 0,
+      grade: ev.grade, gp: gradePoints()[ev.grade], ese: ev.ese ?? 0,
       locked: true, credits: ev.credits, eseMax: ev.eseMax, cieUnknown: false,
     }];
   }
@@ -309,7 +307,7 @@ export function courseOptions(course: Course): CourseOption[] {
   // predicate that could disagree with it.
   const cie = ev.cieCeiling;
   const cieUnknown = ev.cieCeiling > ev.cie;
-  for (const [letter, , gp] of GRADE_BANDS) {
+  for (const { letter, points: gp } of activeScheme().gradeBands) {
     const need = requiredEse(cie, letter, ev.eseMax);
     if (need.possible) {
       options.push({
@@ -531,7 +529,7 @@ function unplannable(ev: Evaluation): Excluded | null {
   }
   if (ev.grade !== null) return null;
   if (isDebarred(ev)) {
-    return { basis: "zero", why: `debarred, attendance below ${ATTENDANCE_CONDONE}%` };
+    return { basis: "zero", why: `debarred, attendance below ${activeScheme().attendanceCondone}%` };
   }
   if (ev.eseMax === 0 && (!ev.assessed || ev.cieFloor)) {
     if (!ev.assessed) {
@@ -563,7 +561,7 @@ function unplannable(ev: Evaluation): Excluded | null {
     // since `evaluate` derives its grade the moment the internal settles.
     return {
       basis: "zero",
-      why: `unreachable, even full marks in the exam leave the total under ${TOTAL_PASS_MARK}`,
+      why: `unreachable, even full marks in the exam leave the total under ${activeScheme().totalPassMark}`,
     };
   }
   return null;
@@ -641,7 +639,7 @@ function heldCie(course: Course, ev: Evaluation): number {
  */
 function securedGrade(course: Course, ev: Evaluation, ese: number): Grade {
   const cie = heldCie(course, ev);
-  for (const [letter] of GRADE_BANDS) {
+  for (const { letter } of activeScheme().gradeBands) {
     const need = requiredEse(cie, letter, ev.eseMax);
     if (need.possible && need.value <= ese + 1e-9) return letter;
   }
@@ -719,7 +717,7 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
       continue;
     }
     unpriced.push(label);
-    fixedBest += GRADE_POINTS[ev.maxPossibleGrade] * ev.credits;
+    fixedBest += gradePoints()[ev.maxPossibleGrade] * ev.credits;
     notes.push(`${label} not priced: ${excluded.why}`);
   }
 
@@ -828,7 +826,7 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
   // What the route is worth if the student scores every quoted mark and
   // nothing else about any internal moves. `current` is the other end: the
   // same route with every internal reaching its ceiling.
-  const held = plan.reduce((sum, row) => sum + GRADE_POINTS[row.secured] * row.credits, 0);
+  const held = plan.reduce((sum, row) => sum + gradePoints()[row.secured] * row.credits, 0);
   // Compared by GRADE POINT, not by letter. `secured` can come out ABOVE the
   // quoted grade: where the 40% ESE minimum sets the price of a cheap rung, the
   // mark it forces can overshoot the band it was bought for - measured, a P
@@ -838,7 +836,7 @@ export function planForSgpa(courses: Course[], targetSgpa: number): SgpaPlan {
   // figure fails rather than misleads if it drifts. Naming them would put a
   // warning on good news.
   const bound = plan
-    .filter((row) => GRADE_POINTS[row.secured] < GRADE_POINTS[row.grade])
+    .filter((row) => gradePoints()[row.secured] < gradePoints()[row.grade])
     .map((row) => row.label);
 
   const reachable = held >= neededPoints - 1e-9;

@@ -1,7 +1,4 @@
-import {
-  ATTENDANCE_CONDONE, ATTENDANCE_MARK_BANDS, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN,
-  GRADE_BANDS,
-} from "./constants";
+import { activeScheme } from "./scheme";
 import { attendanceMarks, attendancePlan, effectiveAttendance } from "./attendance";
 import type { AttendancePlan, Course, MarkInput } from "./types";
 import { clamp, round, toOptionalFloat } from "./util";
@@ -12,12 +9,23 @@ import { clamp, round, toOptionalFloat } from "./util";
  * This module is one half of a deliberate split, and the split is the reason
  * the app is worth trusting:
  *
- *   - `constants.ts` holds what KTU decided. `ATTENDANCE_MIN`,
- *     `ATTENDANCE_CONDONE`, `DL_CAP_PCT`, `ATTENDANCE_MARK_BANDS`,
- *     `TOTAL_PASS_MARK`, `ESE_PASS_FRACTION`, `GRADE_BANDS`. Nothing here
- *     writes them and nothing reachable from a settings screen may. An app
- *     whose student can edit the pass mark is no longer the thing that knows
- *     the rules, which is the only reason to open it.
+ *   - `scheme.ts` holds what the REGULATION decided: `attendanceMin`,
+ *     `attendanceCondone`, `dlCapPct`, `attendanceMarkBands`, `totalPassMark`,
+ *     `esePassFraction`, `gradeBands`. Nothing in this file writes them.
+ *
+ *     These were once constants, on the reasoning that an app whose student
+ *     can edit the pass mark is no longer the thing that knows the rules. The
+ *     reasoning was right about the danger and wrong about the cause: what
+ *     makes the app worth opening is that its numbers are ATTRIBUTABLE, not
+ *     that they are immovable, and hardcoding KTU's told every student at an
+ *     autonomous college that the app was not for them.
+ *
+ *     So they moved into a named profile instead. `KTU_2024` still ships
+ *     checked against the regulations and is still what nearly everyone runs;
+ *     a student on another scheme copies it and edits the copy, and the
+ *     profile carries its own `name` and `source` so a screen can always say
+ *     whose rules produced a number. Editable, but never anonymous - which is
+ *     the property the constants were really defending.
  *   - this file holds what the STUDENT decided. Every value is theirs, every
  *     value is optional, and a target may sit above a regulation floor
  *     (aspiration) or below one (a course already written off). Below is
@@ -51,17 +59,18 @@ import { clamp, round, toOptionalFloat } from "./util";
  * drift, and by minimum-over-the-full-marks-bands rather than by taking the
  * first row, so it does not silently depend on that table staying sorted.
  */
-export const ATTENDANCE_FULL_MARKS_PCT: number = (() => {
-  const full = ATTENDANCE_MARK_BANDS.filter(([, marks]) => marks >= ATTENDANCE_MARK_MAX);
-  return full.length > 0 ? Math.min(...full.map(([pct]) => pct)) : ATTENDANCE_MIN;
-})();
+export const ATTENDANCE_FULL_MARKS_PCT = (): number => {
+  const scheme = activeScheme();
+  const full = scheme.attendanceMarkBands.filter((b) => b.marks >= scheme.attendanceMarkMax);
+  return full.length > 0 ? Math.min(...full.map((b) => b.minPct)) : scheme.attendanceMin;
+};
 
 /**
  * The attendance target a student starts with. 85, not 75.
  *
  * 75 is the ELIGIBILITY threshold - the line below which you are not admitted
  * to the exam. It is not the line at which attendance stops costing you.
- * R 7.5.ii pays all `ATTENDANCE_MARK_MAX` CIE marks only from
+ * R 7.5.ii pays all `activeScheme().attendanceMarkMax` CIE marks only from
  * `ATTENDANCE_FULL_MARKS_PCT`, so every point between the two is marks a
  * student loses without ever being told they lost them. Most students believe
  * 75 is the goal; the default they are handed should teach otherwise, and the
@@ -70,7 +79,7 @@ export const ATTENDANCE_FULL_MARKS_PCT: number = (() => {
  *
  * A default, not a floor. It is freely editable, in both directions.
  */
-export const DEFAULT_ATTENDANCE_TARGET: number = ATTENDANCE_FULL_MARKS_PCT;
+export const DEFAULT_ATTENDANCE_TARGET = (): number => ATTENDANCE_FULL_MARKS_PCT();
 
 /**
  * The lowest grade point a PASS can carry: P, 5.5.
@@ -81,7 +90,8 @@ export const DEFAULT_ATTENDANCE_TARGET: number = ATTENDANCE_FULL_MARKS_PCT;
  * regulations rather than about the student's ambition, so it is the floor
  * `checkGpaTarget` reports against.
  */
-export const PASSING_GPA_MIN: number = Math.min(...GRADE_BANDS.map(([, , gp]) => gp));
+export const PASSING_GPA_MIN = (): number =>
+  Math.min(...activeScheme().gradeBands.map((b) => b.points));
 
 /** GPAs live on a 0-10 scale. Not a preference - the scale has no more room. */
 const GPA_MAX = 10;
@@ -122,7 +132,7 @@ export interface Targets {
 export function defaultTargets(): Targets {
   return {
     cgpa: null,
-    attendance: DEFAULT_ATTENDANCE_TARGET,
+    attendance: DEFAULT_ATTENDANCE_TARGET(),
     sgpaBySemester: {},
     sgpaDefault: null,
   };
@@ -189,14 +199,14 @@ export function normaliseTargets(raw: unknown): Targets {
  *
  *   - `full` - at or above `ATTENDANCE_FULL_MARKS_PCT`. Eligible, and every
  *     attendance mark of R 7.5.ii is paid.
- *   - `eligible` - at or above `ATTENDANCE_MIN` but below that. Admitted to
+ *   - `eligible` - at or above `activeScheme().attendanceMin` but below that. Admitted to
  *     the exam, and losing CIE marks to do it. THIS IS THE BAND NOBODY WARNS
  *     STUDENTS ABOUT and the reason the default target is not 75.
- *   - `condonation` - at or above `ATTENDANCE_CONDONE` and below
- *     `ATTENDANCE_MIN`. Not eligible on its own: R 6.2 lets the Principal
+ *   - `condonation` - at or above `activeScheme().attendanceCondone` and below
+ *     `activeScheme().attendanceMin`. Not eligible on its own: R 6.2 lets the Principal
  *     condone this band, for at most two semesters and against a fee. A target
  *     here is a target of needing a favour.
- *   - `debarred` - below `ATTENDANCE_CONDONE`. R 6.2 gives no appeal. A target
+ *   - `debarred` - below `activeScheme().attendanceCondone`. R 6.2 gives no appeal. A target
  *     here is a target of not sitting the exam.
  */
 export type AttendanceTargetBand = "full" | "eligible" | "condonation" | "debarred";
@@ -229,19 +239,19 @@ export interface AttendanceTargetCheck {
 export function checkAttendanceTarget(target: number | null): AttendanceTargetCheck | null {
   if (target === null) return null;
   const pct = clamp(target, 0, 100);
-  const band: AttendanceTargetBand = pct >= ATTENDANCE_FULL_MARKS_PCT
+  const band: AttendanceTargetBand = pct >= ATTENDANCE_FULL_MARKS_PCT()
     ? "full"
-    : pct >= ATTENDANCE_MIN
+    : pct >= activeScheme().attendanceMin
       ? "eligible"
-      : pct >= ATTENDANCE_CONDONE ? "condonation" : "debarred";
+      : pct >= activeScheme().attendanceCondone ? "condonation" : "debarred";
   const marksAtTarget = attendanceMarks(pct) ?? 0;
   return {
     target: pct,
     band,
-    belowRegulation: pct < ATTENDANCE_MIN,
+    belowRegulation: pct < activeScheme().attendanceMin,
     marksAtTarget,
-    marksMax: ATTENDANCE_MARK_MAX,
-    marksForfeited: round(ATTENDANCE_MARK_MAX - marksAtTarget, 2),
+    marksMax: activeScheme().attendanceMarkMax,
+    marksForfeited: round(activeScheme().attendanceMarkMax - marksAtTarget, 2),
   };
 }
 
@@ -264,7 +274,7 @@ export interface AttendanceTargetGap {
   target: number | null;
   /** Solved against `target`. Null when no target is set, or no raw counts. */
   toTarget: AttendancePlan | null;
-  /** Solved against `ATTENDANCE_MIN`. Null when the portal gave no counts. */
+  /** Solved against `activeScheme().attendanceMin`. Null when the portal gave no counts. */
   toEligible: AttendancePlan | null;
   /**
    * The target is at or below the eligibility threshold, so `toTarget` is not
@@ -295,7 +305,7 @@ export function attendanceTargetGap(
       ? null
       : attendancePlan(course.attended, course.held, course.dl ?? 0, pct),
     toEligible: eligibility,
-    targetUnderEligibility: pct !== null && pct <= ATTENDANCE_MIN,
+    targetUnderEligibility: pct !== null && pct <= activeScheme().attendanceMin,
   };
 }
 
@@ -338,7 +348,7 @@ export interface GpaTargetCheck {
 export function checkGpaTarget(target: number | null): GpaTargetCheck | null {
   if (target === null) return null;
   const value = clamp(target, 0, GPA_MAX);
-  return { target: value, belowPassing: value < PASSING_GPA_MIN };
+  return { target: value, belowPassing: value < PASSING_GPA_MIN() };
 }
 
 /**
