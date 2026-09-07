@@ -20,6 +20,7 @@ import { Mark } from "./Mark";
 import { Schemes } from "./Schemes";
 import { Palette, usePaletteShortcut } from "./Palette";
 import { Popover } from "./Popover";
+import { Face } from "./tex/Face";
 import { runLaunchCheck, saveFindings } from "../state/launch";
 import { autoRefresh, refreshAll, refreshFailures, refreshing } from "../state/autosync";
 import type { SourceResult } from "../state/autosync";
@@ -859,10 +860,12 @@ export function App() {
               student it was two. */}
           <button class="ask" onClick={() => setPaletteOpen(true)}
                   aria-label={`Ask ${ASSISTANT} about your subjects, marks and attendance. Press Control K.`}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"
-                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
-              <circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" />
-            </svg>
+            {/* Tex himself, rather than a magnifying glass. The button says
+                "Ask Tex" and opens an assistant, not a search - the glass was
+                promising the wrong interaction. He stays neutral here: this
+                is a way in, not a verdict, and a header that changes face on
+                its own would report bad news the student never asked for. */}
+            <Face size={18} mood="neutral" label="" />
             <span>Ask {ASSISTANT} — how many classes can I miss?</span>
             <span class="kbd" aria-hidden="true">Ctrl K</span>
           </button>
