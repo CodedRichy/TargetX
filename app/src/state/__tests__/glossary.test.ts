@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  ATTENDANCE_CONDONE, ATTENDANCE_MARK_BANDS, ATTENDANCE_MARK_MAX,
-  ATTENDANCE_MIN, DL_CAP_PCT, ESE_PASS_FRACTION,
-} from "../../engine";
-import { ALL_FACTS, CAPABILITIES, TERMS, lookupCapability, lookupTerm } from "../glossary";
+import { activeScheme } from "../../engine/scheme";
+import { allFacts, CAPABILITIES, lookupCapability, lookupTerm, terms } from "../glossary";
 import { defineFor, detectTopic } from "../answers";
 
 /**
@@ -73,33 +70,34 @@ describe("the misfires are dead", () => {
 });
 
 describe("every figure quoted is the constant the engine calculates with", () => {
-  const body = (name: string) => TERMS.find((t) => t.name === name)!.body;
+  const body = (name: string) => terms().find((t) => t.name === name)!.body;
 
   it("quotes the eligibility floor rather than a literal", () => {
-    expect(body("Shortage")).toContain(`${ATTENDANCE_MIN}%`);
-    expect(body("Condonation")).toContain(`${ATTENDANCE_CONDONE}%`);
+    expect(body("Shortage")).toContain(`${activeScheme().attendanceMin}%`);
+    expect(body("Condonation")).toContain(`${activeScheme().attendanceCondone}%`);
   });
 
   it("quotes the duty leave cap rather than a literal", () => {
-    expect(body("Duty leave")).toContain(`${DL_CAP_PCT}%`);
+    expect(body("Duty leave")).toContain(`${activeScheme().dlCapPct}%`);
   });
 
   it("quotes the attendance band table rather than a literal", () => {
     const text = body("Attendance marks");
-    expect(text).toContain(`${ATTENDANCE_MARK_MAX} CIE marks`);
+    expect(text).toContain(`${activeScheme().attendanceMarkMax} CIE marks`);
     // The top band's percentage and its mark, read off the table itself - the
     // drawer used to write "85% earns 5" out by hand in the one panel whose
     // job is teaching the rule.
-    expect(text).toContain(`${ATTENDANCE_MARK_BANDS[0]![0]}% earns ${ATTENDANCE_MARK_BANDS[0]![1]}`);
+    const topBand = activeScheme().attendanceMarkBands[0]!;
+    expect(text).toContain(`${topBand.minPct}% earns ${topBand.marks}`);
   });
 
   it("quotes the separate ESE minimum rather than a literal", () => {
-    const pct = Math.round(ESE_PASS_FRACTION * 100);
-    expect(TERMS.some((t) => t.name.includes(`${pct}%`))).toBe(true);
+    const pct = Math.round(activeScheme().esePassFraction * 100);
+    expect(terms().some((t) => t.name.includes(`${pct}%`))).toBe(true);
   });
 
   it("has no term whose aliases are empty, since it could never be found", () => {
-    for (const term of TERMS) expect(term.aliases.length).toBeGreaterThan(0);
+    for (const term of terms()) expect(term.aliases.length).toBeGreaterThan(0);
   });
 });
 
@@ -156,7 +154,7 @@ describe("a question about the app is answered by the app", () => {
   });
 
   it("has no fact whose body is shorter than a sentence", () => {
-    for (const fact of ALL_FACTS) {
+    for (const fact of allFacts()) {
       expect(fact.body.length, fact.name).toBeGreaterThan(40);
     }
   });

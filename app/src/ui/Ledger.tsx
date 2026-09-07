@@ -1,6 +1,5 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import {
-  ATTENDANCE_CONDONE, ATTENDANCE_MIN, COURSE_TYPES, TARGET_CHOICES, TYPE_KEYS,
   isIncomplete, requiredEseCell, specFor, toOptionalFloat,
 } from "../engine";
 import type {
@@ -11,6 +10,7 @@ import {
   semesterNames, state, updateCourse,
 } from "../state/store";
 import { AttendanceBar } from "./charts";
+import { activeProfile, schemeCourseTypes } from "../state/schemes";
 
 const dash = "–";
 /** Shown and announced on the starred cells; one string so the two agree. */
@@ -198,7 +198,7 @@ export function TargetGap(props: { gap: AttendanceTargetGap; ev: Evaluation }) {
 function Detail(props: {
   index: number; course: Course; ev: Evaluation; gap: AttendanceTargetGap;
 }) {
-  const spec = () => COURSE_TYPES[(props.course.type ?? "TH 40/60") as TypeKey];
+  const spec = () => schemeCourseTypes()[(props.course.type ?? "TH 40/60") as TypeKey];
   const set = (patch: Partial<Course>) => updateCourse(props.index, patch);
   // The same pairing the table cell uses, so the row and its expansion cannot
   // quote different figures for the same requirement.
@@ -311,7 +311,7 @@ function Detail(props: {
               <span>Course type</span>
               <select class="cell-input" aria-label="Course type" value={props.course.type}
                       onChange={(e) => set({ type: e.currentTarget.value as TypeKey })}>
-                <For each={TYPE_KEYS}>{(k) => <option value={k}>{COURSE_TYPES[k].label}</option>}</For>
+                <For each={Object.keys(schemeCourseTypes()) as TypeKey[]}>{(k) => <option value={k}>{schemeCourseTypes()[k].label}</option>}</For>
               </select>
             </div>
             <div class="field">
@@ -416,7 +416,7 @@ function Detail(props: {
 function CieParts(props: { course: Course; ev: Evaluation }) {
   const showsComponents = () => !(props.course.type ?? "").startsWith("LAB");
   const parts = () =>
-    COURSE_TYPES[(props.course.type ?? "TH 40/60") as TypeKey].components.map((c) => {
+    schemeCourseTypes()[(props.course.type ?? "TH 40/60") as TypeKey].components.map((c) => {
       const raw = toOptionalFloat(props.course[c.key]);
       const short = c.header.startsWith("Series")
         ? `S${c.header.replace(/\D/g, "")}`
@@ -545,8 +545,8 @@ export function Ledger() {
                     <AttendanceBar pct={row.ev.attendance} />{" "}
                     <span class="num" style={{
                       color: row.ev.attendance === null ? "var(--text-faint)"
-                        : row.ev.attendance < ATTENDANCE_CONDONE ? "var(--danger)"
-                        : row.ev.attendance < ATTENDANCE_MIN ? "var(--warn)" : "var(--text-dim)",
+                        : row.ev.attendance < activeProfile().attendanceCondone ? "var(--danger)"
+                        : row.ev.attendance < activeProfile().attendanceMin ? "var(--warn)" : "var(--text-dim)",
                     }}>{row.ev.attendance === null ? dash : `${row.ev.attendance.toFixed(0)}%`}</span>
                     {/* The colour on that figure is the only thing saying
                         which side of the two lines it falls, and the Status
@@ -556,11 +556,11 @@ export function Ledger() {
                         carrier. Said in words for everyone who cannot see
                         it, quoting the same two constants the colour uses. */}
                     <Show when={row.ev.attendance !== null
-                                && row.ev.attendance < ATTENDANCE_MIN}>
+                                && row.ev.attendance < activeProfile().attendanceMin}>
                       <span class="sr-only">
-                        {row.ev.attendance! < ATTENDANCE_CONDONE
-                          ? ` below the ${ATTENDANCE_CONDONE.toFixed(0)}% condonation floor`
-                          : ` below the ${ATTENDANCE_MIN.toFixed(0)}% eligibility line`}
+                        {row.ev.attendance! < activeProfile().attendanceCondone
+                          ? ` below the ${activeProfile().attendanceCondone.toFixed(0)}% condonation floor`
+                          : ` below the ${activeProfile().attendanceMin.toFixed(0)}% eligibility line`}
                       </span>
                     </Show>
                     {/* The counts the percentage is computed from. They existed
@@ -602,7 +602,7 @@ export function Ledger() {
                     <select class="cell-input" aria-label="Target grade" value={row.ev.target}
                             onChange={(e) => updateCourse(row.index, {
                               target: e.currentTarget.value as Letter })}>
-                      <For each={TARGET_CHOICES}>{(g) => <option value={g}>{g}</option>}</For>
+                      <For each={activeProfile().targetChoices}>{(g) => <option value={g}>{g}</option>}</For>
                     </select>
                   </td>
                   <td><Need need={row.ev.needTarget} best={row.ev.needTargetBest}

@@ -10,20 +10,21 @@
  * attendance figure carried its verdict in a colour.
  *
  * Every number asserted here is re-derived from the engine in this file -
- * column maxima from `COURSE_TYPES`, the two attendance lines from
- * `ATTENDANCE_MIN` and `ATTENDANCE_CONDONE` - so a rule change fails this
- * file rather than leaving a label quoting a threshold KTU no longer has.
+ * column maxima from `courseTypes()`, the two attendance lines from
+ * `activeScheme().attendanceMin` and `activeScheme().attendanceCondone` - so
+ * a rule change fails this file rather than leaving a label quoting a
+ * threshold KTU no longer has.
  */
 import { cleanup, fireEvent, render } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ATTENDANCE_CONDONE, ATTENDANCE_MIN, COURSE_TYPES } from "../../engine";
+import { activeScheme, courseTypes } from "../../engine/scheme";
 import type { Course } from "../../engine";
 import { addCourse, edit, updateCourse } from "../../state/store";
 import { Ledger } from "../Ledger";
 
 afterEach(cleanup);
 
-const TH = COURSE_TYPES["TH 40/60"];
+const TH = courseTypes()["TH 40/60"];
 
 /** 70%: eligible under condonation, short of the 75% line. */
 const SHORT: Partial<Course> = {
@@ -152,12 +153,12 @@ describe("nothing is said in colour alone", () => {
     const c = seed(SHORT, DEBARRED, CLEAR);
     const said = [...c.querySelectorAll("tbody .sr-only")].map((n) => n.textContent!.trim());
     expect(said).toEqual([
-      `below the ${ATTENDANCE_MIN.toFixed(0)}% eligibility line`,
-      `below the ${ATTENDANCE_CONDONE.toFixed(0)}% condonation floor`,
+      `below the ${activeScheme().attendanceMin.toFixed(0)}% eligibility line`,
+      `below the ${activeScheme().attendanceCondone.toFixed(0)}% condonation floor`,
     ]);
     // Re-derived, so a regulation change breaks this rather than the string.
-    expect(ATTENDANCE_MIN).toBe(75);
-    expect(ATTENDANCE_CONDONE).toBe(60);
+    expect(activeScheme().attendanceMin).toBe(75);
+    expect(activeScheme().attendanceCondone).toBe(60);
   });
 
   it("gives every bound marker the sentence its hover carried", () => {

@@ -1,5 +1,5 @@
 import { For, Show, createMemo, createSignal, onCleanup } from "solid-js";
-import { ATTENDANCE_CONDONE, ATTENDANCE_MIN } from "../engine";
+import { activeProfile } from "../state/schemes";
 
 /**
  * Charts, hand-rolled in SVG.
@@ -293,8 +293,10 @@ export function AttendanceScatter(props: { points: ScatterPoint[] }) {
       <div class="chart-fit" ref={attach}>
       <svg viewBox={`0 0 ${W()} ${H}`} width={W()} height={H} role="img"
            aria-label="Attendance against internal marks, by subject">
-        {line(ATTENDANCE_MIN, "var(--warn)", "75% ELIGIBLE", 0)}
-        {line(ATTENDANCE_CONDONE, "var(--danger)", "60% FLOOR", 1, true)}
+        {line(activeProfile().attendanceMin, "var(--warn)",
+              `${activeProfile().attendanceMin}% ELIGIBLE`, 0)}
+        {line(activeProfile().attendanceCondone, "var(--danger)",
+              `${activeProfile().attendanceCondone}% FLOOR`, 1, true)}
 
         <line x1={PAD_L} x2={W() - PAD_R} y1={H - PAD_B} y2={H - PAD_B}
               stroke="var(--hairline-strong)" stroke-width="1" />
@@ -310,8 +312,8 @@ export function AttendanceScatter(props: { points: ScatterPoint[] }) {
         )}</For>
 
         <For each={props.points}>{(p) => {
-          const short = p.attendance < ATTENDANCE_MIN;
-          const lost = p.attendance < ATTENDANCE_CONDONE;
+          const short = p.attendance < activeProfile().attendanceMin;
+          const lost = p.attendance < activeProfile().attendanceCondone;
           return (
             <g onMouseEnter={() => setHover(p.code)} onMouseLeave={() => setHover(null)}>
               <circle cx={x(p.attendance)} cy={y(p.cie / (p.cieMax || 1))}
@@ -348,8 +350,8 @@ export function AttendanceBar(props: { pct: number | null }) {
   const tone = () => {
     const pct = props.pct;
     if (pct === null) return "var(--text-faint)";
-    return pct >= ATTENDANCE_MIN ? "var(--good)"
-      : pct >= ATTENDANCE_CONDONE ? "var(--warn)" : "var(--danger)";
+    return pct >= activeProfile().attendanceMin ? "var(--good)"
+      : pct >= activeProfile().attendanceCondone ? "var(--warn)" : "var(--danger)";
   };
   // An unknown attendance draws an empty track rather than a full or empty
   // bar - either would read as a percentage nobody has actually recorded.

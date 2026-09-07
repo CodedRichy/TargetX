@@ -15,10 +15,8 @@
  */
 import { cleanup, render } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_BANDS, ATTENDANCE_MARK_MAX,
-  ATTENDANCE_MIN, attendanceMarks,
-} from "../../engine";
+import { ATTENDANCE_FULL_MARKS_PCT, attendanceMarks } from "../../engine";
+import { activeScheme } from "../../engine/scheme";
 import type { Course } from "../../engine";
 import { addCourse, edit, updateCourse } from "../../state/store";
 import { Home } from "../Home";
@@ -57,20 +55,21 @@ beforeEach(() => { edit((d) => { d.semesters = { S5: { courses: [] } }; d.active
 
 describe("the two attendance lines are different numbers", () => {
   it("derives the full-marks line from the bands rather than trusting 85", () => {
-    const full = ATTENDANCE_MARK_BANDS
-      .filter(([, m]) => m >= ATTENDANCE_MARK_MAX)
-      .map(([pct]) => pct);
+    const full = activeScheme().attendanceMarkBands
+      .filter((b) => b.marks >= activeScheme().attendanceMarkMax)
+      .map((b) => b.minPct);
     expect(Math.min(...full)).toBe(ATTENDANCE_FULL_MARKS_PCT());
     // The whole argument: they are not the same line, and full marks is the
     // stricter one. If this ever inverts, the sentence on Home is backwards.
-    expect(ATTENDANCE_FULL_MARKS_PCT()).toBeGreaterThan(ATTENDANCE_MIN);
+    expect(ATTENDANCE_FULL_MARKS_PCT()).toBeGreaterThan(activeScheme().attendanceMin);
   });
 
   it("costs a student exactly 2 of 5 marks to sit on the eligibility line", () => {
     // Pinned as an assertion, not a comment: Home renders this number, and a
     // comment claiming it could go stale in silence. Measured 2026-08-27.
-    expect(attendanceMarks(ATTENDANCE_MIN)).toBe(3);
-    expect(ATTENDANCE_MARK_MAX - (attendanceMarks(ATTENDANCE_MIN) ?? 0)).toBe(2);
+    expect(attendanceMarks(activeScheme().attendanceMin)).toBe(3);
+    expect(activeScheme().attendanceMarkMax
+      - (attendanceMarks(activeScheme().attendanceMin) ?? 0)).toBe(2);
   });
 });
 

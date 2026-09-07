@@ -12,9 +12,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { CODE_RE } from "../engine/parse";
 import {
-  COURSE_TYPES, blankCourse, inferCredits, isIncomplete, lookupCourse,
+  blankCourse, inferCredits, isIncomplete, lookupCourse,
   normaliseGrade, toFloat, verifyCredits,
 } from "../engine";
+import { courseTypes } from "../engine/scheme";
 import type { Course, DaywiseAttendance, SemesterHistory, Timetable, TypeKey } from "../engine";
 import {
   describeMonthControls, parseDaywiseAttendance, parseTimetable,
@@ -694,9 +695,19 @@ const inferType = (code: string): TypeKey => {
  */
 function fitType(typeKey: TypeKey, internal: number | null): TypeKey {
   if (internal === null) return typeKey;
-  if (internal <= COURSE_TYPES[typeKey].cieMax) return typeKey;
+  const types = courseTypes();
+  // The candidates below are KTU's own type keys, used as a heuristic ladder.
+  // A profile is free not to have them: it is the student's scheme, not KTU's,
+  // and course types are editable. So every lookup here is optional - a
+  // missing key means that rung of the ladder does not exist for this scheme,
+  // not that sync should throw halfway through parsing a semester.
+  const ceiling = (key: TypeKey): number | null => types[key]?.cieMax ?? null;
+
+  const own = ceiling(typeKey);
+  if (own !== null && internal <= own) return typeKey;
   for (const candidate of ["TH 50/50", "LAB 75/25", "PRJ 100/0"] as TypeKey[]) {
-    if (internal <= COURSE_TYPES[candidate].cieMax) return candidate;
+    const max = ceiling(candidate);
+    if (max !== null && internal <= max) return candidate;
   }
   return typeKey;
 }

@@ -10,6 +10,8 @@ import {
 } from "../engine";
 import type { Course, HistorySource, MarkInput, SemesterHistory, Targets } from "../engine";
 import type { AppState, Semester } from "../engine/course";
+import { KTU_2024, setActiveScheme } from "../engine/scheme";
+import type { Scheme } from "../engine/scheme";
 
 const KEY = "targetx.state.v1";
 
@@ -66,6 +68,46 @@ export function migrateHistory(raw: unknown): Record<string, SemesterHistory> {
 }
 
 /**
+ * Bring a saved `scheme` value up to a profile ID.
+ *
+ * Three shapes have to resolve to `KTU_2024.id`, and this is the one place
+ * that decides all three: a save from before profiles existed at all has no
+ * `scheme` field; a save from between then and profiles becoming pickable
+ * holds the literal display name `"KTU 2024"` (`defaultState`'s old value);
+ * and an ID this build genuinely does not recognise - a custom profile
+ * exported from a machine that no longer has it, or a corrupted string - is
+ * exactly as unusable as no ID at all. Anything else is passed through
+ * untouched: it is either `KTU_2024.id` already or a custom profile's ID,
+ * and `resolveScheme` is what turns THAT into a `Scheme`, against the
+ * `customSchemes` this same save carries.
+ *
+ * Keyed off value rather than a version stamp, for the same reason
+ * `migrateHistory` above is: a restored backup is the old file arriving
+ * later, and idempotent is required, not optional - a save this build wrote
+ * must read back unchanged.
+ */
+export function migrateSchemeId(raw: unknown): string {
+  if (raw === undefined || raw === null || raw === "" || raw === "KTU 2024") return KTU_2024.id;
+  return String(raw);
+}
+
+/**
+ * Turn a profile ID into the `Scheme` it names, against one save's own
+ * custom profiles.
+ *
+ * Falls back to `KTU_2024` for anything unresolvable - an ID naming neither a
+ * built-in nor an entry in `custom` - so a corrupt or stale ID can never
+ * leave the app with no scheme to compute against. This is the single
+ * function both `store.ts` (at load, before anything reads a computed value)
+ * and `state/schemes.ts` (on every profile change) resolve through, so the
+ * two can never disagree about what an ID means.
+ */
+export function resolveScheme(id: string, custom: readonly Scheme[] | undefined): Scheme {
+  if (id === KTU_2024.id) return KTU_2024;
+  return custom?.find((s) => s.id === id) ?? KTU_2024;
+}
+
+/**
  * A saved payload, read.
  *
  * `savedAt` is written alongside the state but is never part of it: it exists
@@ -82,6 +124,7 @@ function parse(raw: string): { state: AppState; savedAt: number } | null {
   const stamp = typeof parsed.savedAt === "string" ? Date.parse(parsed.savedAt) : NaN;
   const state = {
     ...defaultState(), ...parsed,
+    scheme: migrateSchemeId(parsed.scheme),
     history: migrateHistory(parsed.history),
     goal: normaliseTargets(parsed.goal),
     // A record written before the month archive existed carries one grid and
@@ -106,19 +149,50 @@ function parse(raw: string): { state: AppState; savedAt: number } | null {
  * Under the Tauri shell this is a seed that `hydrate` then corrects from disk;
  * in a browser it is the whole story.
  */
+/**
+ * Resolve a state's scheme, hand it to the engine, and correct `s.scheme`
+ * itself if it did not resolve.
+ *
+ * Called on every plain (not-yet-in-the-store) `AppState` this module is
+ * about to adopt: `load()`, so the engine is correct before Solid renders
+ * anything off the seed store; and `hydrate()`, because the on-disk record
+ * can legitimately name a different profile than the `localStorage` seed did
+ * (synced from another machine, or edited there before this one last saved).
+ *
+ * The correction matters as much as the engine call. `resolveScheme` falling
+ * back to `KTU_2024` for an ID it cannot find is not enough on its own - a
+ * `state.scheme` left holding that unresolvable ID would show a student a
+ * profile that does not exist and re-attempt the same failed resolution on
+ * every subsequent read. Mutating `s` here is safe only because it is always
+ * called on a freshly-built object that has not been handed to `createStore`
+ * or `setState` yet.
+ */
+function activateScheme(s: AppState): void {
+  const resolved = resolveScheme(s.scheme, s.customSchemes);
+  s.scheme = resolved.id;
+  setActiveScheme(resolved);
+}
+
 function load(): AppState {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return defaultState();
+    if (!raw) {
+      const seed = defaultState();
+      activateScheme(seed);
+      return seed;
+    }
     const read = parse(raw);
     if (!read) throw new Error("shape");
+    activateScheme(read.state);
     return read.state;
   } catch {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) localStorage.setItem(`${KEY}.corrupt`, raw);
     } catch { /* storage unavailable; nothing more to salvage */ }
-    return defaultState();
+    const seed = defaultState();
+    activateScheme(seed);
+    return seed;
   }
 }
 
@@ -275,6 +349,7 @@ export async function hydrate(): Promise<void> {
       await flush();
       return;
     }
+    activateScheme(onDisk.state);
     setState(reconcile(onDisk.state, { merge: true }));
   } catch (exc) {
     setSaveFault({ kind: "file", error: String(exc) });

@@ -1,5 +1,6 @@
 export * from "./types";
 export * from "./constants";
+export * from "./scheme";
 export * from "./util";
 export * from "./cie";
 export * from "./attendance";

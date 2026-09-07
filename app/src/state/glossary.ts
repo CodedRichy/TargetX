@@ -1,7 +1,4 @@
-import {
-  ATTENDANCE_CONDONE, ATTENDANCE_MARK_BANDS, ATTENDANCE_MARK_MAX,
-  ATTENDANCE_MIN, DL_CAP_PCT, ESE_PASS_FRACTION, COURSE_TYPES, DEFAULT_TYPE,
-} from "../engine";
+import { activeProfile, schemeCourseTypes } from "./schemes";
 
 /**
  * What the words mean, stated once.
@@ -32,72 +29,84 @@ export interface Term {
   body: string;
 }
 
-/** The top band and its mark, read off the table rather than assumed. */
-const TOP_BAND = ATTENDANCE_MARK_BANDS[0]!;
-/** The lowest band that still earns anything. */
-const LAST_BAND = ATTENDANCE_MARK_BANDS[ATTENDANCE_MARK_BANDS.length - 1]!;
-/** The marks in the table, high to low, as "5, 4, 3, 2, 1". */
-const BAND_MARKS = ATTENDANCE_MARK_BANDS.map(([, m]) => m).join(", ");
-const DEFAULT_SPEC = COURSE_TYPES[DEFAULT_TYPE];
-const ESE_PASS_PCT = Math.round(ESE_PASS_FRACTION * 100);
+/**
+ * The regulation terms, rebuilt on every call rather than fixed at module
+ * load.
+ *
+ * Every figure quoted below comes from `activeProfile()`, not a constant
+ * captured when this module first ran - so a student on a profile other than
+ * KTU 2024 reads their own numbers here rather than the built-in scheme's,
+ * frozen at import time.
+ */
+export function terms(): Term[] {
+  const scheme = activeProfile();
+  /** The top band and its mark, read off the table rather than assumed. */
+  const topBand = scheme.attendanceMarkBands[0]!;
+  /** The lowest band that still earns anything. */
+  const lastBand = scheme.attendanceMarkBands[scheme.attendanceMarkBands.length - 1]!;
+  /** The marks in the table, high to low, as "5, 4, 3, 2, 1". */
+  const bandMarks = scheme.attendanceMarkBands.map((b) => b.marks).join(", ");
+  const defaultSpec = schemeCourseTypes()[scheme.defaultType];
+  const esePassPct = Math.round(scheme.esePassFraction * 100);
 
-export const TERMS: Term[] = [
-  {
-    name: "CIE",
-    aliases: ["cie", "internal", "internals", "continuous internal evaluation"],
-    body: `Continuous Internal Evaluation — the marks your college gives during the semester: series exams, assignments, and attendance. Out of ${DEFAULT_SPEC.cieMax} for most theory courses.`,
-  },
-  {
-    name: "ESE",
-    aliases: ["ese", "end semester", "endsem", "end semester examination", "university exam"],
-    body: `End Semester Examination — the university exam at the end. Out of ${DEFAULT_SPEC.eseMax} for most theory courses.`,
-  },
-  {
-    name: `The ${ESE_PASS_PCT}% rule`,
-    aliases: ["40 rule", "40% rule", "ese minimum", "separate minimum", "ese pass"],
-    body: `You must score at least ${ESE_PASS_PCT}% of the ESE paper on its own, whatever your CIE is. A strong internal cannot buy a pass.`,
-  },
-  {
-    name: "Attendance marks",
-    aliases: ["att mk", "attendance mark", "attendance marks", "r7.5", "r 7.5"],
-    body: `Attendance is worth up to ${ATTENDANCE_MARK_MAX} CIE marks under Regulations 2024, R 7.5.ii: ${TOP_BAND[0]}% earns ${TOP_BAND[1]}, then ${BAND_MARKS} down to ${LAST_BAND[0]}%. This is the part no other KTU calculator shows — being at ${ATTENDANCE_MIN + 1}% is not "fine", it is marks already gone.`,
-  },
-  {
-    name: "Shortage",
-    aliases: ["shortage", "short", "attendance shortage"],
-    body: `Below ${ATTENDANCE_MIN}% attendance. Condonation may be possible down to ${ATTENDANCE_CONDONE}%, for at most two semesters, against a fee.`,
-  },
-  {
-    name: "Condonation",
-    aliases: ["condonation", "condone", "condoned"],
-    body: `Paying to be allowed to sit an exam you are short of attendance for. Available between ${ATTENDANCE_CONDONE}% and ${ATTENDANCE_MIN}%, for at most two semesters across the programme, against a fee. Below ${ATTENDANCE_CONDONE}% there is no appeal path under R 6.2.`,
-  },
-  {
-    name: "Debarred",
-    aliases: ["debarred", "debar", "barred"],
-    body: `Below ${ATTENDANCE_CONDONE}% attendance. You cannot sit the exam and there is no appeal path under R 6.2.`,
-  },
-  {
-    name: "Duty leave",
-    aliases: ["duty leave", "dl", "od", "on duty"],
-    body: `Approved absence for NSS, sports, fests or placement drives. It counts as present, but only up to ${DL_CAP_PCT}% of classes held (R 6.3.ii) — anything beyond that is wasted, and this app says so.`,
-  },
-  {
-    name: "Incomplete",
-    aliases: ["incomplete", "withdrawn", "withdrawal", "grade i", "grade w"],
-    body: "Published as I or W — withdrawn, or not completed. KTU leaves it out of the SGPA entirely, credits included, until you complete it. It is not a fail and is not scored as one.",
-  },
-  {
-    name: "Unreachable",
-    aliases: ["unreachable"],
-    body: "Even a full ESE paper cannot get this course to a pass. Better to know now.",
-  },
-  {
-    name: "SGPA and CGPA",
-    aliases: ["sgpa", "cgpa", "gpa", "sgpa and cgpa", "difference between sgpa and cgpa"],
-    body: "SGPA is one semester's grade point average, weighted by the credits you registered for that semester. CGPA is the same average across every semester published so far. A failed course still counts in the denominator; one marked I or W does not.",
-  },
-];
+  return [
+    {
+      name: "CIE",
+      aliases: ["cie", "internal", "internals", "continuous internal evaluation"],
+      body: `Continuous Internal Evaluation — the marks your college gives during the semester: series exams, assignments, and attendance. Out of ${defaultSpec.cieMax} for most theory courses.`,
+    },
+    {
+      name: "ESE",
+      aliases: ["ese", "end semester", "endsem", "end semester examination", "university exam"],
+      body: `End Semester Examination — the university exam at the end. Out of ${defaultSpec.eseMax} for most theory courses.`,
+    },
+    {
+      name: `The ${esePassPct}% rule`,
+      aliases: ["40 rule", "40% rule", "ese minimum", "separate minimum", "ese pass"],
+      body: `You must score at least ${esePassPct}% of the ESE paper on its own, whatever your CIE is. A strong internal cannot buy a pass.`,
+    },
+    {
+      name: "Attendance marks",
+      aliases: ["att mk", "attendance mark", "attendance marks", "r7.5", "r 7.5"],
+      body: `Attendance is worth up to ${scheme.attendanceMarkMax} CIE marks under Regulations 2024, R 7.5.ii: ${topBand.minPct}% earns ${topBand.marks}, then ${bandMarks} down to ${lastBand.minPct}%. This is the part no other KTU calculator shows — being at ${scheme.attendanceMin + 1}% is not "fine", it is marks already gone.`,
+    },
+    {
+      name: "Shortage",
+      aliases: ["shortage", "short", "attendance shortage"],
+      body: `Below ${scheme.attendanceMin}% attendance. Condonation may be possible down to ${scheme.attendanceCondone}%, for at most two semesters, against a fee.`,
+    },
+    {
+      name: "Condonation",
+      aliases: ["condonation", "condone", "condoned"],
+      body: `Paying to be allowed to sit an exam you are short of attendance for. Available between ${scheme.attendanceCondone}% and ${scheme.attendanceMin}%, for at most two semesters across the programme, against a fee. Below ${scheme.attendanceCondone}% there is no appeal path under R 6.2.`,
+    },
+    {
+      name: "Debarred",
+      aliases: ["debarred", "debar", "barred"],
+      body: `Below ${scheme.attendanceCondone}% attendance. You cannot sit the exam and there is no appeal path under R 6.2.`,
+    },
+    {
+      name: "Duty leave",
+      aliases: ["duty leave", "dl", "od", "on duty"],
+      body: `Approved absence for NSS, sports, fests or placement drives. It counts as present, but only up to ${scheme.dlCapPct}% of classes held (R 6.3.ii) — anything beyond that is wasted, and this app says so.`,
+    },
+    {
+      name: "Incomplete",
+      aliases: ["incomplete", "withdrawn", "withdrawal", "grade i", "grade w"],
+      body: "Published as I or W — withdrawn, or not completed. KTU leaves it out of the SGPA entirely, credits included, until you complete it. It is not a fail and is not scored as one.",
+    },
+    {
+      name: "Unreachable",
+      aliases: ["unreachable"],
+      body: "Even a full ESE paper cannot get this course to a pass. Better to know now.",
+    },
+    {
+      name: "SGPA and CGPA",
+      aliases: ["sgpa", "cgpa", "gpa", "sgpa and cgpa", "difference between sgpa and cgpa"],
+      body: "SGPA is one semester's grade point average, weighted by the credits you registered for that semester. CGPA is the same average across every semester published so far. A failed course still counts in the denominator; one marked I or W does not.",
+    },
+  ];
+}
 
 /**
  * Whether a question is asking what something IS.
@@ -130,7 +139,7 @@ export function lookupTerm(query: string): Term | null {
   // "what is my attendance" is asking for a figure, not a definition.
   if (POSSESSIVE.test(q)) return null;
 
-  return longestAlias(q, TERMS);
+  return longestAlias(q, terms());
 }
 
 /** The longest alias any of `pool` matches in an already-normalised query. */
@@ -258,4 +267,4 @@ export const CAPABILITIES: Term[] = [
 ];
 
 /** Both are facts about TargetX rather than about the student. */
-export const ALL_FACTS: Term[] = [...TERMS, ...CAPABILITIES];
+export const allFacts = (): Term[] => [...terms(), ...CAPABILITIES];

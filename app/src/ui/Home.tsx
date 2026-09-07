@@ -1,7 +1,6 @@
 import { For, Show, createMemo } from "solid-js";
 import {
-  ATTENDANCE_CONDONE, ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_MAX,
-  ATTENDANCE_MIN, attendanceMarks, courseLabel, isDebarred, isIncomplete,
+  attendanceMarks, courseLabel, isDebarred, isIncomplete,
   toOptionalFloat,
   unconfirmedNames,
 } from "../engine";
@@ -11,6 +10,7 @@ import {
 import { setView } from "../state/nav";
 import { GoalGauge, TrendChart } from "./charts";
 import type { Change } from "../engine";
+import { activeProfile, fullMarksPct } from "../state/schemes";
 
 /**
  * Home.
@@ -25,19 +25,6 @@ import type { Change } from "../engine";
  * do something differently after reading it.
  */
 
-/**
- * Attendance marks forfeited by a student sitting exactly on the eligibility
- * line, out of `ATTENDANCE_MARK_MAX`.
- *
- * Derived from the bands, never pasted: this number is the entire argument for
- * why the app defaults its target to `ATTENDANCE_FULL_MARKS_PCT` rather than
- * `ATTENDANCE_MIN`, and a stale literal here would be the app teaching a wrong
- * rule with total confidence. `attendanceMarks` returns null only for an
- * unparseable input, and `ATTENDANCE_MIN` is a number.
- */
-const FORFEIT_AT_ELIGIBILITY =
-  ATTENDANCE_MARK_MAX - (attendanceMarks(ATTENDANCE_MIN) ?? 0);
-
 /** A subject worth surfacing, with the reason it made the list. */
 interface Concern {
   /** The subject as the student knows it. See `courseLabel`. */
@@ -50,6 +37,22 @@ interface Concern {
 
 export function Home() {
   const started = () => summary().credits > 0 || overall().credits > 0;
+
+  /**
+   * Attendance marks forfeited by a student sitting exactly on the
+   * eligibility line, out of `activeProfile().attendanceMarkMax`.
+   *
+   * Derived from the bands, never pasted: this number is the entire argument
+   * for why the app defaults its target to `ATTENDANCE_FULL_MARKS_PCT` rather
+   * than the eligibility floor, and a stale literal here would be the app
+   * teaching a wrong rule with total confidence. `attendanceMarks` returns
+   * null only for an unparseable input. Read from the active scheme on every
+   * call rather than cached, so a student on another profile sees their own
+   * numbers rather than KTU's frozen at module load.
+   */
+  const forfeitAtEligibility = () =>
+    activeProfile().attendanceMarkMax
+    - (attendanceMarks(activeProfile().attendanceMin) ?? 0);
 
   /**
    * Semesters the app actually knows about.
@@ -91,10 +94,10 @@ export function Home() {
       const ev = row.ev;
       if (ev.attMarks === null) continue;
       counted += 1;
-      lost += ATTENDANCE_MARK_MAX - ev.attMarks;
+      lost += activeProfile().attendanceMarkMax - ev.attMarks;
 
       const pct = ev.attendance;
-      if (pct !== null && pct >= ATTENDANCE_MIN && pct < ATTENDANCE_FULL_MARKS_PCT()) {
+      if (pct !== null && pct >= activeProfile().attendanceMin && pct < fullMarksPct()) {
         blindSpot += 1;
       }
 
@@ -171,15 +174,15 @@ export function Home() {
         // row to be eligible" is not encouragement, it is a wrong instruction
         // they will follow. `Ledger.tsx` already draws this line; Home did not.
         out.push({ label, severity: "bad", rank: 1,
-                   detail: `below the ${ATTENDANCE_CONDONE}% condonation floor `
+                   detail: `below the ${activeProfile().attendanceCondone}% condonation floor `
                      + "— the exam cannot be sat this semester, and attending "
                      + "from here does not change that" });
       } else if (ev.eligible === false) {
         const plan = ev.plan;
         out.push({ label, severity: "warn", rank: 2,
                    detail: plan?.attend
-                     ? `below ${ATTENDANCE_MIN}% — ${plan.attend} classes in a row to be eligible`
-                     : `below ${ATTENDANCE_MIN}% — not eligible to sit the exam` });
+                     ? `below ${activeProfile().attendanceMin}% — ${plan.attend} classes in a row to be eligible`
+                     : `below ${activeProfile().attendanceMin}% — not eligible to sit the exam` });
       } else if (ev.grade === null && ev.assessed && !ev.needTargetBest.possible) {
         out.push({ label, severity: "warn", rank: 3,
                    detail: `target out of reach — best still open is ${ev.maxPossibleGrade}` });
@@ -399,10 +402,11 @@ export function Home() {
             </div>
             <Show when={attendanceCost().counted > 0} fallback={
               <p class="tile-verdict dim">
-                No attendance recorded yet. It is worth up to {ATTENDANCE_MARK_MAX} CIE
-                marks per subject, and all {ATTENDANCE_MARK_MAX} need{" "}
-                {ATTENDANCE_FULL_MARKS_PCT()}%, not the {ATTENDANCE_MIN}% you are told
-                about — so it is the cheapest thing here to fix.
+                No attendance recorded yet. It is worth up to{" "}
+                {activeProfile().attendanceMarkMax} CIE marks per subject, and all{" "}
+                {activeProfile().attendanceMarkMax} need {fullMarksPct()}%,
+                not the {activeProfile().attendanceMin}% you are told about — so it is
+                the cheapest thing here to fix.
               </p>
             }>
               <div class="hero-number tight">
@@ -414,12 +418,13 @@ export function Home() {
               <Show when={attendanceCost().blindSpot > 0}>
                 <p class="tile-verdict">
                   <strong class="num">{attendanceCost().blindSpot}</strong> of them are
-                  above {ATTENDANCE_MIN}% and losing marks anyway. Full marks start at{" "}
-                  <strong class="num">{ATTENDANCE_FULL_MARKS_PCT()}%</strong> — sitting on{" "}
-                  {ATTENDANCE_MIN}% forfeits{" "}
+                  above {activeProfile().attendanceMin}% and losing marks anyway. Full
+                  marks start at{" "}
+                  <strong class="num">{fullMarksPct()}%</strong> — sitting on{" "}
+                  {activeProfile().attendanceMin}% forfeits{" "}
                   <span class="unit">
-                    <strong class="num">{FORFEIT_AT_ELIGIBILITY}</strong> of{" "}
-                    {ATTENDANCE_MARK_MAX}
+                    <strong class="num">{forfeitAtEligibility()}</strong> of{" "}
+                    {activeProfile().attendanceMarkMax}
                   </span>, and nothing else will tell you.
                 </p>
               </Show>

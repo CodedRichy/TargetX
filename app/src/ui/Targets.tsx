@@ -1,7 +1,6 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import {
-  ATTENDANCE_CONDONE, ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN,
-  ESE_PASS_FRACTION, TOTAL_PASS_MARK, checkGpaTarget,
+  checkGpaTarget,
 } from "../engine";
 import type {
   AttendanceTargetCheck, AttendanceTargetGap, GpaTargetCheck, ResolvedSgpaTarget,
@@ -14,6 +13,7 @@ import {
   targets,
 } from "../state/store";
 import { RoutePanel } from "./Route";
+import { activeProfile, fullMarksPct } from "../state/schemes";
 
 /**
  * Targets.
@@ -53,14 +53,14 @@ export function AttendanceTargetReadout(props: { check: AttendanceTargetCheck | 
     <Show when={props.check} fallback={
       <p class="readout">
         No attendance target. Nothing on the table is measured against one, and
-        the {pct(ATTENDANCE_MIN)} eligibility rule still applies whatever you aim for.
+        the {pct(activeProfile().attendanceMin)} eligibility rule still applies whatever you aim for.
       </p>
     }>
       {(c) => (
         <>
           <Show when={c().belowRegulation}>
             <span class={c().band === "debarred" ? "pill debarred" : "pill shortage"}>
-              below the {pct(ATTENDANCE_MIN)} rule
+              below the {pct(activeProfile().attendanceMin)} rule
             </span>
           </Show>
           <p class="readout">
@@ -80,14 +80,14 @@ export function AttendanceTargetReadout(props: { check: AttendanceTargetCheck | 
             <Show when={c().band === "condonation"}>
               <span class="down">
                 At <strong>{pct(c().target)}</strong> you are not eligible on your own.
-                R 6.2 lets the Principal condone down to {pct(ATTENDANCE_CONDONE)}, for at
+                R 6.2 lets the Principal condone down to {pct(activeProfile().attendanceCondone)}, for at
                 most two semesters and against a fee — a target here is a target of needing
                 a favour. R 7.5.ii pays <strong>{c().marksAtTarget}</strong> of {c().marksMax}.
               </span>
             </Show>
             <Show when={c().band === "debarred"}>
               <span class="out">
-                At <strong>{pct(c().target)}</strong> you are below {pct(ATTENDANCE_CONDONE)}
+                At <strong>{pct(c().target)}</strong> you are below {pct(activeProfile().attendanceCondone)}
                 {" "}and R 6.2 gives no appeal. This is a target of not sitting the exam.
               </span>
             </Show>
@@ -109,8 +109,8 @@ export function AttendanceTargetReadout(props: { check: AttendanceTargetCheck | 
 export function AttendanceTargetWhy() {
   return (
     <p class="chart-note">
-      {pct(ATTENDANCE_MIN)} only admits you to the exam — R 7.5.ii pays all{" "}
-      {ATTENDANCE_MARK_MAX} CIE marks from {pct(ATTENDANCE_FULL_MARKS_PCT())}, so every
+      {pct(activeProfile().attendanceMin)} only admits you to the exam — R 7.5.ii pays all{" "}
+      {activeProfile().attendanceMarkMax} CIE marks from {pct(fullMarksPct())}, so every
       point between the two is marks lost in every subject before you write a word.
     </p>
   );
@@ -182,8 +182,8 @@ export function SgpaTargetReadout(props: {
 /**
  * The regulations, as reference. No input in this block, ever.
  *
- * Every figure is read off `constants.ts`, so this list cannot describe a rule
- * the engine is not applying.
+ * Every figure is read off `activeProfile()`, so this list cannot describe a
+ * rule the engine is not applying.
  */
 export function RegulationFloors() {
   return (
@@ -194,22 +194,22 @@ export function RegulationFloors() {
       </p>
       <dl class="floors">
         <dt>Exam eligibility</dt>
-        <dd>{pct(ATTENDANCE_MIN)} attendance (R 6.2).</dd>
+        <dd>{pct(activeProfile().attendanceMin)} attendance (R 6.2).</dd>
         <dt>Condonation floor</dt>
         <dd>
-          {pct(ATTENDANCE_CONDONE)}. Between the two the Principal may condone, for at
+          {pct(activeProfile().attendanceCondone)}. Between the two the Principal may condone, for at
           most two semesters and against a fee. Below it there is no appeal (R 6.2).
         </dd>
         <dt>Full attendance marks</dt>
         <dd>
-          {pct(ATTENDANCE_FULL_MARKS_PCT())} earns all {ATTENDANCE_MARK_MAX} CIE marks,
-          stepping down to 1 at {pct(ATTENDANCE_CONDONE)} (R 7.5.ii).
+          {pct(fullMarksPct())} earns all {activeProfile().attendanceMarkMax} CIE marks,
+          stepping down to 1 at {pct(activeProfile().attendanceCondone)} (R 7.5.ii).
         </dd>
         <dt>Pass</dt>
-        <dd>{TOTAL_PASS_MARK} of 100 on the total.</dd>
+        <dd>{activeProfile().totalPassMark} of 100 on the total.</dd>
         <dt>Exam minimum</dt>
         <dd>
-          {pct(ESE_PASS_FRACTION * 100)} of the ESE paper on its own, whatever the
+          {pct(activeProfile().esePassFraction * 100)} of the ESE paper on its own, whatever the
           internal is.
         </dd>
       </dl>
@@ -244,7 +244,7 @@ export function PersonalAttendanceList(props: {
     <div class="chart-block">
       <h4>Below your own target</h4>
       <p class="chart-note">
-        Your target, not the regulation. The {pct(ATTENDANCE_MIN)} shortage count in the
+        Your target, not the regulation. The {pct(activeProfile().attendanceMin)} shortage count in the
         bar above is a separate list and a course can be on one and not the other.
       </p>
       <Show when={props.target !== null} fallback={
@@ -259,7 +259,7 @@ export function PersonalAttendanceList(props: {
         }>
           <Show when={props.targetBelowRegulation}>
             <p class="chart-note" style={{ color: "var(--warn)" }}>
-              Your target is below the {pct(ATTENDANCE_MIN)} eligibility rule, so the
+              Your target is below the {pct(activeProfile().attendanceMin)} eligibility rule, so the
               "to target" answer is the looser of the two. The eligibility column is the
               binding one.
             </p>

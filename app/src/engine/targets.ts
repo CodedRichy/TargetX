@@ -1,4 +1,4 @@
-import { activeScheme } from "./scheme";
+import { activeScheme, type Scheme } from "./scheme";
 import { attendanceMarks, attendancePlan, effectiveAttendance } from "./attendance";
 import type { AttendancePlan, Course, MarkInput } from "./types";
 import { clamp, round, toOptionalFloat } from "./util";
@@ -59,8 +59,7 @@ import { clamp, round, toOptionalFloat } from "./util";
  * drift, and by minimum-over-the-full-marks-bands rather than by taking the
  * first row, so it does not silently depend on that table staying sorted.
  */
-export const ATTENDANCE_FULL_MARKS_PCT = (): number => {
-  const scheme = activeScheme();
+export const ATTENDANCE_FULL_MARKS_PCT = (scheme: Scheme = activeScheme()): number => {
   const full = scheme.attendanceMarkBands.filter((b) => b.marks >= scheme.attendanceMarkMax);
   return full.length > 0 ? Math.min(...full.map((b) => b.minPct)) : scheme.attendanceMin;
 };
@@ -79,7 +78,8 @@ export const ATTENDANCE_FULL_MARKS_PCT = (): number => {
  *
  * A default, not a floor. It is freely editable, in both directions.
  */
-export const DEFAULT_ATTENDANCE_TARGET = (): number => ATTENDANCE_FULL_MARKS_PCT();
+export const DEFAULT_ATTENDANCE_TARGET = (scheme: Scheme = activeScheme()): number =>
+  ATTENDANCE_FULL_MARKS_PCT(scheme);
 
 /**
  * The lowest grade point a PASS can carry: P, 5.5.
@@ -90,8 +90,8 @@ export const DEFAULT_ATTENDANCE_TARGET = (): number => ATTENDANCE_FULL_MARKS_PCT
  * regulations rather than about the student's ambition, so it is the floor
  * `checkGpaTarget` reports against.
  */
-export const PASSING_GPA_MIN = (): number =>
-  Math.min(...activeScheme().gradeBands.map((b) => b.points));
+export const PASSING_GPA_MIN = (scheme: Scheme = activeScheme()): number =>
+  Math.min(...scheme.gradeBands.map((b) => b.points));
 
 /** GPAs live on a 0-10 scale. Not a preference - the scale has no more room. */
 const GPA_MAX = 10;

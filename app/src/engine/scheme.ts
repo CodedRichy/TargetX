@@ -22,7 +22,7 @@ export interface GradeBand {
   readonly points: number;
 }
 
-export interface AttendanceBand {
+export interface AttendanceMarkBand {
   /** Lowest attendance percentage that earns `marks`. */
   readonly minPct: number;
   readonly marks: number;
@@ -77,7 +77,7 @@ export interface Scheme {
   /** Cap on duty-leave relaxation, in percentage points. */
   readonly dlCapPct: number;
 
-  readonly attendanceMarkBands: readonly AttendanceBand[];
+  readonly attendanceMarkBands: readonly AttendanceMarkBand[];
   /** CIE marks reserved for attendance. */
   readonly attendanceMarkMax: number;
 
@@ -295,14 +295,33 @@ function derived(scheme: Scheme): Derived {
   return built;
 }
 
+/**
+ * The same three lookups against a NAMED scheme rather than the active one.
+ *
+ * The UI needs these. A screen cannot read `activeScheme()` and expect to
+ * re-render when the student switches profile - that holder is a plain
+ * variable, deliberately, so the engine stays free of Solid. The reactive
+ * source is the store, so the UI resolves its own profile from there and asks
+ * for that profile's lookups by name. Same cache, same objects; the only
+ * difference is who chose the scheme.
+ */
+export const courseTypesOf = (scheme: Scheme): Record<TypeKey, CourseSpec> =>
+  derived(scheme).courseTypes;
+
+export const gradePointsOf = (scheme: Scheme): Record<Grade, number> =>
+  derived(scheme).gradePoints;
+
+export const gradeMinOf = (scheme: Scheme): Record<Letter, number> =>
+  derived(scheme).gradeMin;
+
 /** Course types of the active scheme, with attendance's marks taken out. */
 export const courseTypes = (): Record<TypeKey, CourseSpec> =>
-  derived(activeScheme()).courseTypes;
+  courseTypesOf(activeScheme());
 
 /** Grade point per letter for the active scheme, including F at zero. */
 export const gradePoints = (): Record<Grade, number> =>
-  derived(activeScheme()).gradePoints;
+  gradePointsOf(activeScheme());
 
 /** Lowest total percentage earning each letter, for the active scheme. */
 export const gradeMin = (): Record<Letter, number> =>
-  derived(activeScheme()).gradeMin;
+  gradeMinOf(activeScheme());

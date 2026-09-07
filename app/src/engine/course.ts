@@ -1,5 +1,6 @@
 import { inferCredits, lookupCourse } from "./catalogue";
-import { activeScheme } from "./scheme";
+import { activeScheme, KTU_2024 } from "./scheme";
+import type { Scheme } from "./scheme";
 import { defaultTargets } from "./targets";
 import type { Targets } from "./targets";
 import type { Change } from "./changes";
@@ -66,7 +67,28 @@ export interface Semester {
 
 export interface AppState {
   version: number;
+  /**
+   * The active scheme profile's ID, not its display name.
+   *
+   * An ID survives a rename - a student renaming a profile they authored must
+   * not disconnect it from every course already filed under it - and never
+   * collides the way two profiles named "My College" could. Saves written
+   * before profiles existed hold the literal display name `"KTU 2024"`, and
+   * saves written before this field existed at all hold nothing; `state/
+   * schemes.ts` (`migrateSchemeId`) turns both into `KTU_2024.id` on load, so
+   * this field is a resolvable ID in every save this build produces.
+   */
   scheme: string;
+  /**
+   * Profiles the student has authored, by duplicating a built-in or another
+   * custom profile. Absent on a save with none yet.
+   *
+   * Riding along on `AppState` rather than a second storage key is
+   * deliberate: these are the numbers grades are computed from, and a backup
+   * or export that carried courses but silently dropped the profile they were
+   * graded under would hand back a record `evaluate` cannot reproduce.
+   */
+  customSchemes?: Scheme[];
   student: { name: string; reg_no: string; branch: string; college: string };
   activeSemester: string;
   etlab: Record<string, unknown>;
@@ -155,7 +177,7 @@ export interface AppState {
 export function defaultState(): AppState {
   return {
     version: 1,
-    scheme: "KTU 2024",
+    scheme: KTU_2024.id,
     student: { name: "", reg_no: "", branch: "", college: "" },
     activeSemester: "S1",
     etlab: {},
