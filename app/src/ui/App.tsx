@@ -21,6 +21,7 @@ import { Schemes } from "./Schemes";
 import { Palette, usePaletteShortcut } from "./Palette";
 import { Popover } from "./Popover";
 import { Face } from "./tex/Face";
+import { overallMood } from "./tex/mood";
 import { activeProfile } from "../state/schemes";
 import { runLaunchCheck, saveFindings } from "../state/launch";
 import { autoRefresh, refreshAll, refreshFailures, refreshing } from "../state/autosync";
@@ -870,10 +871,14 @@ export function App() {
                   aria-label={`Ask ${ASSISTANT} about your subjects, marks and attendance. Press Control K.`}>
             {/* Tex himself, rather than a magnifying glass. The button says
                 "Ask Tex" and opens an assistant, not a search - the glass was
-                promising the wrong interaction. He stays neutral here: this
-                is a way in, not a verdict, and a header that changes face on
-                its own would report bad news the student never asked for. */}
-            <Face size={18} mood="neutral" label="" />
+                promising the wrong interaction.
+                He wears the same mood as every other face, which was not the
+                first decision here. Neutral seemed kinder - a header should
+                not deliver bad news unprompted - but it meant one character
+                making two claims about the same record at once, and a student
+                who noticed would be right not to trust either. Consistency is
+                worth more than the softer header. */}
+            <Face size={22} mood={overallMood()} label="" />
             <span>Ask {ASSISTANT} — how many classes can I miss?</span>
             <span class="kbd" aria-hidden="true">Ctrl K</span>
           </button>

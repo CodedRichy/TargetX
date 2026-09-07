@@ -1,4 +1,4 @@
-import { createMemo, createSignal, onCleanup } from "solid-js";
+import { createMemo, createSignal } from "solid-js";
 import type { AvatarDefinition, Expression, Mood } from "./definition";
 import { TEX } from "./definition";
 
@@ -61,6 +61,37 @@ function place(
   };
 }
 
+/**
+ * One blink clock for every face on screen.
+ *
+ * Tex is a character, not a widget: he can be in the header, on Home and in
+ * the assistant at the same moment, and per-instance timers had each of them
+ * blinking on its own random schedule. Three faces blinking out of step do
+ * not read as one character seen three times, they read as three creatures.
+ *
+ * Module-level and started once on first use, so a screen with no face never
+ * schedules anything, and nothing is scheduled at all under reduced motion -
+ * this must never become the thing that moves on a page someone asked to hold
+ * still. The interval is deliberately irregular: a fixed one reads as a
+ * hardware indicator rather than as a face.
+ */
+const [blinking, setBlinking] = createSignal(false);
+let clockStarted = false;
+
+function startBlinkClock(): void {
+  if (clockStarted) return;
+  clockStarted = true;
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const tick = () => {
+    setTimeout(() => {
+      setBlinking(true);
+      setTimeout(() => { setBlinking(false); tick(); }, 130);
+    }, 4000 + Math.random() * 5000);
+  };
+  tick();
+}
+
 export function Face(props: {
   mood?: Mood;
   /** Drawn size in px; the definition's own units are the coordinate space. */
@@ -71,32 +102,7 @@ export function Face(props: {
   label?: string;
 }) {
   const def = () => props.definition ?? TEX;
-  const [blinking, setBlinking] = createSignal(false);
-
-  /**
-   * Blink on an irregular schedule.
-   *
-   * Regular blinking is worse than none - a fixed interval reads as a
-   * hardware indicator rather than a face. The window is 4-9s, which is
-   * roughly human at rest. Nothing schedules at all when the person asked for
-   * reduced motion, so this never becomes a thing that moves on a screen
-   * someone needs to stay still.
-   */
-  const still = typeof window !== "undefined"
-    && typeof window.matchMedia === "function"
-    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  if (!still && props.blink !== false) {
-    let timer: ReturnType<typeof setTimeout>;
-    const schedule = () => {
-      timer = setTimeout(() => {
-        setBlinking(true);
-        timer = setTimeout(() => { setBlinking(false); schedule(); }, 130);
-      }, 4000 + Math.random() * 5000);
-    };
-    schedule();
-    onCleanup(() => clearTimeout(timer));
-  }
+  if (props.blink !== false) startBlinkClock();
 
   const expr = createMemo<Expression>(() => {
     const table = def().expressions;
