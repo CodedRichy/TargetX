@@ -9,6 +9,8 @@ import {
 } from "../state/store";
 import { setView } from "../state/nav";
 import { GoalGauge, TrendChart } from "./charts";
+import { Face } from "./tex/Face";
+import { moodLabel, overallMood } from "./tex/mood";
 import type { Change } from "../engine";
 import { activeProfile, fullMarksPct } from "../state/schemes";
 
@@ -37,6 +39,7 @@ interface Concern {
 
 export function Home() {
   const started = () => summary().credits > 0 || overall().credits > 0;
+
 
   /**
    * Attendance marks forfeited by a student sitting exactly on the
@@ -247,6 +250,8 @@ export function Home() {
   return (
     <div class="screen home">
       <div class="screen-head">
+        <div class="head-tex">
+          <Face size={46} mood={overallMood()} label={moodLabel(overallMood())} />
         <div>
           <h2>Where you stand</h2>
           {/* With nothing on record the count is not "0 semesters", it is
@@ -263,6 +268,7 @@ export function Home() {
               {onRecord() === 1 ? "" : "s"} on record
             </p>
           </Show>
+        </div>
         </div>
         {/* The header action is for a student who HAS data and wants more of
             it. With an empty record the card below carries the same call, and

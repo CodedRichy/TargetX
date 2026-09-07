@@ -278,7 +278,7 @@ function Detail(props: {
                     </Show>
                     <Show when={plan().state === "surplus"} fallback={
                       <>
-                        Short of 75%.{" "}
+                        Short of {activeProfile().attendanceMin.toFixed(0)}%.{" "}
                         <Show when={plan().attend !== null} fallback={<span class="out">No way back this semester.</span>}>
                           <span class="down">
                             Attend the next <strong>{plan().attend}</strong> classes without

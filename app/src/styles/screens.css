@@ -18,6 +18,38 @@
 /* History and Data have no drawer, so the second column collapses. */
 .app.wide { grid-template-columns: 1fr; }
 
+/* Tex sits beside the heading, not above it. He is reading the same verdicts
+   the screen prints, so he belongs on the line that names the screen - a face
+   given its own row reads as an illustration, which is exactly what this one
+   is not. Centred against the heading block rather than the flex default, or
+   he floats up beside the h2 and away from the sentence he is reacting to. */
+.head-tex { align-items: center; display: flex; gap: var(--s4); }
+
+/* The assistant's own row: Tex, then the field, on one line. The face keeps
+   its size while the input takes the rest, so a long question never squeezes
+   him into an oval. `min-width: 0` because a flex item with an input in it
+   refuses to shrink below its default size otherwise and pushes the face off
+   the left edge. */
+.palette-head {
+  align-items: center;
+  /* The rule under the field belongs to the whole row now, or it starts at
+     Tex's right edge and reads as an underline on the text rather than as the
+     line between asking and being answered. */
+  border-block-end: 1px solid var(--hairline);
+  display: flex;
+  gap: var(--s3);
+  padding-inline-start: var(--s4);
+}
+.palette-head .palette-input {
+  border-block-end: 0;
+  flex: 1;
+  /* An input will not shrink below its intrinsic width in a flex row, and
+     would push Tex off the left edge on a long question. */
+  min-width: 0;
+  padding-inline-start: 0;
+}
+.palette-head .tex-face { flex: none; }
+
 .screen-head {
   align-items: flex-start;
   border-bottom: 1px solid var(--hairline);
