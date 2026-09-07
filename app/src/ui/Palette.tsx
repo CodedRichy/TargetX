@@ -13,6 +13,7 @@ import { authBusy, authConfigured, signIn, signedIn } from "../state/auth";
 import { morph } from "./morph";
 import { Face } from "./tex/Face";
 import { moodLabel, overallMood } from "./tex/mood";
+import type { Mood } from "./tex/definition";
 
 /**
  * The command palette.
@@ -206,6 +207,39 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
    * something.
    */
   const [remoteIsTex, setRemoteIsTex] = createSignal(false);
+
+  /**
+   * Which way Tex is looking while he waits, flipped on a slow timer.
+   *
+   * The drift IS the thinking animation - two authored poses and the
+   * renderer's own transition between them, rather than a spinner bolted to
+   * a face. 1100ms because faster reads as agitated and slower reads as
+   * stalled; both are the wrong thing to say while someone waits.
+   */
+  const [driftAway, setDriftAway] = createSignal(false);
+  createEffect(() => {
+    if (!asking()) { setDriftAway(false); return; }
+    const t = setInterval(() => setDriftAway((v) => !v), 1100);
+    onCleanup(() => clearInterval(t));
+  });
+
+  /**
+   * His face, in priority order: doing beats thinking beats standing mood.
+   *
+   * What he is doing this second is more informative than what he makes of
+   * the semester, so the interaction states win here and only here - the
+   * header and Home keep showing the standing mood, which is all they have
+   * to say. `isGap` is the one answer state with a face of its own: an answer
+   * that says "I do not have this" is not the same event as an answer, and it
+   * should not arrive wearing the same expression.
+   */
+  const face = (): Mood => {
+    if (asking()) return driftAway() ? "thinking-away" : "thinking";
+    if (answer()?.isGap) return "concerned";
+    if (answer() || remote()) return overallMood();
+    if (query().trim() !== "") return "attentive";
+    return overallMood();
+  };
   let input: HTMLInputElement | undefined;
   let inflight: AbortController | undefined;
   /** The exchange so far, for as long as the palette is open. */
@@ -658,7 +692,7 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
               as a chatbot's landing page and pushes the answer below the
               fold, and the answer is the reason anyone opened this. */}
           <div class="palette-head">
-            <Face size={40} mood={overallMood()} label={moodLabel(overallMood())} />
+            <Face size={40} mood={face()} label={moodLabel(face())} />
             <input ref={input} class="palette-input" value={query()}
                    placeholder={`Ask ${ASSISTANT} — how many classes can I miss in ML?`}
                    aria-label="Search subjects and views"
