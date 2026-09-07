@@ -361,6 +361,10 @@ select.cell-input { text-align: left; width: auto; }
    drawer, where pushing label and value to opposite edges reads as a row; on a
    full-width screen it just separates them by a void. */
 .cell-input.name { text-align: left; width: 24ch; }
+/* The copy's name sits between the profile it came from and the button that
+   accepts it, so it reads as a caption on that row rather than as a field in
+   a form - centred, it stays tied to the two things either side of it. */
+.cell-input.name.mid { text-align: center; }
 .field.tight { justify-content: flex-start; gap: var(--s3); }
 
 /* A grade is a verdict; give it weight. */

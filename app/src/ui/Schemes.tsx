@@ -406,7 +406,7 @@ function ProfileRow(props: {
           </Show>
           <Show when={!duplicating()} fallback={
             <span class="setup-actions">
-              <input class="cell-input name" value={copyName()}
+              <input class="cell-input name mid" value={copyName()}
                      aria-label={`Name for the copy of ${props.profile.name}`}
                      onInput={(e) => setCopyName(e.currentTarget.value)} />
               <button class="primary" disabled={!copyName().trim()}
