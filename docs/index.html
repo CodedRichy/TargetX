@@ -269,6 +269,20 @@
               skip it entirely and type things in by hand.
             </p>
           </article>
+          <article class="does-item">
+            <h3>Your college’s rules, not just KTU’s</h3>
+            <p>
+              It ships set to Regulations 2024, checked against the document
+              rather than copied from another calculator. But the numbers are
+              not welded in: the grade bands, the pass mark, the separate exam
+              minimum, the attendance you need and what attendance is worth all
+              live in a profile you can copy and edit. If you are at an
+              autonomous college, set yours once and every figure after that is
+              computed against your rules. The built-in profile is marked
+              <em>checked</em>; one you have edited is marked
+              <em>not checked</em>, everywhere it appears.
+            </p>
+          </article>
         </div>
 
         <figure class="shot">
@@ -420,10 +434,17 @@
         </div>
 
         <div class="notice">
-          <strong>Windows will say the publisher is unknown.</strong> The
-          installers are not yet code-signed, so SmartScreen shows a warning —
-          choose <em>More info</em>, then <em>Run anyway</em>. Rather than ask you
-          to take that on trust, every release publishes
+          <strong>Windows may refuse to download this.</strong> The installers
+          are not code-signed, so Windows has nothing to identify the publisher
+          with and falls back to reputation — which a new file with few
+          downloads does not have. Usually that is SmartScreen asking you to
+          choose <em>More info</em>, then <em>Run anyway</em>. Sometimes Defender
+          is blunter and blocks the download outright, or deletes the file after
+          it lands. If that happens, the <strong>.msi</strong> on the same
+          release page goes through Windows Installer and is flagged far less
+          often; it installs for the whole machine, so it asks for administrator
+          rights, which the .exe deliberately does not. Rather than ask you
+          to take any of that on trust, every release publishes
           <code>SHA256SUMS-&lt;platform&gt;.txt</code> beside the installers, so
           you can check that what you downloaded is what was built. In
           PowerShell:
@@ -450,11 +471,12 @@
         </div>
 
         <div class="notice plain">
-          <strong>Updates come to you.</strong> The app checks for a new version
-          a few seconds after it opens and offers it; you accept or decline.
-          Update payloads are signed, and a build only installs one signed by the
-          key compiled into it — an unsigned or wrongly signed update is refused
-          rather than installed.
+          <strong>Updates are signed, even though the installer is not.</strong>
+          A few seconds after launch the app checks whether a newer version
+          exists, and asks you before doing anything about it. What it downloads
+          has to carry a signature made with the key your copy was built to
+          trust. If it does not match, the file is thrown away and nothing is
+          installed.
         </div>
       </div>
     </div>

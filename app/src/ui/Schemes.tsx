@@ -280,9 +280,9 @@ function ProfileEditor(props: { profile: Scheme; onDone: () => void }) {
         that would make the engine read the wrong grade.
       </p>
 
-      <label class="field">
+      <label class="field tight">
         <span>Profile name</span>
-        <input class="cell-input" value={draft().name}
+        <input class="cell-input name" value={draft().name}
                onInput={(e) => setDraft((d) => ({ ...d, name: e.currentTarget.value }))} />
       </label>
 

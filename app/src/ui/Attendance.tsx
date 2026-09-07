@@ -544,10 +544,17 @@ function ThresholdMeter(props: { current: number }) {
   return (
     <div class="meter">
       <div class="meter-track" role="img" aria-label={label()}>
-        {/* The bleed zone: eligible, but not earning full marks. */}
+        {/* The bleed zone: eligible, but not earning full marks.
+            Under KTU the eligibility line (75) sits below the full-marks line
+            (85) and this band is the gap between them. A profile is free to
+            put them the other way round - a college can demand 88% to sit the
+            exam while still paying full marks from 85 - and that is a real
+            scheme, not a mistake worth refusing. So the band is clamped rather
+            than validated away: a negative width is not a CSS length, and
+            leaving it computed would silently drop the band entirely. */}
         <span class="meter-band" style={{
-          left: `${activeProfile().attendanceMin}%`,
-          width: `${fullMarksPct() - activeProfile().attendanceMin}%`,
+          left: `${Math.min(activeProfile().attendanceMin, fullMarksPct())}%`,
+          width: `${Math.abs(fullMarksPct() - activeProfile().attendanceMin)}%`,
         }} />
         <span class={`meter-fill${tone()}`} style={{ "inline-size": `${pct()}%` }} />
         <span class="meter-mark" style={{ left: `${activeProfile().attendanceMin}%` }} />

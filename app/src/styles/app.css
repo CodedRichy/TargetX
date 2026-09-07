@@ -355,6 +355,14 @@ button.code {
 
 select.cell-input { text-align: left; width: auto; }
 
+/* A profile name is prose, not a mark. `.cell-input` is 6ch and right-aligned
+   because every other one of them sits in a numeric table cell, which renders
+   "My Autonomous College" as "My Au". `.field` is likewise built for the narrow
+   drawer, where pushing label and value to opposite edges reads as a row; on a
+   full-width screen it just separates them by a void. */
+.cell-input.name { text-align: left; width: 24ch; }
+.field.tight { justify-content: flex-start; gap: var(--s3); }
+
 /* A grade is a verdict; give it weight. */
 .grade { font-weight: 600; }
 .grade.f { color: var(--danger); }

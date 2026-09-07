@@ -12,10 +12,25 @@ Not a calculator. A desktop app with three ways into one record:
 | **Tex** | ask any of it in your own words, and see the working behind the answer |
 
 **If your college runs etlab, it works for you.** Attendance, marks, timetable
-and the day-by-day record are read from whatever your portal publishes. The
-target and internal-marks arithmetic follows **KTU Regulations 2024**, so a 2024
-scheme student gets everything; on an older scheme the tracking still works and
-you pick your own course types.
+and the day-by-day record come from whatever your portal publishes.
+
+The arithmetic ships set to **KTU Regulations 2024**, checked against the
+regulations rather than copied from another calculator, so on the 2024 scheme
+you get everything with nothing to configure.
+
+**If you are at an autonomous college, you are not shut out.** I built this
+against the scheme I am on, because it is the one I could check line by line.
+But the rules are no longer welded in. Every number the app reasons with — the
+grade bands and their points, the pass mark, the separate minimum in the end
+semester exam, the attendance you need, what attendance is worth in your
+internals — lives in a **scheme profile** you can copy and edit. Set yours once
+and every target, every projection and every "can I skip tomorrow" answer is
+computed against your college's rules instead of mine.
+
+The built-in KTU profile is marked as checked. A profile you edit is marked as
+not checked, always, on the screen and beside the numbers — because the app
+being worth opening depends on you knowing whose rules produced a figure, not
+on the figure being unchangeable.
 
 > ### 0.4.0 is the last release built on etlab sync
 >
@@ -82,9 +97,9 @@ after results.
   rather than dropping you on a screen to work it out. Every figure in the reply
   is computed locally by the engine, so the answers are the same numbers the
   rest of the app shows, and most questions never touch the network at all.
-- **Updates arrive on their own.** The app offers a new version a few seconds
-  after launch. It never installs unasked, and a failed check is silent — being
-  offline is not an error a student needs to see.
+- **Updates arrive on their own.** A few seconds after launch the app tells you
+  when there is a newer version. It never installs one unless you say yes, and
+  when the check fails — you are offline, GitHub is down — it says nothing.
 
 Two SGPA figures are shown on purpose. **Confirmed** counts only subjects with a
 real ESE mark. **Projected** assumes you hit your target where it is reachable,
