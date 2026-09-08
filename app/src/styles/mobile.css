@@ -402,8 +402,44 @@
      */
     flex: 1 1 0;
     min-inline-size: 0;
-    overflow-x: auto;
+    /*
+     * The strip itself no longer scrolls - `.sems-scroll` inside it does.
+     * Everything above still holds; what changed is WHICH box clips. When the
+     * strip was the scroller, "+" was inside the scrolled content and went
+     * with it: at eight semesters it sat 95px beyond the right edge, and the
+     * only way to reach the one control that adds a semester was to drag a
+     * strip with no affordance saying it could be dragged. Splitting the box
+     * lets the chips scroll and keeps "+" on screen.
+     */
+    align-items: center;
+    display: flex;
+    gap: var(--s2);
+    overflow: visible;
   }
+
+  /* The chips, and only the chips. Takes what the strip has left. */
+  .head .sems .sems-scroll {
+    display: flex;
+    flex: 1 1 0;
+    gap: var(--s2);
+    min-inline-size: 0;
+    overflow-x: auto;
+    /*
+     * A visible edge to say the row continues.
+     *
+     * The scrollbar is off across the whole app - and on this WebView the
+     * Android view-layer indicator is off in `MainActivity.kt` too - so a
+     * strip that scrolls had NOTHING telling a student it scrolled. S6 to S8
+     * simply looked absent. The mask fades the last few pixels of the chip
+     * that is being cut off, which is the affordance a scrollbar used to
+     * carry, at zero layout cost and with no element to keep in sync.
+     */
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--s5)), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - var(--s5)), transparent);
+  }
+
+  /* Never scrolls away with the chips, and never shrinks to a sliver. */
+  .head .sems .sem-add { flex: 0 0 auto; }
 
   /*
    * The account's auto margin has to go WHEN THE STRIP IS THERE, or it undoes

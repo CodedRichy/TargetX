@@ -122,6 +122,10 @@
 .winbtn:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
 
 .sems { display: flex; gap: 1px; margin-left: var(--s2); }
+/* Nothing wraps or scrolls on a desktop header, so the phone's scroll box is
+   not a box here at all - its chips sit in `.sems` exactly as they always did.
+   `mobile.css` gives it a real display value inside its media query. */
+.sems-scroll { display: contents; }
 
 .sem {
   background: var(--surface-2);

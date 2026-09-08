@@ -952,15 +952,26 @@ export function App() {
 
           <Show when={view() === "ledger"}>
             <nav class="sems" aria-label="Semester">
-              <For each={semesterNames()}>{(name) => (
-                <button class="sem" aria-current={state.activeSemester === name}
-                        onClick={() => selectSemester(name)}>{name}</button>
-              )}</For>
+              {/* The chips scroll; the control that ADDS one does not.
+                  On a phone the strip is squeezed into whatever the icon row
+                  has left - 223px against 382px of chips at eight semesters -
+                  so anything at the end of it is scrolled out of sight. That
+                  was fine for S6-S8, which the student can reach by dragging,
+                  and wrong for "+", which is the only way to add a semester
+                  and was sitting 95px past the right edge with nothing on
+                  screen saying the strip moves. A control of last resort does
+                  not belong in the part that hides. */}
+              <div class="sems-scroll">
+                <For each={semesterNames()}>{(name) => (
+                  <button class="sem" aria-current={state.activeSemester === name}
+                          onClick={() => selectSemester(name)}>{name}</button>
+                )}</For>
+              </div>
               {/* Disabled rather than hidden at S8. A control that vanishes
                   reads as a glitch; one that is present and refuses, with a
                   reason on hover, says the programme ended - which is the
                   actual fact (issue #10). */}
-              <button class="sem" disabled={nextSemester() === null}
+              <button class="sem sem-add" disabled={nextSemester() === null}
                       title={nextSemester() === null
                         ? "A B.Tech runs S1 to S8 — there is no S9"
                         : `Add ${nextSemester()}`}

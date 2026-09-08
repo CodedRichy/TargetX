@@ -89,10 +89,16 @@ const browser = await chromium.launch();
 const ALLOWED_SCROLLERS = [
   // Content that genuinely cannot fit a phone, sliding under a still frame.
   ".ledger-scroll", ".history-scroll", ".grid-frame", ".grid-scroll", ".diag",
-  // The semester strip, which slides under a fixed header on a phone. Eight
-  // chips fit a 411px screen and do not fit a 320px one, and a strip that
-  // scrolls is the right answer to that - shrinking "S1" further is not.
-  ".sems",
+  // The semester chips, which slide inside the strip on a phone. Eight chips
+  // fit a 411px screen and do not fit a 320px one, and chips that scroll are
+  // the right answer to that - shrinking "S1" further is not.
+  //
+  // `.sems-scroll` and not `.sems`: the strip used to be the scroller itself,
+  // which meant "+" was part of the scrolled content and left the screen with
+  // the chips - the only control that adds a semester, 95px past the right
+  // edge. The chips scroll in their own box now and "+" sits outside it, so
+  // the name here follows the box that actually clips.
+  ".sems-scroll",
   // Not a scroller at all: 1px of clipped screen-reader text, which reports a
   // "slide" it was built to have. Ellipsis truncation is exempted below by its
   // own declaration rather than by name.
