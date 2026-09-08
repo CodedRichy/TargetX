@@ -96,11 +96,20 @@ function startBlinkClock(): void {
   clockStarted = true;
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  // Roughly one blink in four is a double. A single blink on a fixed shape
+  // is the most obviously mechanical thing a face can do; the variation is
+  // what stops the eye learning the pattern.
+  const shut = (then: () => void) => {
+    setBlinking(true);
+    setTimeout(() => { setBlinking(false); then(); }, 120);
+  };
   const tick = () => {
     setTimeout(() => {
-      setBlinking(true);
-      setTimeout(() => { setBlinking(false); tick(); }, 130);
-    }, 4000 + Math.random() * 5000);
+      shut(() => {
+        if (Math.random() < 0.25) setTimeout(() => shut(tick), 110);
+        else tick();
+      });
+    }, 3600 + Math.random() * 4800);
   };
   tick();
 }
@@ -127,8 +136,10 @@ function watchPointer(): void {
   watchingPointer = true;
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  startIdleGlances();
   let queued = false;
   window.addEventListener("pointermove", (e) => {
+    lastMove = Date.now();
     if (queued) return;
     queued = true;
     requestAnimationFrame(() => {
@@ -139,6 +150,39 @@ function watchPointer(): void {
   // Losing the pointer means losing the thing he was looking at. Centring is
   // the honest answer; holding the last gaze leaves him staring at a corner.
   window.addEventListener("pointerleave", () => setPointer(null), { passive: true });
+}
+
+/**
+ * Where he looks when nobody is moving the mouse.
+ *
+ * Without this he is a statue between events: perfectly still, then snapping
+ * to the cursor, then still again. Eyes do not do that. Every few seconds,
+ * if the pointer has gone quiet, he glances somewhere and comes back - a
+ * saccade, which is the cheapest possible signal that something is running
+ * behind the face rather than waiting to be poked.
+ *
+ * Deliberately small and deliberately irregular. A wide idle glance reads as
+ * distraction, and a regular one reads as a screensaver.
+ */
+const [idleLook, setIdleLook] = createSignal<{ yaw: number; pitch: number }>({ yaw: 0, pitch: 0 });
+let lastMove = 0;
+
+function startIdleGlances(): void {
+  const wander = () => {
+    setTimeout(() => {
+      // Only while the student's hand is still. A glance that fights the
+      // cursor makes him look shifty rather than alive.
+      if (Date.now() - lastMove > 2600) {
+        setIdleLook({
+          yaw: (Math.random() * 2 - 1) * 9,
+          pitch: (Math.random() * 2 - 1) * 5,
+        });
+        setTimeout(() => setIdleLook({ yaw: 0, pitch: 0 }), 700 + Math.random() * 900);
+      }
+      wander();
+    }, 2400 + Math.random() * 3600);
+  };
+  wander();
 }
 
 /** How far off centre a face will look, in degrees of yaw and pitch. */
@@ -243,11 +287,25 @@ export function Face(props: {
    */
   const posed = createMemo<Expression>(() => {
     const base = expr();
-    const at = props.track === false ? null : pointer();
-    if (!at || !el) return base;
-    const box = el.getBoundingClientRect();
-    if (box.width === 0) return base;
+    if (props.track === false) return base;
     const damp = blinking() || (props.mood ?? "").startsWith("thinking") ? 0.4 : 1;
+
+    // A stale pointer is not a pointer. Following a mouse that stopped two
+    // minutes ago is the same staring-at-a-corner problem as never following
+    // it at all, so attention reverts to his own idle wandering.
+    const at = Date.now() - lastMove < 2600 ? pointer() : null;
+    const box = el?.getBoundingClientRect();
+    if (!at || !box || box.width === 0) {
+      const idle = idleLook();
+      return {
+        ...base,
+        head: {
+          x: base.head.x + idle.pitch * damp,
+          y: base.head.y + idle.yaw * damp,
+          z: base.head.z,
+        },
+      };
+    }
     const yaw = clamp1((at.x - (box.left + box.width / 2)) / GAZE_REACH) * GAZE_YAW * damp;
     const pitch = clamp1((at.y - (box.top + box.height / 2)) / GAZE_REACH) * GAZE_PITCH * damp;
     return {
@@ -282,8 +340,15 @@ export function Face(props: {
         // want to feel immediate.
         "transition": "transform var(--fast) var(--ease)",
       }}>
-        <path d={blob(def().body.width, def().body.height, def().body.roundness)}
-              fill={def().colors.body} />
+        {/* Breathing lives on its own group rather than on the one above,
+            which already carries gaze and press as an inline transform - a
+            CSS animation and an inline transform on one element is the
+            animation winning and the gaze silently dying. Body only: a face
+            whose eyes swell with it looks like it is being inflated. */}
+        <g class="tex-breath">
+          <path d={blob(def().body.width, def().body.height, def().body.roundness)}
+                fill={def().colors.body} />
+        </g>
         {/* Capsules, not ovals. An ellipse curves the whole way round and
             reads as a dot at any size; a capsule has straight parallel sides
             and semicircular caps, which is what makes a squint legible -

@@ -205,6 +205,28 @@ button:active:not(:disabled) { transform: translateY(1px); }
   50%      { opacity: 1; }
 }
 
+
+/*
+ * Tex breathing.
+ *
+ * The smallest continuous motion that separates a character from a sticker.
+ * 2% on the body, over four and a bit seconds, which is slow enough that it
+ * is never the thing you notice and quick enough that a still frame of him
+ * looks wrong. `transform-box: view-box` with a centred origin for the same
+ * reason the gaze needs it: the default origin is the viewBox's corner, and
+ * scaling about a corner is a slide, not a breath.
+ */
+@keyframes tex-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.02); }
+}
+
+.tex-breath {
+  animation: tex-breathe 4300ms ease-in-out infinite;
+  transform-box: view-box;
+  transform-origin: center;
+}
+
 /*
  * Reduced motion.
  *
@@ -221,6 +243,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .home .bento > .tile,
   .boot-flyer,
   .detail td > *,
+  .tex-breath,
   .gauge-arc { animation: none; }
   button:active:not(:disabled) { transform: none; }
   /* The pointer-light is motion under the cursor; drop it entirely rather than
