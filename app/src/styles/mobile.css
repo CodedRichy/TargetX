@@ -146,6 +146,36 @@
    * It becomes two rows that wrap, and the pieces that have somewhere better
    * to be on a phone go there instead.
    */
+  /*
+   * Nothing is allowed under the system clock.
+   *
+   * The header takes a top inset (below), which is correct while the header is
+   * on screen - but the header scrolls away with the page, and Android draws
+   * its status bar over the WebView rather than beside it. So the moment a
+   * student scrolled, whatever happened to be at the top of the document
+   * passed under the clock, the shield and the battery: on Attendance the
+   * calendar's date column printed straight through "8:20", and a row of
+   * attendance cells sat behind the signal and wifi glyphs. Measurement never
+   * caught it, because nothing had overflowed anything - the elements were
+   * inside the viewport and inside their containers, and the collision was
+   * with the operating system.
+   *
+   * A fixed strip in the page's own background colour, exactly as tall as the
+   * inset, so the status bar always has the app's paper behind it and never a
+   * subject name. It sits above the scrolling content and below the palette
+   * (z-index 40), which pads itself by the same inset and owns that strip
+   * while it is open.
+   */
+  body::before {
+    background: var(--bg);
+    block-size: env(safe-area-inset-top, 0px);
+    content: "";
+    inset-block-start: 0;
+    inset-inline: 0;
+    position: fixed;
+    z-index: 35;
+  }
+
   .head {
     flex-wrap: wrap;
     gap: var(--s2);
@@ -614,23 +644,126 @@
   .screen-head > * { min-width: 0; }
 
   /*
-   * `min-width: 820px` is set on `.grid-table`, and three different tables
-   * wear that class. Only one of them earns it.
+   * Neither grid needs a floor here any more, because neither one slides.
    *
-   * calendar.css explains the floor as "eight periods stop being legible below
-   * it", and for the WEEKLY TIMETABLE that is true - every cell holds a subject
-   * name. The ATTENDANCE CALENDAR above it holds no text at all: each cell is a
-   * 26px colour block, so eight periods and a day label come to about 330px and
-   * fit a 411px phone with room to spare. It was being pushed out to 820 and
-   * made to slide for a legibility problem it does not have, and it is the
-   * screen's headline - the thing the student opens Attendance to look at.
-   * The reconciliation table above is four columns of short figures and wraps.
+   * calendar.css sets `min-width: 820px` on `.grid-table` and explains it as
+   * "eight periods stop being legible below it". Three tables wear that class
+   * and only one of them ever earned it. The ATTENDANCE CALENDAR holds no text
+   * at all - each cell is a 26px colour block, so eight periods and a day
+   * label come to about 330px and fit a 411px phone with room to spare - and
+   * it is the screen's headline, the thing the student opens Attendance to
+   * look at. The reconciliation table is four columns of short figures and
+   * wraps into them.
    *
-   * So the floor is moved off `.grid-table` and onto `.tt-table`, which is the
-   * table the comment in calendar.css is actually about.
+   * The WEEKLY TIMETABLE is the table the 820px was true of: every cell holds
+   * a subject name, and under that floor they truncate into each other. So it
+   * kept the floor, and kept a horizontal scroller with it - a 820px table
+   * dragged through a 380px window, showing three periods of eight and hiding
+   * the rest behind a gesture nothing on screen advertises. That is not a
+   * compromise between fitting and being legible, it is the same defect in a
+   * smaller frame.
+   *
+   * `Attendance.tsx` now renders that week one day at a time below 720px and
+   * the table is not in the document at this width at all, so the floor has
+   * nothing left to hold up and the scroller has nothing left to scroll.
+   * Setting it to 0 rather than deleting the rule: `.grid-table` still carries
+   * the 820 from calendar.css, and the calendar table needs it lifted.
    */
   .grid-table { min-width: 0; }
-  .tt-table { min-width: 820px; }
+
+  /* --- the weekly timetable, one day at a time ---------------------------- */
+
+  /*
+   * The day selector. Five equal columns of three letters, which is what
+   * 411px has room for and the reason the labels are abbreviated at all.
+   *
+   * `flex: 1 1 0` with `min-width: 0` for the same reason the tab bar below
+   * needs both: without the floor removed, "Wed" and "Thu" measure differently
+   * enough that the row goes ragged, and the widest label sets the width for
+   * all five. 44px tall because that is the smallest target a thumb hits
+   * reliably, and these are the only controls on the section.
+   */
+  .tt-phone { min-width: 0; }
+
+  .tt-days {
+    display: flex;
+    gap: var(--s2);
+    margin-bottom: var(--s3);
+  }
+
+  .tt-day {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
+    padding: var(--s2) var(--s1);
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    color: var(--text-dim);
+    font: inherit;
+    font-size: var(--text-sm);
+    letter-spacing: var(--tracking-wide);
+    cursor: pointer;
+  }
+
+  /* The selected day is stated by weight and by the brand wash, not by colour
+     alone - the two are the same distance apart in a screenshot as they are to
+     someone who cannot separate the hues. */
+  .tt-day[aria-pressed="true"] {
+    background: var(--brand-wash);
+    border-color: var(--brand);
+    color: var(--brand-bright);
+    font-weight: 600;
+  }
+
+  .tt-day:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+
+  /*
+   * The day itself: one row per period, in order, on one card.
+   *
+   * The period number is a fixed narrow column so the subjects line up down
+   * the list and the eye can run the day vertically; everything else is a
+   * `1 1 auto` track with its floor removed, so a subject as long as "Design
+   * and Analysis of Algorithms" wraps inside the card rather than pushing it
+   * past the viewport. `.tt-subject` and `.tt-teacher` come from calendar.css
+   * already carrying `overflow-wrap: anywhere`, which is what makes that true
+   * even of a single unbroken token.
+   */
+  .tt-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius);
+    background: var(--surface-1);
+  }
+
+  .tt-slot {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s3);
+    min-width: 0;
+    padding: var(--s2) var(--s3);
+  }
+
+  .tt-slot + .tt-slot { border-top: 1px solid var(--hairline); }
+
+  .tt-slot-no {
+    flex: 0 0 2.2em;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  .tt-slot-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: var(--text-sm);
+    line-height: 1.4;
+  }
 
   /*
    * The reconciliation table keeps four columns and wraps into them.
@@ -730,6 +863,21 @@
     border-radius: 0 0 var(--radius-card) var(--radius-card);
     inline-size: 100%;
     max-block-size: 100dvh;
+    /*
+     * Under the status bar is not the same as at the top of the screen.
+     *
+     * The header takes this inset (above), but the palette is a fixed overlay
+     * that never asked for it, so its first row docked at y=0 and Android
+     * painted the clock, signal and battery straight through it: the system
+     * time overprinted the placeholder, and the battery glyph landed on the
+     * close button - the one control that dismisses this sheet, because the
+     * sheet covers its own scrim and a phone has no Escape key. An exit you
+     * cannot see is an exit you do not have.
+     *
+     * Padding rather than a margin, so the sheet's own background still fills
+     * the inset and the strip above the field reads as part of the sheet.
+     */
+    padding-block-start: env(safe-area-inset-top, 0px);
   }
   .palette-close {
     background: none;

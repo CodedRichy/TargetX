@@ -761,27 +761,68 @@ export function App() {
   });
 
   /**
-   * Fly the opening X into the home button.
+   * Where the mark is going - and whether the thing it lands on is the mark.
+   *
+   * There are two Home controls in the markup and exactly one of them is on
+   * screen at any width. Above 720px it is the header's `.homebtn`, whose
+   * contents ARE this same drawing. Below it, mobile.css sets that button to
+   * `display: none` and navigation moves to the fixed bottom tab bar, so the
+   * header measures 0x0 and the old code - which knew only about `.homebtn` -
+   * fell straight through to the plain fade. On a phone the signature opening
+   * of the app simply did not happen.
+   *
+   * Resolved by measurement rather than by a media query in JS: `display: none`
+   * is already a zero-width rect, so "is it visible" and "can I fly to it" are
+   * the same question and asking it once cannot drift out of step with the CSS.
+   * The header is tried first, so nothing about the desktop path changes.
+   *
+   * The tab is targeted by its ICON rather than by the button: the button is a
+   * 72px column containing a 22px glyph and a label, and flying to its box
+   * would land an X the width of the whole tab, centred between the icon and
+   * the word. The icon's own rect is where the eye expects the mark to stop.
+   *
+   * The Home tab is found through `VIEWS` rather than as `:first-child`,
+   * because `TabBar` renders that array in order and the order is that file's
+   * to change.
+   */
+  const homeTarget = (): { rect: DOMRect; holdsTheMark: boolean } | null => {
+    const usable = (el: Element | null | undefined) => {
+      const r = el?.getBoundingClientRect();
+      return r && r.width >= 1 ? r : null;
+    };
+
+    const header = usable(homeBtn);
+    if (header) return { rect: header, holdsTheMark: true };
+
+    const i = VIEWS.findIndex((v) => v.id === "home");
+    const tab = i < 0 ? null : document.querySelectorAll(".tabbar button")[i];
+    const icon = usable(tab?.querySelector("svg") ?? tab);
+    return icon ? { rect: icon, holdsTheMark: false } : null;
+  };
+
+  /**
+   * Fly the opening X into the Home control.
    *
    * The same drawing in both places, moved rather than swapped: the app does
    * not cut from a splash to a dashboard, it puts its mark where it lives.
    *
-   * Measured at the moment it runs rather than hardcoded, because the
-   * button's position depends on the window width and on whether setup is
-   * showing at all. If there is nothing to fly to - setup is open, or the
-   * header has not rendered - it fades instead, which is also what a student
-   * who has asked for reduced motion gets.
+   * Measured at the moment it runs rather than hardcoded, because the target's
+   * position depends on the window width and on whether setup is showing at
+   * all. If there is nothing to fly to - setup is open, or neither Home control
+   * has rendered - it fades instead, which is also what a student who has asked
+   * for reduced motion gets.
    */
   const flyMark = () => {
     const node = flyer;
-    const target = homeBtn?.getBoundingClientRect();
+    const dest = homeTarget();
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    if (!node || !target || target.width < 1 || reduced) {
+    if (!node || !dest || reduced) {
       setTimeout(() => setPhase("done"), reduced ? 0 : 260);
       return;
     }
 
+    const target = dest.rect;
     const from = node.getBoundingClientRect();
     const scale = target.width / from.width;
     const dx = (target.left + target.width / 2) - (from.left + from.width / 2);
@@ -806,6 +847,23 @@ export function App() {
       easing: "cubic-bezier(0.7, 0, 0.15, 1)",
       fill: "forwards",
     });
+
+    // Only when it is NOT landing on its own drawing.
+    //
+    // In the header the X arrives on a home button whose mark is held at
+    // opacity 0 until it does (`.homebtn.waiting > svg`, motion.css), so the
+    // hand-off is invisible: the same shape, at the same size, in the same
+    // place. The bottom tab has a house in it instead, and there is no way to
+    // hand an X over to a house - left opaque, the last frames are an X sitting
+    // on top of a different icon and removing the overlay is then a visible
+    // cut. So it dissolves as it settles. A SEPARATE animation rather than an
+    // opacity channel on the flight itself, because a mid-flight keyframe would
+    // split the cubic-bezier above into two intervals and change the arc.
+    if (!dest.holdsTheMark) {
+      node.animate([{ opacity: 1 }, { opacity: 1, offset: 0.62 }, { opacity: 0 }],
+                   { duration: 720, easing: "linear", fill: "forwards" });
+    }
+
     flight.finished.then(() => setPhase("done")).catch(() => setPhase("done"));
   };
 

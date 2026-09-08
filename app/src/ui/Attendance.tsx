@@ -7,6 +7,7 @@ import {
 import type {
   AttendancePlan, AttendanceStatus, DaywiseDay, TimetableDay,
 } from "../engine";
+import { isNarrow } from "../state/platform";
 import { rows, state } from "../state/store";
 import { setView } from "../state/nav";
 
@@ -451,46 +452,73 @@ function TimetableSection() {
       <Show when={grid().length > 0} fallback={
         <p class="schedule-empty">Sync to see your weekly timetable.</p>
       }>
-        <div class="grid-frame">
-          <div class="grid-scroll">
-            <table class="grid-table tt-table">
-              <thead>
-                <tr>
-                  <th class="grid-label" scope="col">Day</th>
-                  <For each={headers()}>
-                    {(n) => <th scope="col">Period {n}</th>}
-                  </For>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={grid()}>
-                  {(day) => (
-                    <tr>
-                      <th class="grid-label" scope="row">{day.day}</th>
-                      <For each={Array.from({ length: cols() })}>
-                        {(_, i) => {
-                          const period = () => day.periods[i()];
-                          return (
-                            <td class="tt-cell">
-                              <Show when={period()?.subject} fallback={
-                                <span class="tt-empty">—</span>
-                              }>
-                                <span class="tt-subject">{period()!.subject}</span>
-                                <Show when={period()!.teacher}>
-                                  <span class="tt-teacher">{period()!.teacher}</span>
+        {/*
+         * The same week, one day at a time, once the layout is narrow.
+         *
+         * Five days x eight periods is not a phone layout at any font size.
+         * The grid used to keep its 820px floor here and slide inside a
+         * 411px frame, which showed a student three of eight periods and hid
+         * the rest behind a horizontal drag they had no reason to guess at -
+         * and the app's standing rule is that nothing scrolls sideways.
+         *
+         * The alternative to a scroller is not a smaller grid. Squeezing
+         * eight subject names into 411px means truncating them, and a
+         * timetable that says "Design and A..." twice in a row has lost the
+         * only thing it was drawn to say. So the axis that costs least is
+         * dropped: a student looking at a phone wants today, and the day
+         * selector is one tap away from any of the other four. No period,
+         * subject or teacher leaves the screen - only the four days the
+         * student is not currently reading.
+         *
+         * `isNarrow` and not CSS alone, because this is a different set of
+         * elements and not a restyling of the same ones: CSS can hide a
+         * table, it cannot turn one into a list with its own selected-day
+         * state. Desktop keeps the grid, untouched.
+         */}
+        <Show when={isNarrow()} fallback={
+          <div class="grid-frame">
+            <div class="grid-scroll">
+              <table class="grid-table tt-table">
+                <thead>
+                  <tr>
+                    <th class="grid-label" scope="col">Day</th>
+                    <For each={headers()}>
+                      {(n) => <th scope="col">Period {n}</th>}
+                    </For>
+                  </tr>
+                </thead>
+                <tbody>
+                  <For each={grid()}>
+                    {(day) => (
+                      <tr>
+                        <th class="grid-label" scope="row">{day.day}</th>
+                        <For each={Array.from({ length: cols() })}>
+                          {(_, i) => {
+                            const period = () => day.periods[i()];
+                            return (
+                              <td class="tt-cell">
+                                <Show when={period()?.subject} fallback={
+                                  <span class="tt-empty">—</span>
+                                }>
+                                  <span class="tt-subject">{period()!.subject}</span>
+                                  <Show when={period()!.teacher}>
+                                    <span class="tt-teacher">{period()!.teacher}</span>
+                                  </Show>
                                 </Show>
-                              </Show>
-                            </td>
-                          );
-                        }}
-                      </For>
-                    </tr>
-                  )}
-                </For>
-              </tbody>
-            </table>
+                              </td>
+                            );
+                          }}
+                        </For>
+                      </tr>
+                    )}
+                  </For>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        }>
+          <TimetableDayList days={grid()} cols={cols()} />
+        </Show>
 
         <Show when={subs().length > 0}>
           <div class="tt-subs">
@@ -512,6 +540,124 @@ function TimetableSection() {
         </Show>
       </Show>
     </section>
+  );
+}
+
+/** Weekday names, indexed the way `Date.getDay` numbers them. */
+const WEEKDAY_NAMES = [
+  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+];
+
+/**
+ * Whether two day names name the same weekday.
+ *
+ * The day label is whatever etlab's template printed - "Monday" on the portal
+ * this parser was written against, but the same cell reads "Mon" on another
+ * college's skin of the same software, and the parser passes it through
+ * verbatim rather than inventing a canonical form. Three case-folded letters
+ * is the shortest form any English weekday is ever written in and is still
+ * unique across all seven, so it is the widest comparison that cannot be
+ * wrong. A day this fails to recognise costs the default selection, not the
+ * day itself - it is still in the selector.
+ */
+const sameWeekday = (a: string, b: string): boolean =>
+  a.trim().slice(0, 3).toLowerCase() === b.trim().slice(0, 3).toLowerCase();
+
+/**
+ * The weekly timetable as one day at a time: the phone form of the grid.
+ *
+ * `cols` is the parent's period count, not `day.periods.length`, deliberately.
+ * A row that parsed short would otherwise show six periods where the week has
+ * eight, and a missing slot at the end of the list is indistinguishable from a
+ * day that ends early - the student would read "no class after period 6" off
+ * a parse gap. Every slot up to the week's width is drawn, and an empty one
+ * says so in words.
+ */
+function TimetableDayList(props: { days: TimetableDay[]; cols: number }) {
+  /*
+   * The pick is held as the day's NAME, not its index into the grid.
+   * A re-sync replaces the whole grid, and a college that publishes a
+   * six-day week for one term and five for the next would leave an index
+   * pointing at a different day than the one the student tapped - silently,
+   * which is the only kind of wrong this app treats as unacceptable.
+   */
+  const [picked, setPicked] = createSignal<string | null>(null);
+
+  const selected = createMemo<TimetableDay | null>(() => {
+    const days = props.days;
+    const chosen = picked();
+    const held = chosen === null ? undefined : days.find((d) => d.day === chosen);
+    if (held) return held;
+    // Today, when today is one of the days on the timetable. A student opening
+    // this on a Sunday gets the first row - Monday, as the portal orders it -
+    // because the alternative is an empty screen on the two days of the week
+    // when the question "what is on tomorrow" is most likely being asked.
+    const today = WEEKDAY_NAMES[new Date().getDay()]!;
+    return days.find((d) => sameWeekday(d.day, today)) ?? days[0] ?? null;
+  });
+
+  return (
+    <div class="tt-phone">
+      {/*
+       * Real buttons in a labelled group, and `aria-pressed` rather than
+       * `aria-current`: these five are a set of states of one view, only one
+       * of which is on, which is what pressed means. `aria-current` would say
+       * "this is the day you are on in a sequence of days", which is a claim
+       * about the calendar and not about this control.
+       */}
+      <div class="tt-days" role="group" aria-label="Day of the week">
+        <For each={props.days}>
+          {(day) => (
+            <button
+              type="button"
+              class="tt-day"
+              aria-pressed={selected()?.day === day.day}
+              onClick={() => setPicked(day.day)}
+            >
+              {/* Three letters is all 411px has room for across five days.
+                  The full name is still announced, so a screen reader hears
+                  "Wednesday" and not "Wed". */}
+              <span aria-hidden="true">{day.day.trim().slice(0, 3)}</span>
+              <span class="sr-only">{day.day}</span>
+            </button>
+          )}
+        </For>
+      </div>
+
+      <Show when={selected()}>
+        {(day) => (
+          /* An ordered list because the order is the fact: period 3 follows
+             period 2. The name changes with the day so the list does not
+             announce itself as the same thing after a tap. */
+          <ol class="tt-list" aria-label={`${day().day}, period by period`}>
+            <For each={Array.from({ length: props.cols })}>
+              {(_, i) => {
+                const period = () => day().periods[i()];
+                return (
+                  <li class="tt-slot">
+                    <span class="tt-slot-no" aria-hidden="true">P{i() + 1}</span>
+                    <span class="sr-only">Period {i() + 1}</span>
+                    <span class="tt-slot-body">
+                      <Show when={period()?.subject} fallback={
+                        /* "Free period", not the grid's em dash. A dash in a
+                           cell of a grid reads as empty; a dash on its own
+                           line in a list reads as missing data. */
+                        <span class="tt-empty">Free period</span>
+                      }>
+                        <span class="tt-subject">{period()!.subject}</span>
+                        <Show when={period()!.teacher}>
+                          <span class="tt-teacher">{period()!.teacher}</span>
+                        </Show>
+                      </Show>
+                    </span>
+                  </li>
+                );
+              }}
+            </For>
+          </ol>
+        )}
+      </Show>
+    </div>
   );
 }
 
