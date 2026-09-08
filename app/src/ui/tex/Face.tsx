@@ -1,6 +1,7 @@
 import { createMemo, createSignal } from "solid-js";
 import type { AvatarDefinition, Expression, Mood } from "./definition";
 import { TEX } from "./definition";
+import { play } from "./sound";
 
 /**
  * The one renderer. It draws a body and two eyes and knows nothing else.
@@ -10,10 +11,17 @@ import { TEX } from "./definition";
  * expression is a data edit rather than a component.
  *
  * Motion is CSS transitions on geometry properties, not a JS tween, for one
- * reason that matters more than elegance: `motion.css` already drops every
- * `--dur-*` token to zero under `prefers-reduced-motion`, so a face built on
- * those tokens inherits the accessibility behaviour instead of reimplementing
- * it and getting it wrong. This is the same argument `ui/morph.ts` makes.
+ * reason that matters more than elegance: `tokens.css` collapses `--fast` and
+ * `--med` to 0ms under `prefers-reduced-motion`, so a face built on those
+ * tokens inherits the accessibility behaviour rather than reimplementing it
+ * and getting it wrong. This is the argument `ui/morph.ts` makes.
+ *
+ * It has to be THOSE names. The first version of this file transitioned on
+ * `--dur-fast` and `--dur-slow`, which this project has never defined, and an
+ * undefined custom property invalidates the whole `transition` declaration -
+ * so every expression change, gaze and press snapped with no animation at
+ * all, and the reduced-motion behaviour claimed above was not happening
+ * either. Two bugs wearing one typo.
  */
 
 /**
@@ -41,10 +49,15 @@ function blob(width: number, height: number, roundness: number, steps = 64): str
   return `M${pts.join("L")}Z`;
 }
 
+/** An eye resolved to where and how big it is drawn. */
+interface Placed {
+  cx: number; cy: number; rx: number; ry: number; angle: number;
+}
+
 /** Where one eye lands once the head has turned. */
 function place(
   which: "left" | "right", expr: Expression, body: AvatarDefinition["body"],
-) {
+): Placed {
   const e = expr.eyes[which];
   const side = which === "left" ? -1 : 1;
   // Yaw and pitch slide the eyes across a face that has no actual depth. The
@@ -143,6 +156,38 @@ const GAZE_REACH = 420;
 
 const clamp1 = (v: number): number => Math.max(-1, Math.min(1, v));
 
+/** One eye. A component so the node survives every gaze update. */
+function Eye(props: { e: Placed; fill: string }) {
+  return (
+    <rect fill={props.fill}
+          style={{
+            x: `${props.e.cx - props.e.rx}px`,
+            y: `${props.e.cy - props.e.ry}px`,
+            width: `${props.e.rx * 2}px`,
+            height: `${props.e.ry * 2}px`,
+            rx: `${Math.min(props.e.rx, props.e.ry)}px`,
+            ry: `${Math.min(props.e.rx, props.e.ry)}px`,
+            transform: `rotate(${props.e.angle}deg)`,
+            /* `fill-box` makes the origin this rect's own box, so an eye
+               rotates about its own centre. Naming the coordinates by hand did
+               not work and could not: under the default `view-box` they are
+               read from the viewBox's CORNER, which put the pivot outside the
+               face and swung the eyes across it rather than tilting them. */
+            "transform-box": "fill-box",
+            "transform-origin": "center",
+            /* Position on `--fast` because it carries the gaze, which has to
+               keep up with a hand; shape on `--med` because that is the
+               expression changing, and a mood that snaps reads as a glitch. */
+            "transition": "x var(--fast) var(--ease), "
+              + "y var(--fast) var(--ease), "
+              + "width var(--med) var(--ease), "
+              + "height var(--med) var(--ease), "
+              + "rx var(--med) var(--ease), "
+              + "transform var(--med) var(--ease)",
+          }} />
+  );
+}
+
 export function Face(props: {
   mood?: Mood;
   /** Drawn size in px; the definition's own units are the coordinate space. */
@@ -172,6 +217,7 @@ export function Face(props: {
    */
   const [poked, setPoked] = createSignal(false);
   const poke = () => {
+    play("poke");
     setPoked(true);
     setTimeout(() => setPoked(false), 190);
   };
@@ -221,38 +267,37 @@ export function Face(props: {
           sphere seen off-axis is narrower and a face that only slides its
           eyes reads as flat. */}
       <g style={{
+        /* `transform-box` defaults to `view-box`, which puts the origin at the
+           TOP-LEFT CORNER of the viewBox - here (-120, -120), not (0, 0). Left
+           at the default, every yaw squash and every press pivoted about the
+           corner, so the face slid sideways and lurched instead of squashing
+           where it stood. Centring it is the whole fix. */
+        "transform-origin": "center",
         transform: `rotate(${posed().head.z}deg) `
           + `scaleX(${(1 - Math.abs(posed().head.y) / 260).toFixed(3)}) `
           // The squash on a press. Y only - a face pushed from the front
           // spreads sideways, and scaling both axes just makes him small.
           + `scale(1, ${poked() ? 0.9 : 1})`,
-        "transition": `transform ${poked() ? "var(--dur-fast)" : "var(--dur-slow)"} var(--ease)`,
+        // The group carries both the press and the gaze squash, and both
+        // want to feel immediate.
+        "transition": "transform var(--fast) var(--ease)",
       }}>
         <path d={blob(def().body.width, def().body.height, def().body.roundness)}
               fill={def().colors.body} />
         {/* Capsules, not ovals. An ellipse curves the whole way round and
             reads as a dot at any size; a capsule has straight parallel sides
-            and semicircular caps, which is what gives the face its character
-            and what makes a squint legible - shortening an ellipse just makes
-            a smaller dot, shortening a capsule closes an eye. `rx` at half the
-            width is what rounds the caps into true semicircles; anything less
-            is a rounded rectangle and looks like one. */}
-        {[left(), right()].map((e) => (
-          <rect fill={def().colors.eyes}
-                style={{
-                  x: `${e.cx - e.rx}px`, y: `${e.cy - e.ry}px`,
-                  width: `${e.rx * 2}px`, height: `${e.ry * 2}px`,
-                  rx: `${Math.min(e.rx, e.ry)}px`, ry: `${Math.min(e.rx, e.ry)}px`,
-                  transform: `rotate(${e.angle}deg)`,
-                  "transform-origin": `${e.cx}px ${e.cy}px`,
-                  "transition": "x var(--dur-slow) var(--ease), "
-                    + "y var(--dur-slow) var(--ease), "
-                    + "width var(--dur-fast) var(--ease), "
-                    + "height var(--dur-fast) var(--ease), "
-                    + "rx var(--dur-fast) var(--ease), "
-                    + "transform var(--dur-slow) var(--ease)",
-                }} />
-        ))}
+            and semicircular caps, which is what makes a squint legible -
+            shortening an ellipse just gives a smaller dot, shortening a
+            capsule closes an eye.
+
+            Two elements rather than a mapped array, and that is load-bearing
+            rather than style. An unkeyed `.map` inside JSX makes Solid tear
+            down and rebuild both nodes every time the memo re-runs - which,
+            with gaze, is every frame the mouse moves. A newly created element
+            has no previous value to animate FROM, so the transitions below
+            could never fire however correct they were. */}
+        <Eye e={left()} fill={def().colors.eyes} />
+        <Eye e={right()} fill={def().colors.eyes} />
       </g>
     </svg>
   );
