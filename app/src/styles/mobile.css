@@ -1189,8 +1189,23 @@
 
   /*
    * No scrollbar furniture on a phone. Touch scrolling has never needed a
-   * visible track, and the WebView draws a desktop-style one that sits over
-   * the content. The surfaces still scroll; only the chrome goes.
+   * visible track. The surfaces still scroll; only the chrome goes.
+   *
+   * `scrollbar-width` is kept but it does NOT do this job on a phone: this
+   * WebView reports `CSS.supports("scrollbar-width", "none")` as false, so the
+   * declaration is dropped on the very platform this file exists for. It is
+   * implemented on desktop Chromium and WebView2, which is presumably where it
+   * was checked, and that is how a rule comes to look like a fix for months
+   * without being one. It stays because this breakpoint is also a narrow
+   * DESKTOP window, where it is supported and is the right rule - but it is no
+   * longer what anyone should believe is handling Android.
+   *
+   * `::-webkit-scrollbar` is doing real work in both places: every element
+   * that scrolls INSIDE the page has an ordinary Blink scrollbar and this
+   * hides it. What neither rule can reach is the page's own bar on Android,
+   * which is not a Blink scrollbar at all - it is the Android View's scroll
+   * indicator, drawn above the web contents, and it is turned off in
+   * `MainActivity.kt`, where it is actually drawn.
    */
   * {
     scrollbar-width: none;
