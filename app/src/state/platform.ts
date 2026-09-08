@@ -91,6 +91,39 @@ if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
   // `addEventListener` rather than the deprecated `addListener`: the WebView
   // this ships in is current Chromium, and the desktop one is WebView2.
   mq.addEventListener("change", (e) => setNarrow(e.matches));
+
+  /*
+   * Re-ask, because the first answer was given before the question was
+   * decidable.
+   *
+   * On a desktop the viewport exists before any script runs and the value
+   * above is simply correct. An Android WebView starts at its own default
+   * width and only applies `<meta name="viewport">` once it has parsed the
+   * document - which can land AFTER this module is evaluated. The snapshot is
+   * then `false` on a 411px phone, and no `change` event ever repairs it,
+   * because the viewport was RESOLVED rather than changed and a media query
+   * that was never true does not fire when it becomes true for the first time.
+   *
+   * The failure is invisible in CSS - the stylesheet re-evaluates its own
+   * media queries whenever the viewport settles - and shows up only in what
+   * this signal decides to RENDER. The symptom was Attendance drawing the
+   * 820px desktop timetable on a phone while the phone stylesheet around it
+   * was already in its narrow form, which reads as "the mobile layout is
+   * broken" when in fact the mobile layout was never chosen.
+   *
+   * `resize` fires when the WebView settles its viewport, so it catches the
+   * case the media query cannot. Both listeners write through `setNarrow`, and
+   * a signal set to the value it already holds notifies nothing, so the
+   * overlap costs one comparison and never a re-render. Registered at module
+   * scope alongside the other, and deliberately never removed: it must outlive
+   * every component that asks.
+   */
+  const reread = () => setNarrow(mq.matches);
+  window.addEventListener("resize", reread);
+  // A phone can also settle without a resize event; one turn of the event loop
+  // after parse is enough to catch that, and costs nothing if it was right.
+  if (typeof queueMicrotask === "function") queueMicrotask(reread);
+  setTimeout(reread, 0);
 }
 
 export const isNarrow = narrowSignal;
