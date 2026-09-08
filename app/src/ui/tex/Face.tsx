@@ -92,6 +92,57 @@ function startBlinkClock(): void {
   tick();
 }
 
+/**
+ * Where the pointer is, shared by every face, updated at most once a frame.
+ *
+ * One listener on the window rather than one per face, for the same reason
+ * there is one blink clock: three faces are one character, and three
+ * independent `pointermove` handlers is three chances for them to disagree
+ * about where the student's hand is. Throttled to a frame because gaze is
+ * read inside a memo that measures each face - unthrottled, a fast mouse
+ * would do that measuring hundreds of times a second for a few degrees of
+ * rotation nobody can see.
+ *
+ * Nothing is attached under reduced motion. A face that follows the cursor is
+ * motion the student did not ask for, and it is the kind that never stops.
+ */
+const [pointer, setPointer] = createSignal<{ x: number; y: number } | null>(null);
+let watchingPointer = false;
+
+function watchPointer(): void {
+  if (watchingPointer) return;
+  watchingPointer = true;
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  let queued = false;
+  window.addEventListener("pointermove", (e) => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      setPointer({ x: e.clientX, y: e.clientY });
+    });
+  }, { passive: true });
+  // Losing the pointer means losing the thing he was looking at. Centring is
+  // the honest answer; holding the last gaze leaves him staring at a corner.
+  window.addEventListener("pointerleave", () => setPointer(null), { passive: true });
+}
+
+/** How far off centre a face will look, in degrees of yaw and pitch. */
+const GAZE_YAW = 17;
+const GAZE_PITCH = 11;
+/**
+ * Distance at which the gaze is fully deflected.
+ *
+ * Not the viewport: dividing by half the window would mean a face barely
+ * turns for a cursor right beside it on a wide screen, which is exactly when
+ * the student is looking at him. A fixed radius makes him most responsive to
+ * what is near, which is what eyes do.
+ */
+const GAZE_REACH = 420;
+
+const clamp1 = (v: number): number => Math.max(-1, Math.min(1, v));
+
 export function Face(props: {
   mood?: Mood;
   /** Drawn size in px; the definition's own units are the coordinate space. */
@@ -99,10 +150,31 @@ export function Face(props: {
   definition?: AvatarDefinition;
   /** Blinking is on by default and stops itself under reduced motion. */
   blink?: boolean;
+  /** Following the cursor is on by default; also stops under reduced motion. */
+  track?: boolean;
   label?: string;
 }) {
   const def = () => props.definition ?? TEX;
   if (props.blink !== false) startBlinkClock();
+  if (props.track !== false) watchPointer();
+
+  let el: SVGSVGElement | undefined;
+
+  /**
+   * A press, acknowledged.
+   *
+   * He was inert when clicked, which on a face reads worse than on a button -
+   * you poked something with eyes and it did not notice. A brief squash is
+   * the whole reaction: enough to say he felt it, short enough that it never
+   * becomes a thing to sit through. `pointerdown` rather than `click`, so it
+   * lands under the finger rather than after it, and nothing here stops the
+   * event - the button he sits inside still gets its click.
+   */
+  const [poked, setPoked] = createSignal(false);
+  const poke = () => {
+    setPoked(true);
+    setTimeout(() => setPoked(false), 190);
+  };
 
   const expr = createMemo<Expression>(() => {
     const table = def().expressions;
@@ -114,19 +186,47 @@ export function Face(props: {
   const box = () => `${-def().body.width / 2} ${-def().body.height / 2} `
     + `${def().body.width} ${def().body.height}`;
 
-  const left = createMemo(() => place("left", expr(), def().body));
-  const right = createMemo(() => place("right", expr(), def().body));
+  /**
+   * The authored expression, turned toward the cursor.
+   *
+   * Added to the pose rather than replacing it, so a thinking Tex still looks
+   * away while a neutral one follows you - the expression says what he is
+   * doing and the gaze says where he is doing it. Halved while he is thinking
+   * or blinking: someone looking something up does not hold eye contact, and
+   * a blink that tracks reads as a twitch.
+   */
+  const posed = createMemo<Expression>(() => {
+    const base = expr();
+    const at = props.track === false ? null : pointer();
+    if (!at || !el) return base;
+    const box = el.getBoundingClientRect();
+    if (box.width === 0) return base;
+    const damp = blinking() || (props.mood ?? "").startsWith("thinking") ? 0.4 : 1;
+    const yaw = clamp1((at.x - (box.left + box.width / 2)) / GAZE_REACH) * GAZE_YAW * damp;
+    const pitch = clamp1((at.y - (box.top + box.height / 2)) / GAZE_REACH) * GAZE_PITCH * damp;
+    return {
+      ...base,
+      head: { x: base.head.x + pitch, y: base.head.y + yaw, z: base.head.z },
+    };
+  });
+
+  const left = createMemo(() => place("left", posed(), def().body));
+  const right = createMemo(() => place("right", posed(), def().body));
 
   return (
-    <svg class="tex-face" width={size()} height={size()} viewBox={box()}
+    <svg ref={el} class="tex-face" width={size()} height={size()} viewBox={box()}
+         onPointerDown={poke}
          role="img" aria-label={props.label ?? `Tex looking ${props.mood ?? "neutral"}`}>
       {/* Roll turns the whole head; yaw squashes the silhouette, because a
           sphere seen off-axis is narrower and a face that only slides its
           eyes reads as flat. */}
       <g style={{
-        transform: `rotate(${expr().head.z}deg) `
-          + `scaleX(${(1 - Math.abs(expr().head.y) / 260).toFixed(3)})`,
-        "transition": "transform var(--dur-slow) var(--ease)",
+        transform: `rotate(${posed().head.z}deg) `
+          + `scaleX(${(1 - Math.abs(posed().head.y) / 260).toFixed(3)}) `
+          // The squash on a press. Y only - a face pushed from the front
+          // spreads sideways, and scaling both axes just makes him small.
+          + `scale(1, ${poked() ? 0.9 : 1})`,
+        "transition": `transform ${poked() ? "var(--dur-fast)" : "var(--dur-slow)"} var(--ease)`,
       }}>
         <path d={blob(def().body.width, def().body.height, def().body.roundness)}
               fill={def().colors.body} />

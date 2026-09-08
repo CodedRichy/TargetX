@@ -99,7 +99,7 @@ export const TEX: AvatarDefinition = {
     /** Resting. Tall capsules, level, looking straight out. */
     neutral: {
       head: { x: 0, y: 0, z: 0 },
-      eyes: pair(eye(26, 58, 0, -4), 38),
+      eyes: pair(eye(22, 64, 0, -4), 37),
       perspective: 1,
     },
 
@@ -111,7 +111,7 @@ export const TEX: AvatarDefinition = {
      */
     pleased: {
       head: { x: -4, y: 0, z: 0 },
-      eyes: pair(eye(32, 18, 0, -12), 36),
+      eyes: pair(eye(34, 15, 0, -12), 37),
       perspective: 1,
     },
 
@@ -125,8 +125,8 @@ export const TEX: AvatarDefinition = {
     concerned: {
       head: { x: 3, y: -6, z: 0 },
       eyes: {
-        left: eye(22, 46, 2, -2, -14),
-        right: eye(22, 46, -2, -2, 14),
+        left: eye(19, 54, 2, -2, -14),
+        right: eye(19, 54, -2, -2, 14),
         spacing: 38,
       },
       perspective: 1.1,
@@ -141,7 +141,7 @@ export const TEX: AvatarDefinition = {
      */
     alarmed: {
       head: { x: 0, y: 0, z: 0 },
-      eyes: pair(eye(42, 48, 0, -4), 46),
+      eyes: pair(eye(34, 58, 0, -4), 44),
       perspective: 1.2,
     },
 
@@ -156,7 +156,7 @@ export const TEX: AvatarDefinition = {
      */
     attentive: {
       head: { x: 7, y: 0, z: 0 },
-      eyes: pair(eye(25, 46, 0, 0), 37),
+      eyes: pair(eye(21, 52, 0, 0), 36),
       perspective: 1,
     },
 
@@ -175,12 +175,12 @@ export const TEX: AvatarDefinition = {
      */
     thinking: {
       head: { x: -11, y: -17, z: 0 },
-      eyes: pair(eye(23, 40, 0, -8), 37),
+      eyes: pair(eye(20, 46, 0, -8), 36),
       perspective: 1.15,
     },
     "thinking-away": {
       head: { x: -13, y: 15, z: 0 },
-      eyes: pair(eye(23, 40, 0, -8), 37),
+      eyes: pair(eye(20, 46, 0, -8), 36),
       perspective: 1.15,
     },
 
