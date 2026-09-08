@@ -227,6 +227,12 @@
     display: inline-flex;
     justify-content: center;
     min-block-size: 44px;
+    /*
+     * BOTH axes. This said `min-block-size` alone, which made "S5" 43x44 and
+     * "+" 35x44 - a floor met on the axis that was never the problem. A chip
+     * is two characters wide, so the inline axis is the one a thumb misses.
+     */
+    min-inline-size: 44px;
     padding-inline: var(--s3);
   }
 
@@ -290,16 +296,55 @@
   .head .tabs { display: none; }
 
   /*
-   * The wordmark button goes with them, because it IS one of them.
+   * The mark STAYS, and this rule is the reversal of an earlier call.
    *
-   * `.homebtn` looks like a logo and is not: it is the Home button, and its
-   * accessible name says so ("Home. Where you stand and what needs doing").
-   * Once Home is a tab at the bottom, leaving it here puts TWO Home buttons on
-   * screen at once, at opposite corners, one of them disguised as branding.
-   * A phone app does not need to tell you which app you are in - the icon you
-   * tapped did that - so the header loses it and the bar keeps it.
+   * It was hidden here on the argument that `.homebtn` looks like a logo and
+   * is not - it is the Home button, its accessible name says so, and once Home
+   * is a tab at the bottom, keeping it put two Home buttons on screen at
+   * opposite corners with one disguised as branding. That reasoning is still
+   * true and it is still not the deciding consideration: the phone build is
+   * meant to be the app, and the mark is the app's face on every other
+   * surface - the splash it flies in from, the window icon, the wordmark.
+   * Deleting it to save one duplicated destination made the phone build a
+   * different product wearing the same name.
+   *
+   * Two ways to reach Home is a small cost and a common one; every mobile app
+   * with a logo in its header has exactly this. It leads the row, where a
+   * mark belongs, and takes the same 44px floor as its neighbours.
    */
-  .head .homebtn { display: none; }
+  .head .homebtn {
+    block-size: 44px;
+    border-radius: var(--radius);
+    flex: none;
+    inline-size: 44px;
+    order: 0;
+  }
+
+  /*
+   * A concern is two lines on a phone, not two columns.
+   *
+   * `.concerns li` is a flex row of an unshrinkable subject name and its
+   * explanation. That is right on a desktop - `flex: none` on the name is
+   * documented in `screens.css` as load-bearing, because letting it shrink
+   * makes a long unbreakable subject print on top of the detail - and it does
+   * not survive a 320px screen. "Design and Analysis of Algorithms" takes
+   * 218.6px of a 291px row, leaving the explanation 12.3px, about two
+   * characters, and its text then painted 7px past the viewport.
+   *
+   * Wrapping is the fix that keeps the desktop's reasoning intact: the name
+   * stays unshrinkable and simply takes the line it needs, and the sentence
+   * follows underneath at full width. Nothing is squeezed and nothing is
+   * clipped.
+   *
+   * Worth recording how this was found, because the gate could not: the text
+   * overflowed its flex item, and overflowing TEXT has no element and no rect,
+   * so `mobile-fit` - which asks only whether an element's rect crosses the
+   * edge - reported the screen clean. `document.scrollWidth` saw it (327 vs
+   * 320) and body's `overflow-x: hidden` was hiding it from the eye. A green
+   * gate is evidence about what the gate measures, and nothing more.
+   */
+  .concerns li { flex-wrap: wrap; }
+  .concerns span { flex: 1 1 100%; overflow-wrap: anywhere; }
 
   /*
    * The analytics panel toggle keeps its icon and drops its word. It is one of
