@@ -290,8 +290,8 @@ function HistoryRow(props: { row: Row }) {
           box naming the same semester - a column header names a cell, never
           the control inside it, so both boxes on every row announced as bare
           "edit text". */}
-      <th class="left num code" scope="row">{props.row.name}</th>
-      <td>
+      <th class="left num code" scope="row" data-col="name">{props.row.name}</th>
+      <td data-col="sgpa" data-label="Published SGPA">
         {/* `inputmode` for the same reason it is on the ledger cells: a grade
             card is digits, and a phone should offer digits. Not `type="number"`,
             which would blank the draft the moment it disliked a keystroke. */}
@@ -300,19 +300,19 @@ function HistoryRow(props: { row: Row }) {
                aria-label={`Published SGPA for ${props.row.name}`}
                onInput={(e) => setSgpaDraft(e.currentTarget.value)} onBlur={commit} />
       </td>
-      <td>
+      <td data-col="credits" data-label="Registered credits">
         <input class="cell-input num" value={creditDraft()} placeholder="–"
                inputmode="numeric"
                aria-label={`Registered credits for ${props.row.name}`}
                onInput={(e) => setCreditDraft(e.currentTarget.value)} onBlur={commit} />
       </td>
-      <td class="num">
+      <td class="num" data-col="earned" data-label="Earned">
         {props.row.published?.creditsEarned ?? "–"}
       </td>
-      <td class="num">
+      <td class="num" data-col="recomputed" data-label="Recomputed">
         {props.row.recomputed === null ? "–" : props.row.recomputed.toFixed(2)}
       </td>
-      <td class="left">
+      <td class="left" data-col="check" data-label="Cross-check">
         <Show when={props.row.drift !== null} fallback={
           <span style={{ color: "var(--text-faint)" }}>
             <Show when={props.row.published} fallback={<>not recorded</>}>

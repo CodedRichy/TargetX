@@ -189,6 +189,54 @@
   .head > * { min-width: 0; }
 
   /*
+   * A floor for everything a thumb has to find.
+   *
+   * The phone layer inherited the desktop's CONTROL SCALE wholesale, and that
+   * is the single reason this screen reads as a spreadsheet that was never
+   * ported. Density under a pointer reads as precision; the same density under
+   * a thumb reads as a mistake waiting to happen. Enumerated on Semester at
+   * 411px: twenty-six interactive elements, every one of them under 44px in at
+   * least one axis - the refresh and bell at 34x34, the semester chips at
+   * 43x30, the goal fields at 44x30, the profile at 48x40.
+   *
+   * Written as a list of this app's own control classes rather than a blanket
+   * rule on `button`, deliberately. A universal selector would also catch the
+   * tab bar, which is already sized, the card's remove control, which is
+   * spoken for below, and the invisible hit areas inside the SVG charts, where
+   * a 44px floor would overlap the neighbouring segments and change what the
+   * chart reports. A floor is only safe where you know what is standing on it.
+   *
+   * `min-block-size` and not `height`, so a control that already needs more
+   * room keeps it, and `inline-flex` where a bare min-height would leave the
+   * text sitting at the top of a taller box.
+   */
+  .head .iconbtn,
+  .head .profile {
+    align-items: center;
+    block-size: 44px;
+    display: inline-flex;
+    inline-size: 44px;
+    justify-content: center;
+  }
+  /* Only the hit box grows; the avatar drawn inside it keeps its own size. */
+  .head .profile .avatar { block-size: 2rem; inline-size: 2rem; }
+
+  .head .sems .sem,
+  .icon-btn {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    min-block-size: 44px;
+    padding-inline: var(--s3);
+  }
+
+  /* The one control on the screen a student uses before they know what the
+     screen is. It earns more than the floor. */
+  .head .ask { min-block-size: 48px; }
+
+  .goalbar .goal-input { min-block-size: 44px; }
+
+  /*
    * The view tabs move to a bottom bar, within thumb reach, so they leave the
    * header entirely rather than being shrunk into illegibility. Hidden here,
    * rendered there - see `.tabbar` below.
@@ -658,6 +706,139 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .history-grid > * { min-width: 0; }
+
+  /*
+   * History becomes cards too, and for a harder reason than the ledger did.
+   *
+   * Giving the table its own scroller kept the PAGE still, which is what the
+   * rule above was for, and it passed every check we had: the document is
+   * 411px, nothing crosses the viewport, and `mobile-fit` is green because an
+   * allowed scroller is allowed to be wider than its frame. All true, and all
+   * beside the point. The table is 865px inside a 387px frame, and the seventh
+   * column - the one holding the Remove control for each semester - sits at
+   * x=813. Every row's button was 52x38 at 813 on a 411px screen: present in
+   * the document, reachable by a screen reader, and invisible to a student
+   * forever, because the column has no visible header (its `th` holds only
+   * screen-reader text) and nothing on screen says a seventh column exists.
+   *
+   * A control that can only be found by dragging a table sideways, past a
+   * header that names six things, is not a control. This is the difference
+   * between "does not overflow" and "fits": the first is a measurement and the
+   * second is the requirement.
+   *
+   * So the same treatment the ledger got. `display: block` on the table parts,
+   * the head dropped (a card repeats its labels through `::before`), and each
+   * row laid out as a grid whose areas are named for the data rather than for
+   * a column order that no longer exists. Nothing is dropped, nothing moves to
+   * a second screen, and Remove is on the card beside the figure it discards.
+   */
+  .history-scroll { overflow-x: visible; }
+
+  .history-grid table,
+  .history-grid thead,
+  .history-grid tbody,
+  .history-grid tr,
+  .history-grid th,
+  .history-grid td { display: block; }
+
+  /* The column headings are the one thing a card does not need: every cell
+     names itself below. Kept in the document for the desktop, hidden here. */
+  .history-grid thead { display: none; }
+
+  .history-grid tbody tr.row {
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-card);
+    display: grid;
+    gap: var(--s2) var(--s3);
+    grid-template-areas:
+      "name    name       remove"
+      "sgpa    credits    earned"
+      "recomp  recomp     recomp"
+      "check   check      check";
+    grid-template-columns: 1fr 1fr auto;
+    margin-block-end: var(--s3);
+    padding: var(--s4) var(--s3);
+  }
+
+  /*
+   * A card is not a table row wearing a border.
+   *
+   * The desktop cells carry a bottom hairline (that is what separates ROWS in
+   * a table) and `.num` right-aligns its content against the next column. Laid
+   * out as a card both read as damage: a stray rule under every value, and a
+   * "RECOMPUTED -" marooned against the right edge with its label above it and
+   * nothing beside it. Cards separate themselves; the cell borders go, and
+   * everything reads from the same left edge as the label that names it.
+   */
+  .history-grid tr.row > th,
+  .history-grid tr.row > td {
+    border: 0;
+    text-align: start;
+  }
+
+  .history-grid tr.row > [data-col="name"]       { grid-area: name; }
+  .history-grid tr.row > [data-col="sgpa"]       { grid-area: sgpa; }
+  .history-grid tr.row > [data-col="credits"]    { grid-area: credits; }
+  .history-grid tr.row > [data-col="earned"]     { grid-area: earned; }
+  .history-grid tr.row > [data-col="recomputed"] { grid-area: recomp; }
+  .history-grid tr.row > [data-col="check"]      { grid-area: check; }
+  .history-grid tr.row > td.row-remove           { grid-area: remove; }
+
+  /*
+   * The label a card cell needs, taken from the attribute rather than written
+   * twice. `td` is spelled out in the selector for the same reason it is in
+   * the ledger's: `[data-label]::before` and `[data-col="x"]::before` are the
+   * same specificity, and the one that loses is whichever is written first.
+   */
+  .history-grid tr.row > td[data-label]::before {
+    color: var(--text-faint);
+    content: attr(data-label);
+    display: block;
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    margin-block-end: 2px;
+    text-transform: uppercase;
+  }
+
+  /* The semester name is the card's title, not a labelled field. */
+  .history-grid tr.row > [data-col="name"] {
+    font-size: var(--text-lg);
+    padding: 0;
+    text-align: start;
+  }
+
+  /* Inputs fill their cell and read left, the way they do on a subject card;
+     44px because a thumb has to land in them. */
+  .history-grid tr.row .cell-input {
+    inline-size: 100%;
+    min-block-size: 44px;
+    text-align: start;
+  }
+
+  /* Remove sits with the title, opposite it, and is never a hover-only
+     affordance: on a phone there is no hover, and this is the control that
+     discards a published result. */
+  .history-grid tr.row td.row-remove {
+    align-self: start;
+    justify-self: end;
+    opacity: 1;
+    padding: 0;
+  }
+  .history-grid tr.row td.row-remove .link { min-block-size: 44px; }
+
+  /* Confirming replaces one word with a sentence and two buttons, which does
+     not belong in a corner cell - it takes the width of the card. */
+  .history-grid tr.row td.row-remove:has(.confirm-inline) {
+    grid-area: check;
+    justify-self: stretch;
+  }
+  .history-grid .confirm-inline {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s2);
+  }
 
   /*
    * `.screen` is History, Attendance and Data, and screens.css gives it
