@@ -91,6 +91,22 @@ function place(
 const [blinking, setBlinking] = createSignal(false);
 let clockStarted = false;
 
+/**
+ * How long the lids take, in ms, while a blink is actually in flight.
+ *
+ * `null` the rest of the time, which is what puts the eye back on `--med` and
+ * on the reduced-motion tokens with it. A human blink is not symmetric - the
+ * lid falls in about 70ms and lifts over roughly twice that - and matching the
+ * two halves is most of the difference between a blink and a squint.
+ *
+ * These are the one place in this file that names milliseconds rather than a
+ * token. They can: the clock that sets them never starts under reduced motion,
+ * so a value from here can only reach an eye that is already allowed to move.
+ */
+const CLOSE_MS = 70;
+const OPEN_MS = 150;
+const [lidMs, setLidMs] = createSignal<number | null>(null);
+
 function startBlinkClock(): void {
   if (clockStarted) return;
   clockStarted = true;
@@ -99,17 +115,29 @@ function startBlinkClock(): void {
   // Roughly one blink in four is a double. A single blink on a fixed shape
   // is the most obviously mechanical thing a face can do; the variation is
   // what stops the eye learning the pattern.
+  //
+  // The hold is 40ms rather than the whole blink, because the lids are what
+  // takes the time. Measured against the first version of this: it held the
+  // shut pose for 120ms while the height transition ran for 200, so the reopen
+  // began before the close had landed and the eye bottomed out at 6.9 of a
+  // closed 5. It never once shut. On a face that reads as a squint, and a
+  // squint on a loop reads as a tic.
   const shut = (then: () => void) => {
+    setLidMs(CLOSE_MS);
     setBlinking(true);
-    setTimeout(() => { setBlinking(false); then(); }, 120);
+    setTimeout(() => {
+      setLidMs(OPEN_MS);
+      setBlinking(false);
+      setTimeout(() => { setLidMs(null); then(); }, OPEN_MS);
+    }, CLOSE_MS + 40);
   };
   const tick = () => {
     setTimeout(() => {
       shut(() => {
-        if (Math.random() < 0.25) setTimeout(() => shut(tick), 110);
+        if (Math.random() < 0.25) setTimeout(() => shut(tick), 130);
         else tick();
       });
-    }, 3600 + Math.random() * 4800);
+    }, gap());
   };
   tick();
 }
@@ -200,8 +228,26 @@ const GAZE_REACH = 420;
 
 const clamp1 = (v: number): number => Math.max(-1, Math.min(1, v));
 
+/**
+ * How long until the next blink, in ms.
+ *
+ * Exponential over a floor rather than uniform over a range. Real inter-blink
+ * gaps are right-skewed - mostly short, occasionally a long hold - and a
+ * uniform draw produces the even ladder the first version measured at 4.9,
+ * 6.3, 6.5, 6.8, 7.3 seconds, which is regular enough to read as a timer.
+ *
+ * Floor 2.2s, mean about 5.2s, capped at 12s: roughly 11 blinks a minute once
+ * doubles are counted, which is where a person sitting at a screen lands.
+ */
+function gap(): number {
+  return 2200 + Math.min(-Math.log(1 - Math.random()) * 3000, 9800);
+}
+
 /** One eye. A component so the node survives every gaze update. */
 function Eye(props: { e: Placed; fill: string }) {
+  /* The lids' own duration while a blink is running, `--med` otherwise, so an
+     expression change is still a mood arriving rather than a lid dropping. */
+  const lid = () => { const ms = lidMs(); return ms === null ? "var(--med)" : `${ms}ms`; };
   return (
     <rect fill={props.fill}
           style={{
@@ -224,9 +270,9 @@ function Eye(props: { e: Placed; fill: string }) {
                expression changing, and a mood that snaps reads as a glitch. */
             "transition": "x var(--fast) var(--ease), "
               + "y var(--fast) var(--ease), "
-              + "width var(--med) var(--ease), "
-              + "height var(--med) var(--ease), "
-              + "rx var(--med) var(--ease), "
+              + `width ${lid()} var(--ease), `
+              + `height ${lid()} var(--ease), `
+              + `rx ${lid()} var(--ease), `
               + "transform var(--med) var(--ease)",
           }} />
   );
