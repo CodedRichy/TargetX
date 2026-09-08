@@ -20,6 +20,7 @@
 import { For } from "solid-js";
 import type { JSX } from "solid-js";
 import { VIEWS, setView, view } from "../state/nav";
+import { Mark } from "./Mark";
 import type { View } from "../state/nav";
 
 /**
@@ -30,12 +31,23 @@ import type { View } from "../state/nav";
  * different weights and sizes across the font fallbacks a phone might pick.
  */
 const ICONS: Record<View, () => JSX.Element> = {
-  // A house.
+  /*
+   * The mark, not a house - and it is the app's mark, in its own green tile,
+   * exactly as the desktop header draws it.
+   *
+   * Home had a house here and the mark lived in the header, which put the
+   * brand in the one place a phone does not need it (you know which app you
+   * opened - you tapped it) and gave the bottom bar a generic glyph that
+   * could belong to any application on the device. Swapping them puts the
+   * mark where a thumb actually goes and costs the header a control it was
+   * short of room for.
+   *
+   * The tile is drawn here rather than as a fourth line in the SVG because it
+   * is the same object as `.homebtn`: brand ground, white strokes, rounded
+   * square. `mobile.css` styles it to match.
+   */
   home: () => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M3 10.5 12 3l9 7.5" /><path d="M5.5 9.5V20h13V9.5" />
-    </svg>
+    <span class="tabmark" aria-hidden="true"><Mark size={13} /></span>
   ),
   // A mark sheet: lines of a table.
   ledger: () => (

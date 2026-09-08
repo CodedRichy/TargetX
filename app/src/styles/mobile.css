@@ -296,29 +296,21 @@
   .head .tabs { display: none; }
 
   /*
-   * The mark STAYS, and this rule is the reversal of an earlier call.
+   * The mark is not in the header on a phone. It is the Home TAB.
    *
-   * It was hidden here on the argument that `.homebtn` looks like a logo and
-   * is not - it is the Home button, its accessible name says so, and once Home
-   * is a tab at the bottom, keeping it put two Home buttons on screen at
-   * opposite corners with one disguised as branding. That reasoning is still
-   * true and it is still not the deciding consideration: the phone build is
-   * meant to be the app, and the mark is the app's face on every other
-   * surface - the splash it flies in from, the window icon, the wordmark.
-   * Deleting it to save one duplicated destination made the phone build a
-   * different product wearing the same name.
+   * Three positions were tried and the third is the right one. It started
+   * here, was hidden on the argument that `.homebtn` is the Home button
+   * wearing a logo's clothes and duplicated the Home tab, then came back
+   * because deleting the app's own face made the phone build feel like a
+   * different product. Both of those were arguing about the wrong axis. The
+   * mark belongs on the bar a thumb already rests on, and the header - which
+   * is the most contested 411px in the app - keeps the room.
    *
-   * Two ways to reach Home is a small cost and a common one; every mobile app
-   * with a logo in its header has exactly this. It leads the row, where a
-   * mark belongs, and takes the same 44px floor as its neighbours.
+   * So Home's tab wears the mark (see `.tabmark`) and the header does not,
+   * which is one Home button, in the place a phone puts navigation, carrying
+   * the brand instead of a house that could belong to any app on the device.
    */
-  .head .homebtn {
-    block-size: 44px;
-    border-radius: var(--radius);
-    flex: none;
-    inline-size: 44px;
-    order: 0;
-  }
+  .head .homebtn { display: none; }
 
   /*
    * A concern is two lines on a phone, not two columns.
@@ -1354,6 +1346,27 @@
     cursor: pointer;
   }
   .tabbar button svg { width: 22px; height: 22px; }
+
+  /*
+   * The Home tab's mark, in the same tile the desktop header draws.
+   *
+   * Brand ground, rounded square, white strokes - `app.css` gives `.homebtn`
+   * the identical treatment, and the two are meant to read as one object seen
+   * in two places. 22px so it occupies exactly the box the other four icons
+   * do and the row stays even.
+   */
+  .tabbar .tabmark {
+    background: var(--brand);
+    block-size: 22px;
+    border-radius: 7px;
+    display: grid;
+    inline-size: 22px;
+    place-items: center;
+  }
+  /* The strokes are white on the tile whatever the tab's own colour is doing,
+     so the mark does not invert when Home is the current view. */
+  .tabbar .tabmark svg line { stroke: oklch(0.99 0 0); }
+  .tabbar .tabmark svg line:first-of-type { stroke: oklch(1 0 0 / 0.5); }
   .tabbar-label {
     font-size: 10px;
     letter-spacing: 0.01em;
