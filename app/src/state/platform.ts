@@ -1,3 +1,5 @@
+import { createSignal } from "solid-js";
+
 /**
  * Which shell this build is running in.
  *
@@ -60,3 +62,35 @@ export const isAndroid = (): boolean =>
  * `lib.rs` registers under `#[cfg(desktop)]`.
  */
 export const isDesktopShell = (): boolean => inShell() && !isAndroid();
+
+/**
+ * Whether the layout is in its narrow, one-column form.
+ *
+ * The same 720px the phone stylesheet turns at, and read the same way it is
+ * there: a small window on a laptop has the problem a phone has and gets the
+ * answer a phone gets. It is NOT `isAndroid` - the Android build is one
+ * caller, a half-width desktop window is another, and a test running in
+ * jsdom is neither.
+ *
+ * A signal rather than a function call, because the pieces that ask are
+ * rendered rather than styled - CSS can hide a control that exists, but it
+ * cannot make one exist. The listener is registered once, at module scope: a
+ * component that added its own would drop it on unmount, and these questions
+ * are asked by things that mount and unmount as the student changes view.
+ */
+const NARROW = "(max-width: 720px)";
+
+const [narrowSignal, setNarrow] = createSignal(
+  typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia(NARROW).matches
+    : false,
+);
+
+if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+  const mq = window.matchMedia(NARROW);
+  // `addEventListener` rather than the deprecated `addListener`: the WebView
+  // this ships in is current Chromium, and the desktop one is WebView2.
+  mq.addEventListener("change", (e) => setNarrow(e.matches));
+}
+
+export const isNarrow = narrowSignal;

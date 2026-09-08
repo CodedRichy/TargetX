@@ -6,6 +6,7 @@ import {
   targets,
 } from "../state/store";
 import { VIEWS, drawerOpen, needsSetup, setView, toggleDrawer, view } from "../state/nav";
+import { isNarrow } from "../state/platform";
 import { ASSISTANT } from "../state/answers";
 import { appearance, setTheme, startTheme, theme } from "../state/theme";
 import { Data } from "./Data";
@@ -939,7 +940,18 @@ export function App() {
         <Show when={view() === "ledger"}>
           <GoalBar />
           <Ledger />
-          <Show when={drawerOpen()}><Drawer /></Show>
+          {/*
+              On a phone the panel is not a panel.
+              There is no second column to put it beside, so a toggle only ever
+              meant "append these charts to the bottom of the page" - and with
+              the ledger three thousand pixels tall, pressing it in the header
+              changed nothing the student could see. It was reported as a
+              button that does nothing, which is exactly what it was.
+              Below the breakpoint the charts are simply part of the page,
+              under the subjects they describe, and the toggle is hidden
+              (mobile.css). Nothing is lost and nothing has to be found.
+          */}
+          <Show when={drawerOpen() || isNarrow()}><Drawer /></Show>
         </Show>
         <SaveNotice />
         <Show when={!updateDismissed() && update()}>

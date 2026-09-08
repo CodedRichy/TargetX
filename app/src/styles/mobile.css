@@ -78,7 +78,19 @@
    * beside. (The design calls for it to become a sheet opened from the ledger;
    * this is the layout that has to be right first, either way.)
    */
-  .app {
+  /*
+   * `.app.no-drawer` is spelled out beside the bare `.app`, and not for tidiness.
+   *
+   * The desktop rule at app.css:233 renames the areas to drop the drawer track
+   * whenever the toggle is off, and two classes beat one no matter which
+   * stylesheet is imported last. Below the breakpoint the drawer is always in
+   * the document and the toggle is gone, so that rule left the panel with no
+   * area to land in: the grid gave it an implicit second column and the ledger
+   * was squeezed to thirty-two pixels - the subject cards collapsed into a
+   * sliver and "Remove S4" hung twelve pixels off the left edge, clipped.
+   */
+  .app,
+  .app.no-drawer {
     grid-template-columns: 1fr;
     grid-template-areas:
       "head"
@@ -103,34 +115,23 @@
     min-height: 100%;
   }
   /*
-   * The analytics panel becomes a sheet over the page, not a row under it.
+   * The analytics panel is a card under the subjects, not a panel at all.
    *
-   * It was appended below the ledger, which is correct as layout and useless
-   * as a control: on a phone the ledger is three thousand pixels tall, so
-   * pressing Panel in the header rendered the drawer far below the fold and
-   * nothing whatsoever happened on screen. The button read as broken, and it
-   * had been reported as exactly that.
-   *
-   * A sheet answers the press where the press happened. It stops above the tab
-   * bar rather than under it - the bar is fixed, and a panel that slides
-   * beneath it loses its last rows - and scrolls inside itself, which is the
-   * one place on this phone layout where an inner scroller is right: the sheet
-   * is a fixed-height surface by definition, so it has a bottom to scroll to.
+   * It was a fixed column beside the ledger, then briefly a sheet over it.
+   * Both are answers to "where does the panel go", and on a phone the honest
+   * answer is that there is no panel: these are charts about the subjects
+   * above them, and they read as the end of that page rather than as a
+   * surface with its own state to remember. No toggle, nothing covering
+   * anything, and nothing for the student to discover.
    */
   .drawer,
   .drawer.wide {
-    background: var(--surface-1);
-    border: 1px solid var(--hairline);
-    border-radius: var(--radius-card) var(--radius-card) 0 0;
-    bottom: calc(56px + max(14px, env(safe-area-inset-bottom, 0px)));
-    inset-inline: 0;
-    max-block-size: 70dvh;
-    overflow-y: auto;
-    padding-bottom: var(--s5);
-    position: fixed;
-    width: auto;
+    border-left: 0;
+    border-top: 1px solid var(--hairline);
     max-width: 100%;
-    z-index: 25;
+    overflow: visible;
+    padding: var(--s5) var(--s3);
+    width: auto;
   }
 
   /*
@@ -181,8 +182,16 @@
    * eight controls competing for a 360px strip, and the icon already carries
    * the meaning - a panel appearing beside a page.
    */
-  .head .drawer-toggle { padding: var(--s2); }
-  .head .drawer-toggle span { display: none; }
+  /*
+   * The panel toggle goes entirely.
+   *
+   * It controlled a second column that does not exist below this breakpoint,
+   * so the only thing it could do was append the charts to the end of a very
+   * long page - far out of sight of the button being pressed. App.tsx renders
+   * them inline instead, so there is nothing left for this to toggle and a
+   * control that toggles nothing is worse than no control.
+   */
+  .head .drawer-toggle { display: none; }
 
   /*
    * Ask gets a row of its own, full width.
@@ -222,8 +231,7 @@
    * same thing; they hold their place.
    */
   .head .refresh,
-  .head .bell,
-  .head .drawer-toggle { order: 1; }
+  .head .bell { order: 1; }
   .head .sems { order: 2; }
   /* Last on the row whatever else is there, pushed to the far edge. */
   .head .profile { margin-inline-start: auto; order: 3; }

@@ -10,6 +10,7 @@ import {
   activeCourses, addCourse, attendanceGaps, removeCourse, removeSemester, rows,
   semesterNames, state, updateCourse,
 } from "../state/store";
+import { activeProfile } from "../state/schemes";
 import { AttendanceBar } from "./charts";
 
 const dash = "–";
