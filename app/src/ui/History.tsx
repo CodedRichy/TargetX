@@ -292,12 +292,17 @@ function HistoryRow(props: { row: Row }) {
           "edit text". */}
       <th class="left num code" scope="row">{props.row.name}</th>
       <td>
+        {/* `inputmode` for the same reason it is on the ledger cells: a grade
+            card is digits, and a phone should offer digits. Not `type="number"`,
+            which would blank the draft the moment it disliked a keystroke. */}
         <input class="cell-input num" value={sgpaDraft()} placeholder="–"
+               inputmode="decimal"
                aria-label={`Published SGPA for ${props.row.name}`}
                onInput={(e) => setSgpaDraft(e.currentTarget.value)} onBlur={commit} />
       </td>
       <td>
         <input class="cell-input num" value={creditDraft()} placeholder="–"
+               inputmode="numeric"
                aria-label={`Registered credits for ${props.row.name}`}
                onInput={(e) => setCreditDraft(e.currentTarget.value)} onBlur={commit} />
       </td>

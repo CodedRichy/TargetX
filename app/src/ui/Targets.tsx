@@ -329,7 +329,11 @@ function TargetField(props: {
   return (
     <div class="field">
       <label for={props.id}>{props.label}</label>
+      {/* A target is a number the student types on a phone; give them the
+          keypad. `decimal` covers both fields this renders - a CGPA goal of
+          7.5 and an attendance percentage alike. */}
       <input id={props.id} class="goal-input num" value={draft()}
+             inputmode="decimal"
              placeholder={props.placeholder ?? ""}
              onInput={(e) => {
                const raw = e.currentTarget.value;

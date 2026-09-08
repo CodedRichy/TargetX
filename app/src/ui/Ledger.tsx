@@ -127,6 +127,22 @@ function Cell(props: {
     <input
       aria-label={props.label}
       class={`cell-input num${props.wide ? " wide" : ""}`}
+      /*
+       * A phone must not raise a QWERTY keyboard to type a mark.
+       *
+       * `inputmode` and NOT `type="number"`. This box keeps whatever the
+       * student typed, exactly as typed, and lets the store decide what it
+       * means. A number input does not: it reports an empty string for
+       * anything it considers invalid, so a half-typed "7." or a stray letter
+       * would erase the cell under the cursor. It also hangs spinner arrows
+       * off a control 26px tall, and disagrees with itself about decimal
+       * commas across locales.
+       *
+       * `decimal` rather than `numeric` because marks are not integers - a
+       * series mark of 27.5 is ordinary, and `numeric` is the keypad WITHOUT
+       * a decimal separator.
+       */
+      inputmode="decimal"
       value={props.value === null || props.value === undefined ? "" : String(props.value)}
       placeholder={props.placeholder ?? dash}
       onInput={(e) => props.onInput(e.currentTarget.value)}

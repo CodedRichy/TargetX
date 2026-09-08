@@ -583,8 +583,46 @@
    * by keyboard. It is drawn quietly rather than loudly: still the faintest
    * thing on the card, but present.
    */
+  /*
+   * A finger is not a cursor.
+   *
+   * Measured on the subject cards at 411px: the target-grade select was
+   * 116x24, the course-code toggle 64x20, the remove control 28x37 and the
+   * mark boxes 116x26. All of them are comfortable for a mouse, which is what
+   * they were drawn for, and all of them are below the 44px minimum that both
+   * Apple and Android publish - on the same card, next to each other, which is
+   * how a student ends up opening a row they meant to delete.
+   *
+   * `min-block-size` rather than a height, so a control that already needs
+   * more room keeps it. The padding on the select is what actually makes it
+   * tappable: a bare min-height on a `select` leaves the hit area to the UA in
+   * some engines, and the padding is honoured everywhere.
+   */
+  .ledger tr.row .cell-input,
+  .ledger tr.row select.cell-input {
+    min-block-size: 44px;
+  }
+  .ledger tr.row select.cell-input {
+    padding-block: var(--s2);
+  }
+  /* The course code is a button that expands the row. It reads as a label, so
+     it needs the height without gaining a button's bulk - the target is grown
+     downward into the card's own padding rather than by inflating the text. */
+  .ledger tr.row .code.num {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 44px;
+  }
+
   .ledger tr.row .del {
+    /* Square, and at the 44px floor: this one DELETES a subject, so it is the
+       control on the card least forgiving of a near miss. It was 28x37. */
+    align-items: center;
+    display: inline-flex;
     font-size: var(--text-lg);
+    justify-content: center;
+    min-block-size: 44px;
+    min-inline-size: 44px;
     opacity: 1;
     padding: var(--s1) var(--s2);
   }
