@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { canSync } from "../sync/etlab";
+import { isDesktopShell } from "./platform";
 
 /**
  * The opt-in credential store, front-end side (issue #2).
@@ -10,16 +10,40 @@ import { canSync } from "../sync/etlab";
  * store and back, and this module is the only path to it. `credentials-are-
  * contained` is the test that holds that line.
  *
- * `canRemember` gates the whole feature on the desktop shell, the same way
- * sync itself is gated: a browser build has no Tauri bridge and no vault, so
- * the option is simply absent rather than offered and then failing.
+ * `canRemember` gates the whole feature on the desktop shell - NOT on
+ * `canSync`, which is what it used to read and which was wrong the moment an
+ * Android build existed.
+ *
+ * `canSync` is `"__TAURI_INTERNALS__" in window`. That asks "is there a Rust
+ * side", and while the only shell was a desktop window it was also,
+ * accidentally, a correct test for "is this a desktop window" - `platform.ts`
+ * says exactly this about the same expression. On Android it is still true and
+ * no longer means that, so the phone offered a checkbox reading "Your password
+ * will be kept in Windows Credential Manager, encrypted for your account on
+ * this device" - on a phone that has no such thing. Ticking it stored nothing:
+ * `creds.rs` gates its backend on `#[cfg(windows)]` and the `not(windows)`
+ * branch returns an error which the caller catches and discards as "a
+ * convenience, never a blocker". No message, no stored password, and the box
+ * silently unticked itself on the next launch. A student would reasonably
+ * conclude their password was in a vault on their phone.
+ *
+ * The gate is the fix and the copy is not: rewording the fineprint would leave
+ * a control that does nothing. Gated here, the checkbox is simply absent on
+ * Android and the fallback line - "Your password is used for this one request
+ * and is never saved" - is what shows, which is exactly true there.
+ *
+ * KNOWN RESIDUE, deliberately left: the Rust backend is Windows-only, so macOS
+ * and Linux desktop builds still offer this and still silently fail. That is
+ * the same defect on a platform this branch does not ship, and narrowing the
+ * gate further needs a platform probe that does not exist yet. Named here so
+ * the next person finds it stated rather than discovering it the hard way.
  */
 export interface StoredCreds {
   username: string;
   password: string;
 }
 
-export const canRemember = (): boolean => canSync();
+export const canRemember = (): boolean => isDesktopShell();
 
 /**
  * The vault key the KTU results portal's login is kept under.
