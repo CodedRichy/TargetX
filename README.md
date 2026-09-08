@@ -32,7 +32,16 @@ not checked, always, on the screen and beside the numbers — because the app
 being worth opening depends on you knowing whose rules produced a figure, not
 on the figure being unchangeable.
 
-> ### 0.4.0 is the last release built on etlab sync
+**And a profile can travel.** Whoever at your college does the reading once can
+export theirs and hand the text to everyone else, who import it and are done.
+An exported profile carries rules and nothing else — no marks, no attendance,
+no name, no record of any kind, which is checked by an exact key-set test
+rather than by searching the file for words that look sensitive. Nothing
+arrives verified: a file cannot claim to be checked, because the flag is never
+read off it. What you get instead is the honest thing — the numbers, and the
+person who sent them.
+
+> ### 0.5.0 is the last release built on etlab sync
 >
 > Not because it broke — it works better than it ever has. It is the last one
 > because to keep going I would need someone to pay for it, and the only people
@@ -211,13 +220,13 @@ calculation core. It is not part of the shipped app.
 ## Tests
 
 ```
-cd app && npm test        # 794
-cd worker && npm test     # 75
+cd app && npm test        # 935
+cd worker && npm test     # 111
 ```
 
-**869 tests across 71 files**, counted from a run on 2026-09-02, not estimated:
-257 engine, 237 UI, 180 state, 102 sync, 16 styles, 2 data, and 75 in the
-Worker.
+**1,046 tests across 86 files**, counted from a run on 2026-09-08, not
+estimated: 302 engine, 268 UI, 233 state, 114 sync, 16 styles, 2 data, and 111
+in the Worker.
 
 `engine/__tests__/parity.test.ts` is the load-bearing one. It replays a frozen
 corpus of generated course cases and semester rollups produced by the Python
@@ -274,9 +283,9 @@ the eligibility gate, it is worth **five internal marks**, in bands. At 76% I ha
 already given two of them away. In every subject. All semester. Nothing had told
 me — not the portal, not any calculator.
 
-That annoyed me enough to build this, and then it turned into 862 tests, because
-once you are the thing telling people what they need to score, approximately
-right is not good enough.
+That annoyed me enough to build this, and then it turned into a thousand tests,
+because once you are the thing telling people what they need to score,
+approximately right is not good enough.
 
 **Why this is the last sync release.** To keep working on it I would need someone
 to pay for it, and the only people who could are colleges. No college is going to
