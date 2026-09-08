@@ -13,6 +13,7 @@ import { authBusy, authConfigured, signIn, signedIn } from "../state/auth";
 import { morph } from "./morph";
 import { Face } from "./tex/Face";
 import { moodLabel, overallMood } from "./tex/mood";
+import { play } from "./tex/sound";
 import type { Mood } from "./tex/definition";
 
 /**
@@ -233,6 +234,25 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
    * that says "I do not have this" is not the same event as an answer, and it
    * should not arrive wearing the same expression.
    */
+  /**
+   * The chime, on the edge where thinking becomes an answer.
+   *
+   * Watched as a TRANSITION rather than fired where the request resolves,
+   * because that path has several exits - refusal, abort, network failure -
+   * and a chime on the failure ones would be the app sounding pleased with
+   * itself for having nothing to say. `asking` going true then false with
+   * something in `remote` is the only shape that means he answered.
+   *
+   * Nothing here for the local engine answers: those appear as the student
+   * types, and a sound per keystroke is not a sound, it is a fault.
+   */
+  let wasAsking = false;
+  createEffect(() => {
+    const busy = asking();
+    if (wasAsking && !busy && remote() !== null) play("answer");
+    wasAsking = busy;
+  });
+
   const face = (): Mood => {
     if (asking()) return driftAway() ? "thinking-away" : "thinking";
     if (answer()?.isGap) return "concerned";
