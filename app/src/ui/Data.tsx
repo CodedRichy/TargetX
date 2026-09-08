@@ -28,7 +28,7 @@ export function Data() {
       <div class="screen-head">
         <div>
           <h2>Data</h2>
-          <p class="lede">Your marks stay on this computer — nothing here uploads them.</p>
+          <p class="lede">Your marks stay on this device — nothing here uploads them.</p>
         </div>
         <Show when={state.lastSync}>
           <span class="fineprint num">
@@ -601,7 +601,7 @@ function About() {
 
         <dt>Your data</dt>
         <dd>
-          Your marks stay on this computer, and there is no telemetry. Four
+          Your marks stay on this device, and there is no telemetry. Four
           things touch the network, and the fourth only if you sign in to ask
           a question —{" "}
           <a class="link" href="https://github.com/CodedRichy/TargetX/blob/main/PRIVACY.md"

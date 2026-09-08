@@ -125,7 +125,7 @@ export function runLaunchCheck(): Finding[] {
     return [{
       kind: "corrupt", severity: "warn",
       title: "Your saved data could not be read",
-      detail: "The file TargetX stores on this computer is not in a shape it "
+      detail: "The file TargetX stores on this device is not in a shape it "
         + "recognises. Restoring a backup is the safe way out; starting fresh "
         + "is the other.",
       goto: "data", action: "Restore a backup",

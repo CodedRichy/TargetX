@@ -221,7 +221,11 @@ function BySubjectSection() {
         </div>
 
         <div class="grid-frame">
-          <table class="grid-table">
+          {/* Named so the phone layer can reach it. Three tables on this screen
+              wear `grid-table` and they want different things at 411px: this
+              one wraps, the calendar fits as it is, and only the timetable
+              genuinely has to slide. */}
+          <table class="grid-table recon-table">
             <thead>
               <tr>
                 <th class="grid-label" scope="col">Subject</th>

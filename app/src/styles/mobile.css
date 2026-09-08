@@ -102,10 +102,35 @@
     height: auto;
     min-height: 100%;
   }
+  /*
+   * The analytics panel becomes a sheet over the page, not a row under it.
+   *
+   * It was appended below the ledger, which is correct as layout and useless
+   * as a control: on a phone the ledger is three thousand pixels tall, so
+   * pressing Panel in the header rendered the drawer far below the fold and
+   * nothing whatsoever happened on screen. The button read as broken, and it
+   * had been reported as exactly that.
+   *
+   * A sheet answers the press where the press happened. It stops above the tab
+   * bar rather than under it - the bar is fixed, and a panel that slides
+   * beneath it loses its last rows - and scrolls inside itself, which is the
+   * one place on this phone layout where an inner scroller is right: the sheet
+   * is a fixed-height surface by definition, so it has a bottom to scroll to.
+   */
   .drawer,
   .drawer.wide {
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-card) var(--radius-card) 0 0;
+    bottom: calc(56px + max(14px, env(safe-area-inset-bottom, 0px)));
+    inset-inline: 0;
+    max-block-size: 70dvh;
+    overflow-y: auto;
+    padding-bottom: var(--s5);
+    position: fixed;
     width: auto;
     max-width: 100%;
+    z-index: 25;
   }
 
   /*
@@ -187,31 +212,57 @@
    * grey circles, and the avatar - the only one that is not an action - was the
    * easiest to hit by accident.
    */
-  .head .profile { margin-inline-start: auto; order: 1; }
+  /*
+   * Explicit orders, because the icons must not move between screens.
+   *
+   * The semester strip is first in the DOM, so leaving these on an equal order
+   * put the chips at the left on Semester and the icons at the left
+   * everywhere else - refresh and notifications jumping half a screen sideways
+   * as the student changed view. They are the same three controls doing the
+   * same thing; they hold their place.
+   */
   .head .refresh,
   .head .bell,
   .head .drawer-toggle { order: 1; }
+  .head .sems { order: 2; }
+  /* Last on the row whatever else is there, pushed to the far edge. */
+  .head .profile { margin-inline-start: auto; order: 3; }
 
   /*
-   * The semester strip gets a row of its own, under the controls rather than
-   * over them.
+   * The semester strip rides the controls row instead of taking one of its own.
    *
-   * It is first in the DOM because on a desktop it sits inline between the
-   * tabs and the account, and once the header wraps that source order put S1
-   * to S8 ABOVE refresh, notifications and the account - the app's own
-   * controls pushed below a list of semesters, which is not the order anyone
-   * reads a header in. `order` fixes the phone without moving anything for
-   * the desktop, where nothing wraps and order never applies.
+   * It had a full-width row, which cost 38px of a 914px screen and left the
+   * controls row half empty - the account was alone at the right-hand end with
+   * nothing between it and the icons. Sitting in that gap, the strip fills the
+   * space that already existed and the header loses a row: on Semester the
+   * chrome above the table was 286px, nearly a third of the display, before
+   * the student saw a single subject.
+   *
+   * `flex: 1 1 auto` with `min-inline-size: 0` rather than a width: it takes
+   * what the row has left, and eight semesters at 320px scroll INSIDE the
+   * strip rather than pushing the account off the edge.
+   *
+   * `order` is also what puts it after the icons. It is first in the DOM,
+   * because on a desktop it sits inline between the tabs and the account, and
+   * once the header wraps that source order put S1 to S8 above refresh,
+   * notifications and the account - the app's own controls below a list of
+   * semesters, which is not the order anyone reads a header in. Nothing wraps
+   * on the desktop, where `order` never applies.
    */
   .head .sems {
-    flex: 1 1 100%;
-    order: 5;
-    overflow-x: auto;
+    flex: 1 1 auto;
     min-inline-size: 0;
+    overflow-x: auto;
   }
 
   .head .ask {
-    justify-content: center;
+    /*
+     * Left, not centred. Centring the icon and the label inside a full-width
+     * bar left a hand's width of empty pill on either side of them, which
+     * reads as a button that has been stretched rather than as a field with
+     * something typed at the start of it. A search field fills from the left.
+     */
+    justify-content: flex-start;
     order: 10;
     flex: 1 1 100%;
     min-inline-size: 0;
@@ -555,11 +606,66 @@
   .screen-head > * { min-width: 0; }
 
   /*
-   * `min-width: 820px` on the timetable is deliberate and stays - see the
-   * comment in calendar.css. Eight periods below that width stop being
-   * legible, so the fix is to let it scroll at its real size, never to shrink
-   * it under its own floor.
+   * `min-width: 820px` is set on `.grid-table`, and three different tables
+   * wear that class. Only one of them earns it.
+   *
+   * calendar.css explains the floor as "eight periods stop being legible below
+   * it", and for the WEEKLY TIMETABLE that is true - every cell holds a subject
+   * name. The ATTENDANCE CALENDAR above it holds no text at all: each cell is a
+   * 26px colour block, so eight periods and a day label come to about 330px and
+   * fit a 411px phone with room to spare. It was being pushed out to 820 and
+   * made to slide for a legibility problem it does not have, and it is the
+   * screen's headline - the thing the student opens Attendance to look at.
+   * The reconciliation table above is four columns of short figures and wraps.
+   *
+   * So the floor is moved off `.grid-table` and onto `.tt-table`, which is the
+   * table the comment in calendar.css is actually about.
    */
+  .grid-table { min-width: 0; }
+  .tt-table { min-width: 820px; }
+
+  /*
+   * The reconciliation table keeps four columns and wraps into them.
+   *
+   * `.grid-label` is `white-space: nowrap` so a day label like "Mon 18 Aug"
+   * cannot break, which is right in the calendar and wrong here, where the
+   * same column holds "Artificial Intelligence" - it ran straight over the
+   * count beside it. The agreement pill wraps for the same reason: "log says
+   * fewer classes" is a sentence, and at this width it needs two lines rather
+   * than the one it was being clipped to.
+   */
+  .recon-table .grid-label { white-space: normal; }
+
+  /*
+   * The agreement pill loses its pill here and keeps its colour.
+   *
+   * "log says fewer classes" needs three lines in a 95px column, and a 999px
+   * radius stretched around three lines is not a pill any more - it is a
+   * lozenge the height of the row, and seven of them down the table read as
+   * the loudest thing on a screen whose subject is the numbers beside them.
+   * The colour is what carries the verdict; the background was only ever
+   * there to make one short word findable on a wide desktop row.
+   */
+  .recon-table .pill {
+    background: none;
+    border: 0;
+    display: inline;
+    padding: 0;
+    white-space: normal;
+  }
+
+  /*
+   * Four equal columns is what `table-layout: fixed` gives by default, and the
+   * four columns here are not equal work: two hold "3/4" and one holds a
+   * sentence. At 386px an equal split left the verdict column 96px, and "fewer
+   * classes" - which cannot break, being two words that have to sit together -
+   * needs about 105. It was clipped mid-word against the frame.
+   */
+  .recon-table th:nth-child(1) { width: 27%; }
+  .recon-table th:nth-child(2) { width: 20%; }
+  .recon-table th:nth-child(3) { width: 22%; }
+  .recon-table th:nth-child(4) { width: 31%; }
+
 
   /*
    * Header panels become a sheet spanning the screen.
