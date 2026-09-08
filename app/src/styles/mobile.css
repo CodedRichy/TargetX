@@ -242,6 +242,44 @@
     min-block-size: 44px;
   }
 
+  /*
+   * The confirm must not land under the finger that armed it.
+   *
+   * Pressing "Remove S4" swaps the button for a confirm row, and on a phone
+   * that row put its destructive "Remove" at the same y and overlapping x -
+   * measured as a live 26x38 region shared by the two. A double tap, or an
+   * impatient second tap after a press that did not appear to register,
+   * discarded the semester with nothing in between. The window between the
+   * two presses is the whole safeguard, and it was being handed away.
+   *
+   * The same app already does this correctly two screens over: Data's "Erase
+   * everything" puts its affirmative 122px below the press with zero overlap
+   * and moves focus to the notice. This is that pattern, in the space a card
+   * foot has: the sentence naming what is discarded takes the row the finger
+   * is already on, and the two buttons go beneath it. The affirmative ends up
+   * roughly a line and a half below where the tap landed - clear of it, and
+   * clear of where the eye is.
+   */
+  .sem-remove .confirm-inline {
+    align-items: center;
+    flex-wrap: wrap;
+    /* Row gap first, and larger than the column gap on purpose: the row gap is
+       the distance between where the finger pressed and where the destructive
+       button now is. Zero overlap is the requirement, but two pixels of it is
+       not a margin - a thumb is not a point even if a click event is. */
+    gap: var(--s5) var(--s3);
+    justify-content: flex-end;
+  }
+  /* The sentence takes a whole line, which is what pushes the buttons off the
+     tap point - and it wants the width anyway: `.row-remove` sets `nowrap` for
+     a table cell, and at 411px this copy has to be allowed to wrap. */
+  .sem-remove .confirm-inline .fineprint {
+    flex: 1 0 100%;
+    text-align: start;
+    white-space: normal;
+  }
+  .sem-remove .confirm-inline .link { min-block-size: 44px; }
+
   .goalbar .goal-input { min-block-size: 44px; }
 
   /*
