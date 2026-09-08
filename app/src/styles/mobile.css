@@ -850,10 +850,21 @@
       "sgpa    credits    earned"
       "recomp  recomp     recomp"
       "check   check      check";
-    grid-template-columns: 1fr 1fr auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
     margin-block-end: var(--s3);
     padding: var(--s4) var(--s3);
   }
+  /*
+   * Grid items may shrink below their content. `1fr` is `minmax(auto, 1fr)`
+   * and `auto` here is MIN-CONTENT, so each column refused to go narrower than
+   * its longest unbreakable word - "REGISTERED", a 44px-tall input - and the
+   * card measured 350px inside a 320px screen. It is the same `min-width: auto`
+   * trap this file already documents for `.app` and `.history-grid`, one level
+   * further in, and it only shows below 411px: at 411 there is enough room for
+   * the floors to be met and nothing overflows, which is why a phone-sized
+   * check passed while the harness's 320 and 360 did not.
+   */
+  .history-grid tr.row > * { min-inline-size: 0; }
 
   /*
    * A card is not a table row wearing a border.
