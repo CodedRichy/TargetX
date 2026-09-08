@@ -45,8 +45,80 @@ export const VIEWS: Array<{ id: View; label: string; hint: string; keys: string[
 
 // Home is the landing screen: the ledger answers "what are my marks", which is
 // a question a student only has after the one Home answers - "am I fine".
-const [view, setView] = createSignal<View>("home");
-export { view, setView };
+const [view, setViewSignal] = createSignal<View>("home");
+export { view };
+
+/**
+ * Navigation, and the Android Back button.
+ *
+ * The view was a bare signal that never touched the History API, and on a
+ * phone that is not a missing nicety - it is a broken platform contract.
+ * Measured on the device: navigate Home to Semester to History and
+ * `history.length` is still 1. So Back had nothing to pop, nothing to
+ * intercept it, and the system did what it does when an activity ignores
+ * Back - it quit the app. From any tab. With the Ask palette open and a
+ * half-typed question in it, Back threw the student out to the launcher
+ * instead of closing the palette, and the question went with it.
+ *
+ * Every view change now pushes a history entry, so Back walks back through
+ * the screens a student actually visited. `MainActivity.kt` is the other half:
+ * it hands the system Back to the WebView while the WebView has somewhere to
+ * go, and only lets it finish the activity when there is nothing left.
+ *
+ * Overlays sit on the same stack rather than a separate one, which is what
+ * makes Back mean "undo the last thing that happened" instead of "leave the
+ * screen, and never mind the modal on top of it".
+ */
+const overlays: Array<() => void> = [];
+
+/** Set while WE call `history.back()`, so the resulting event is not acted on twice. */
+let unwinding = 0;
+
+const inBrowser = typeof window !== "undefined" && typeof history !== "undefined";
+
+export function setView(next: View) {
+  if (view() === next) return;
+  setViewSignal(next);
+  if (inBrowser) history.pushState({ nav: "view", view: next }, "");
+}
+
+/**
+ * Open something Back should close - a palette, a sheet, a popover.
+ *
+ * The caller still owns its own open/closed signal; this only says what to run
+ * when the student presses Back, and adds the entry that gives Back something
+ * to consume. Pair every call with `closeOverlay` on the UI close path, or the
+ * history entry outlives the thing it belonged to.
+ */
+export function openOverlay(close: () => void) {
+  overlays.push(close);
+  if (inBrowser) history.pushState({ nav: "overlay" }, "");
+}
+
+/** The UI closed it by its own control; drop the entry Back would have used. */
+export function closeOverlay() {
+  if (!overlays.length) return;
+  overlays.pop();
+  if (inBrowser) { unwinding++; history.back(); }
+}
+
+if (inBrowser) {
+  // The entry the app opens on, so the first Back from Home has something
+  // truthful to land on rather than an empty state object.
+  history.replaceState({ nav: "view", view: "home" }, "");
+
+  window.addEventListener("popstate", (e) => {
+    if (unwinding > 0) { unwinding--; return; }
+
+    // An overlay is always the most recent thing on screen, so it goes first
+    // and the view underneath is left alone.
+    const close = overlays.pop();
+    if (close) { close(); return; }
+
+    const s = e.state as { nav?: string; view?: View } | null;
+    setViewSignal(s?.view ?? "home");
+  });
+}
 
 /** Setup steps, in order. `route` splits into the sync path or the manual one. */
 export type Step = "welcome" | "route" | "sync" | "manual" | "goal" | "done";

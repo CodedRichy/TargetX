@@ -5,7 +5,7 @@ import {
   selectSemester, semesterNames, setAttendanceTarget, setGoal, state, summary,
   targets,
 } from "../state/store";
-import { VIEWS, drawerOpen, needsSetup, setView, toggleDrawer, view } from "../state/nav";
+import { VIEWS, closeOverlay, drawerOpen, needsSetup, openOverlay, setView, toggleDrawer, view } from "../state/nav";
 import { isNarrow } from "../state/platform";
 import { ASSISTANT } from "../state/answers";
 import { appearance, setTheme, startTheme, theme } from "../state/theme";
@@ -676,7 +676,27 @@ export function App() {
   const [findings, setFindings] = createSignal<Finding[]>([]);
   const [dismissed, setDismissed] = createSignal(false);
   const [paletteOpen, setPaletteOpen] = createSignal(false);
-  usePaletteShortcut(() => setPaletteOpen(true));
+
+  /*
+   * The palette opens ON THE HISTORY STACK, so Android's Back closes it.
+   *
+   * Without this, Back with the palette open quit the app and took the
+   * half-typed question with it - the gesture every Android user reaches for
+   * to dismiss a modal, doing the one thing it must never do. `openOverlay`
+   * says what Back should run; `closeOverlay` drops the entry again when the
+   * student closes it by the palette's own control instead.
+   */
+  const openPalette = () => {
+    if (paletteOpen()) return;
+    setPaletteOpen(true);
+    openOverlay(() => setPaletteOpen(false));
+  };
+  const closePalette = () => {
+    if (!paletteOpen()) return;
+    setPaletteOpen(false);
+    closeOverlay();
+  };
+  usePaletteShortcut(openPalette);
   const [update, setUpdate] = createSignal<Available | null>(null);
   const [updateDismissed, setUpdateDismissed] = createSignal(false);
 
@@ -934,7 +954,7 @@ export function App() {
               are now visibly one object - and an object that said "Ask
               anything" at one size and "Ask Tex" at the other was telling the
               student it was two. */}
-          <button class="ask" onClick={() => setPaletteOpen(true)}
+          <button class="ask" onClick={openPalette}
                   aria-label={`Ask ${ASSISTANT} about your subjects, marks and attendance. Press Control K.`}>
             {/* Tex himself, rather than a magnifying glass. The button says
                 "Ask Tex" and opens an assistant, not a search - the glass was
@@ -1042,7 +1062,7 @@ export function App() {
         <Show when={view() === "history"}><History /></Show>
         <Show when={view() === "data"}><Data /></Show>
 
-        <Palette open={paletteOpen()} onClose={() => setPaletteOpen(false)} />
+        <Palette open={paletteOpen()} onClose={closePalette} />
         <SignedInToast />
 
         {/* The view tabs, for widths where the header cannot hold them. Always
