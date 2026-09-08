@@ -721,6 +721,25 @@
    * tappable: a bare min-height on a `select` leaves the hit area to the UA in
    * some engines, and the padding is honoured everywhere.
    */
+  /*
+   * A card cell wraps. The premise behind `nowrap` does not survive here.
+   *
+   * `nowrap` is set on the ledger's cells so the DESKTOP grid keeps one line
+   * per subject - on a table that is right, and the row is as wide as it needs
+   * to be. On a card each cell is a named grid area with a fixed share of
+   * 411px, and `nowrap` with `overflow: visible` means content longer than its
+   * area does not clip, does not ellipsise and does not wrap: it prints over
+   * its neighbour. Measured on the attendance cell: `scrollWidth 142` in a
+   * `clientWidth 131`, spilling 11px into ATT MK. Today the neighbour's
+   * padding absorbs it and nobody sees it, and today the cell reads "- /"
+   * because no attendance is recorded - with real counts in it the content
+   * grows by about four characters and the spill grows with it.
+   *
+   * Fixing the cell that happens to be over the line would leave the same trap
+   * set in thirteen others, so the premise is corrected instead.
+   */
+  .ledger tr.row > td { white-space: normal; }
+
   .ledger tr.row .cell-input,
   .ledger tr.row select.cell-input {
     min-block-size: 44px;
