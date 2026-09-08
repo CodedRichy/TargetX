@@ -84,11 +84,19 @@ export function GoalBar() {
   return (
     <div class="goalbar">
       <label for="goal">Target CGPA</label>
+      {/* Both of these are numbers a student types on a phone, and both were
+          missed when `inputmode` went onto the mark boxes - so the two fields
+          at the very top of the screen still raised an alphabetic keyboard.
+          `decimal` for each: a CGPA goal of 7.5 and an attendance target both
+          carry a fraction. Not `type="number"`, for the reason given on the
+          ledger cells - these hold a draft and the store reads it. */}
       <input id="goal" class="goal-input num" value={draft()} placeholder="8.0"
+             inputmode="decimal"
              onInput={(e) => commit(e.currentTarget.value)} />
 
       <label for="att-target">Target attendance</label>
       <input id="att-target" class="goal-input num" value={attDraft()} placeholder="85"
+             inputmode="decimal"
              title="Your own attendance target. Why 85 and not 75 is on the Targets tab."
              onInput={(e) => commitAtt(e.currentTarget.value)} />
 

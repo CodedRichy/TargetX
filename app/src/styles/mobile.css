@@ -234,6 +234,14 @@
      screen is. It earns more than the floor. */
   .head .ask { min-block-size: 48px; }
 
+  /* The last control left under the floor, and the one that arms the deletion
+     of a whole semester. It was 72x38. */
+  .sem-remove .link {
+    align-items: center;
+    display: inline-flex;
+    min-block-size: 44px;
+  }
+
   .goalbar .goal-input { min-block-size: 44px; }
 
   /*

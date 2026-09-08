@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createSignal } from "solid-js";
+import { For, Index, Show, createMemo, createSignal } from "solid-js";
 import {
   ATTENDANCE_CONDONE, ATTENDANCE_MIN, COURSE_TYPES, TARGET_CHOICES, TYPE_KEYS,
   isIncomplete, requiredEseCell, specFor, toOptionalFloat,
@@ -119,6 +119,43 @@ function missingInternal(ev: Evaluation): string {
  * "edit text" and nothing else. Making the prop mandatory means the type
  * checker, not a reviewer, is what catches the next unnamed box.
  */
+/**
+ * The attendance percentage, and the two lines it has to be read against.
+ *
+ * Lifted out of the row for a reason that is not tidiness. The row now hands
+ * its data down through an accessor (see the `Index` note on the subject
+ * loop), and `entry().row.ev.attendance` is a CALL - so TypeScript cannot
+ * narrow it: a `=== null` test on one call says nothing about the next one,
+ * and every comparison after it is an error. Taking the value as a prop makes
+ * it a single binding again, which is what the narrowing needs, and says what
+ * this cell is at the same time.
+ */
+function AttendancePct(props: { pct: number | null }) {
+  return (
+    <>
+      <AttendanceBar pct={props.pct} />{" "}
+      <span class="num" style={{
+        color: props.pct === null ? "var(--text-faint)"
+          : props.pct < ATTENDANCE_CONDONE ? "var(--danger)"
+          : props.pct < ATTENDANCE_MIN ? "var(--warn)" : "var(--text-dim)",
+      }}>{props.pct === null ? dash : `${props.pct.toFixed(0)}%`}</span>
+      {/* The colour on that figure is the only thing saying which side of the
+          two lines it falls, and the Status column does not always repeat it:
+          a course published as I or W reads INCOMPLETE there whatever its
+          attendance, so on those rows the colour is the sole carrier. Said in
+          words for everyone who cannot see it, quoting the same two constants
+          the colour uses. */}
+      <Show when={props.pct !== null && props.pct < ATTENDANCE_MIN}>
+        <span class="sr-only">
+          {props.pct! < ATTENDANCE_CONDONE
+            ? ` below the ${ATTENDANCE_CONDONE.toFixed(0)}% condonation floor`
+            : ` below the ${ATTENDANCE_MIN.toFixed(0)}% eligibility line`}
+        </span>
+      </Show>
+    </>
+  );
+}
+
 function Cell(props: {
   value: unknown; label: string; onInput: (v: string) => void;
   wide?: boolean; placeholder?: string;
@@ -531,9 +568,9 @@ export function Ledger() {
             </tr>
           </thead>
           <tbody>
-            <For each={zipped()}>{({ row, gap }) => (
+            <Index each={zipped()}>{(entry) => (
               <>
-                <tr class={`row${open() === row.index ? " open" : ""}`}>
+                <tr class={`entry().row${open() === entry().row.index ? " open" : ""}`}>
                   {/* A real `button`, not a `span` wearing `role="button"`.
                       The span handled Enter and not Space, which is half of
                       what the role it claimed promises, and it advertised no
@@ -543,16 +580,16 @@ export function Ledger() {
                       was. */}
                   <td class="left" data-col="code" data-label="Code">
                     <button type="button" class="code num"
-                            aria-expanded={open() === row.index}
-                            aria-controls={`detail-${row.index}`}
-                            onClick={() => toggle(row.index)}>
-                      {row.course.code || "SET CODE"}
+                            aria-expanded={open() === entry().row.index}
+                            aria-controls={`detail-${entry().row.index}`}
+                            onClick={() => toggle(entry().row.index)}>
+                      {entry().row.course.code || "SET CODE"}
                     </button>
                   </td>
-                  <td class="left title" data-col="course" data-label="Course">{row.course.name || dash}</td>
-                  <td class="num" data-col="credits" data-label="Cr">{show(row.ev.credits)}</td>
+                  <td class="left title" data-col="course" data-label="Course">{entry().row.course.name || dash}</td>
+                  <td class="num" data-col="credits" data-label="Cr">{show(entry().row.ev.credits)}</td>
                   <td class="num" data-col="cie" data-label="CIE">
-                    <Show when={row.ev.assessed}
+                    <Show when={entry().row.ev.assessed}
                           fallback={<span style={{ color: "var(--text-faint)" }}>{dash}</span>}>
                       {/* An internal missing a component mark or its
                           attendance figure is a floor, not a total, and the
@@ -562,45 +599,26 @@ export function Ledger() {
                           attendance is exactly today's mark, and marking it
                           would call a known number a guess. The required-mark
                           cells ask the other question. */}
-                      <Show when={row.ev.cieFloor}>
-                        <span class="bound" role="img" title={missingInternal(row.ev)}
-                              aria-label={missingInternal(row.ev)}>≥</span>
+                      <Show when={entry().row.ev.cieFloor}>
+                        <span class="bound" role="img" title={missingInternal(entry().row.ev)}
+                              aria-label={missingInternal(entry().row.ev)}>≥</span>
                       </Show>
-                      {show(row.ev.cie, 1)}
-                      <span style={{ color: "var(--text-faint)" }}>/{row.ev.cieMax}</span>
+                      {show(entry().row.ev.cie, 1)}
+                      <span style={{ color: "var(--text-faint)" }}>/{entry().row.ev.cieMax}</span>
                     </Show>
-                    <CieParts course={row.course} ev={row.ev} />
+                    <CieParts course={entry().row.course} ev={entry().row.ev} />
                   </td>
                   <td class="left" data-col="attendance" data-label="Attendance">
-                    <AttendanceBar pct={row.ev.attendance} />{" "}
-                    <span class="num" style={{
-                      color: row.ev.attendance === null ? "var(--text-faint)"
-                        : row.ev.attendance < ATTENDANCE_CONDONE ? "var(--danger)"
-                        : row.ev.attendance < ATTENDANCE_MIN ? "var(--warn)" : "var(--text-dim)",
-                    }}>{row.ev.attendance === null ? dash : `${row.ev.attendance.toFixed(0)}%`}</span>
-                    {/* The colour on that figure is the only thing saying
-                        which side of the two lines it falls, and the Status
-                        column does not always repeat it: a course published
-                        as I or W reads INCOMPLETE there whatever its
-                        attendance, so on those rows the colour is the sole
-                        carrier. Said in words for everyone who cannot see
-                        it, quoting the same two constants the colour uses. */}
-                    <Show when={row.ev.attendance !== null
-                                && row.ev.attendance < ATTENDANCE_MIN}>
-                      <span class="sr-only">
-                        {row.ev.attendance! < ATTENDANCE_CONDONE
-                          ? ` below the ${ATTENDANCE_CONDONE.toFixed(0)}% condonation floor`
-                          : ` below the ${ATTENDANCE_MIN.toFixed(0)}% eligibility line`}
-                      </span>
-                    </Show>
+                    <AttendanceBar pct={entry().row.ev.attendance} />{" "}
+                    <AttendancePct pct={entry().row.ev.attendance} />
                     {/* The counts the percentage is computed from. They existed
                         only as editable inputs inside the expanded row, so the
                         table stated a percentage on every row and showed the
                         working for none of them - and a student checking their
                         own figure had to open seven rows one at a time. */}
-                    <Show when={row.course.attended !== null && row.course.held !== null}>
+                    <Show when={entry().row.course.attended !== null && entry().row.course.held !== null}>
                       <span class="att-raw num">
-                        {toOptionalFloat(row.course.attended)}/{toOptionalFloat(row.course.held)}
+                        {toOptionalFloat(entry().row.course.attended)}/{toOptionalFloat(entry().row.course.held)}
                       </span>
                     </Show>
                   </td>
@@ -610,50 +628,50 @@ export function Ledger() {
                         instructs the next maintainer to spell out per-type
                         values - on that day a hardcoded 5 here would print
                         "4/5" for a course the engine scores out of 8. */}
-                    {show(row.ev.attMarks)}
+                    {show(entry().row.ev.attMarks)}
                     <span style={{ color: "var(--text-faint)" }}>
-                      /{specFor(row.course.type).attMax}
+                      /{specFor(entry().row.course.type).attMax}
                     </span>
                   </td>
                   <td data-col="ese" data-label="ESE">
-                    <Cell value={row.course.ese}
-                          label={`ESE mark, out of ${row.ev.eseMax}`}
-                          onInput={(v) => updateCourse(row.index, { ese: v })}
-                          placeholder={`/${row.ev.eseMax}`} />
+                    <Cell value={entry().row.course.ese}
+                          label={`ESE mark, out of ${entry().row.ev.eseMax}`}
+                          onInput={(v) => updateCourse(entry().row.index, { ese: v })}
+                          placeholder={`/${entry().row.ev.eseMax}`} />
                   </td>
-                  <td class="num" data-col="total" data-label="Total">{show(row.ev.total)}</td>
-                  <td data-col="grade" data-label="Gr" class={`grade${row.ev.grade === "F" ? " f" : ""}${
-                    row.ev.grade === "S" || row.ev.grade === "A+" ? " top" : ""}`}>
-                    {row.ev.grade ?? dash}
+                  <td class="num" data-col="total" data-label="Total">{show(entry().row.ev.total)}</td>
+                  <td data-col="grade" data-label="Gr" class={`grade${entry().row.ev.grade === "F" ? " f" : ""}${
+                    entry().row.ev.grade === "S" || entry().row.ev.grade === "A+" ? " top" : ""}`}>
+                    {entry().row.ev.grade ?? dash}
                   </td>
-                  <td data-col="pass" data-label="Pass"><Need need={row.ev.needPass} best={row.ev.needPassBest}
-                            applies={needApplies(row.ev)} /></td>
+                  <td data-col="pass" data-label="Pass"><Need need={entry().row.ev.needPass} best={entry().row.ev.needPassBest}
+                            applies={needApplies(entry().row.ev)} /></td>
                   <td class="left" data-col="target" data-label="Target">
-                    <select class="cell-input" aria-label="Target grade" value={row.ev.target}
-                            onChange={(e) => updateCourse(row.index, {
+                    <select class="cell-input" aria-label="Target grade" value={entry().row.ev.target}
+                            onChange={(e) => updateCourse(entry().row.index, {
                               target: e.currentTarget.value as Letter })}>
                       <For each={TARGET_CHOICES}>{(g) => <option value={g}>{g}</option>}</For>
                     </select>
                   </td>
-                  <td data-col="need" data-label="Need"><Need need={row.ev.needTarget} best={row.ev.needTargetBest}
-                            applies={needApplies(row.ev)} /></td>
+                  <td data-col="need" data-label="Need"><Need need={entry().row.ev.needTarget} best={entry().row.ev.needTargetBest}
+                            applies={needApplies(entry().row.ev)} /></td>
                   <td class="left" data-col="status" data-label="Status">
-                    <span class={`pill ${row.status.toLowerCase()}`}>{row.status}</span>
+                    <span class={`pill ${entry().row.status.toLowerCase()}`}>{entry().row.status}</span>
                   </td>
                   <td data-col="remove">
                     {/* The visible glyph IS the name unless one is given, so
                         without this a screen reader reads a row of buttons all
                         called "×". `title` does not win over text content. */}
                     <button class="del" title="Remove this subject"
-                            aria-label={`Remove ${row.course.name || row.course.code || "this subject"}`}
-                            onClick={() => removeCourse(row.index)}>&times;</button>
+                            aria-label={`Remove ${entry().row.course.name || entry().row.course.code || "this subject"}`}
+                            onClick={() => removeCourse(entry().row.index)}>&times;</button>
                   </td>
                 </tr>
-                <Show when={open() === row.index}>
-                  <Detail index={row.index} course={row.course} ev={row.ev} gap={gap} />
+                <Show when={open() === entry().row.index}>
+                  <Detail index={entry().row.index} course={entry().row.course} ev={entry().row.ev} gap={entry().gap} />
                 </Show>
               </>
-            )}</For>
+            )}</Index>
           </tbody>
         </table>
         </div>
