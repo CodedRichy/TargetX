@@ -382,10 +382,39 @@
    * on the desktop, where `order` never applies.
    */
   .head .sems {
-    flex: 1 1 auto;
+    /*
+     * Basis ZERO, not `auto`, and this is the whole reason the header used to
+     * take four rows at eight semesters.
+     *
+     * Flex decides where to BREAK a line using each item's base size, and only
+     * then shrinks what is on the line. With `flex-basis: auto` the strip's
+     * base size is its content - 379px at eight chips - against 239px of free
+     * space on the controls row. So it never got the chance to shrink: it
+     * wrapped first, and because it precedes the account in source order,
+     * wrapping pushed the account onto a THIRD row, alone. Measured at eight
+     * semesters: a 273px header, 30% of the screen before any content, with
+     * row one 74% empty and row three 86% empty - two nearly blank rows
+     * created by three buttons that fit comfortably on one.
+     *
+     * A zero basis makes the strip fit any row, then grow into whatever is
+     * left, and eight semesters scroll INSIDE it exactly as the comment above
+     * always intended. Which was the intent all along; `auto` was the bug.
+     */
+    flex: 1 1 0;
     min-inline-size: 0;
     overflow-x: auto;
   }
+
+  /*
+   * The account's auto margin has to go WHEN THE STRIP IS THERE, or it undoes
+   * the line above: an auto margin absorbs free space before flex-grow ever
+   * sees it, so the strip would grow to zero and the gap would reappear as
+   * margin. The strip growing is what pushes the account to the edge now.
+   *
+   * Scoped by sibling rather than removed, because History and Data do not
+   * render a strip and still need the margin to put the account on the right.
+   */
+  .head .sems ~ .profile { margin-inline-start: 0; }
 
   .head .ask {
     /*
