@@ -570,7 +570,7 @@ export function Ledger() {
           <tbody>
             <Index each={zipped()}>{(entry) => (
               <>
-                <tr class={`entry().row${open() === entry().row.index ? " open" : ""}`}>
+                <tr class={`row${open() === entry().row.index ? " open" : ""}`}>
                   {/* A real `button`, not a `span` wearing `role="button"`.
                       The span handled Enter and not Space, which is half of
                       what the role it claimed promises, and it advertised no
