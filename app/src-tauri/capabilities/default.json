@@ -20,6 +20,7 @@
     "fs:allow-mkdir",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
+    "dialog:allow-save",
     "fs:allow-copy-file",
     "fs:allow-rename",
     "fs:scope-appdata",

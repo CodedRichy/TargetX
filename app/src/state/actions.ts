@@ -9,6 +9,7 @@ import type { SyncResult } from "../sync/etlab";
 import type { GradeCard } from "../sync/gradecard";
 import { parseGradeCard } from "../sync/gradecard";
 import { endKtuSession, fetchKtuGradeCard } from "../sync/ktu";
+import { isAndroid } from "./platform";
 import { edit, migrateHistory, state } from "./store";
 
 /**
@@ -358,13 +359,75 @@ export function exportJson(): string {
   return JSON.stringify(unwrap(state), null, 2);
 }
 
-export function download(filename: string, text: string, type = "application/json") {
+/**
+ * Hand the student a file, on a platform that will actually take it.
+ *
+ * The anchor below is the whole of this on desktop and does nothing at all on
+ * Android. WebView routes a download through `DownloadListener`, which is
+ * never called for a `blob:` URL - there is no network request for it to
+ * report - so `link.click()` returned, no file appeared, and Export backup
+ * looked like a button that worked. Confirmed on a phone: clicked it, watched
+ * `/sdcard/Download`, nothing arrived.
+ *
+ * Nor can the app write to Downloads itself. Scoped storage means an app's
+ * reach ends at its own sandbox, and a backup written there is one the student
+ * cannot get to and that the OS deletes with the app - the opposite of the
+ * promise this feature makes ("your data is a file you own"). Everything
+ * outside the sandbox goes through the Storage Access Framework: a system
+ * picker, the student choosing the destination, the app never learning where
+ * anything else lives.
+ *
+ * So the platforms take different routes to the same guarantee, and the branch
+ * is `isAndroid` rather than a `try`/`catch` around the anchor, because the
+ * anchor does not throw on Android - it succeeds silently, which is the bug.
+ *
+ * Async now, and the callers do not await it. Nothing downstream depends on
+ * the file existing, and on Android the promise stays open for as long as the
+ * student takes to choose a folder, which is not a thing to block a click
+ * handler on. Failures are returned rather than thrown for the same reason:
+ * cancelling the picker is a normal answer, not an error.
+ */
+export async function download(filename: string, text: string,
+                               type = "application/json"): Promise<boolean> {
+  if (isAndroid()) return saveThroughPicker(filename, text);
+
   const url = URL.createObjectURL(new Blob([text], { type }));
   const link = document.createElement("a");
   link.href = url;
   link.download = filename;
+  // In the document, and revoked on the next turn rather than on this one.
+  // Firefox ignores a click on a detached anchor, and revoking synchronously
+  // races the browser's own read of the blob - both are real reports against
+  // the three-line version of this, and neither costs anything to avoid.
+  link.style.display = "none";
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => { link.remove(); URL.revokeObjectURL(url); }, 0);
+  return true;
+}
+
+/**
+ * The Android half: a system Save-as, then a write to whatever came back.
+ *
+ * Both plugins are imported lazily. They are dead weight in the browser build
+ * the tests run in, and `persist.ts` already loads `plugin-fs` this way for
+ * the same reason.
+ */
+async function saveThroughPicker(filename: string, text: string): Promise<boolean> {
+  try {
+    const [{ save }, { writeTextFile }] = await Promise.all([
+      import("@tauri-apps/plugin-dialog"),
+      import("@tauri-apps/plugin-fs"),
+    ]);
+    const path = await save({ defaultPath: filename });
+    // Null is the student closing the picker. Not a failure, and not something
+    // to tell them about - they just did it on purpose.
+    if (!path) return false;
+    await writeTextFile(path, text);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

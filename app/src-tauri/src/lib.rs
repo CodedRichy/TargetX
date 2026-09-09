@@ -95,6 +95,23 @@ pub fn run() {
     // GitHub URLs and nothing else, so a hostile page in this webview can ask
     // for the issue tracker and cannot ask for anything at all beyond it.
     .plugin(tauri_plugin_opener::init())
+    // Saving a backup where the student can actually find it.
+    //
+    // On desktop an `<a download>` writes to the Downloads folder and that is
+    // the end of it. On Android the same call silently does nothing: WebView
+    // never fires its download path for a `blob:` URL, so Export backup was a
+    // button that ran, reported success by saying nothing, and produced no
+    // file. Measured on a phone, not assumed. And the app cannot simply write
+    // to Downloads itself - since scoped storage everything outside the
+    // sandbox goes through the Storage Access Framework, which means a system
+    // picker, which means this plugin.
+    //
+    // Scoped to `save` in the capability: a file the student names, in a place
+    // the student picked, through a dialog this app does not draw. `open` is
+    // deliberately NOT granted - nothing here needs to read arbitrary files,
+    // and this webview also renders a college portal's HTML (see the note on
+    // `opener` above), which is the reason to keep the grant to one verb.
+    .plugin(tauri_plugin_dialog::init())
     // Registered unconditionally, and outside `setup`, so that anything which
     // fails during setup is itself logged. It used to be inside a
     // `debug_assertions` check, which meant the only builds that recorded a
