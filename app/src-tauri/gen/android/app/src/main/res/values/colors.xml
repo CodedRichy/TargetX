@@ -7,4 +7,7 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <!-- Behind the adaptive launcher icon. The foreground is full-bleed, so
+         this only shows if a launcher mask ever exposes a corner. -->
+    <color name="ic_launcher_background">#FFFFFFFF</color>
 </resources>
