@@ -289,6 +289,30 @@
   .goalbar .goal-input { min-block-size: 44px; }
 
   /*
+   * The floor reaches Data, which it never did.
+   *
+   * The rule above was written against the ledger's controls and stopped
+   * there, so every interactive thing on the Data screen stayed at its desktop
+   * size: buttons 38px, `<summary>` 28px, the segmented pair 30px. That screen
+   * holds "Erase everything" (38x142) beside "Restore backup" (38x135) - the
+   * two controls in this app that can destroy a student's whole record, both
+   * under the floor, adjacent, and a thumb's width apart.
+   *
+   * `min-block-size` rather than `height`, matching the reasoning already in
+   * this file: a control that needs more room keeps it. `.more > summary`
+   * takes the inline-flex because its `::before { content: "+ " }` marker
+   * otherwise sits at the top of the grown box rather than centred in it.
+   */
+  .setup-actions button,
+  .more > summary,
+  .seg button {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    min-block-size: 44px;
+  }
+
+  /*
    * The view tabs move to a bottom bar, within thumb reach, so they leave the
    * header entirely rather than being shrunk into illegibility. Hidden here,
    * rendered there - see `.tabbar` below.
