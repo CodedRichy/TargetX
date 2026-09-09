@@ -1,4 +1,4 @@
-import { For, Index, Show, createMemo, createSignal } from "solid-js";
+import { For, Index, Show, createEffect, createMemo, createSignal } from "solid-js";
 import {
   ATTENDANCE_CONDONE, ATTENDANCE_MIN, COURSE_TYPES, TARGET_CHOICES, TYPE_KEYS,
   isIncomplete, requiredEseCell, specFor, toOptionalFloat,
@@ -426,7 +426,7 @@ function Detail(props: {
                     </Show>
                     <Show when={passCell().shown.binding === "cutoff"}>
                       {" "}- and that is the 40% exam minimum, so a higher CIE will not
-                      lower it.
+                      lower it
                     </Show>
                   </Show>.
                 </Show>
@@ -472,16 +472,30 @@ function CieParts(props: { course: Course; ev: Evaluation }) {
   const parts = () =>
     COURSE_TYPES[(props.course.type ?? "TH 40/60") as TypeKey].components.map((c) => {
       const raw = toOptionalFloat(props.course[c.key]);
-      const short = c.header.startsWith("Series")
-        ? `S${c.header.replace(/\D/g, "")}`
-        : c.header.charAt(0).toUpperCase();
+      // Initial, plus any trailing number - and the number is the whole point.
+      // This read `startsWith("Series")`, which no header has ever begun with:
+      // they are authored short already ("S1", "S2", "Asg"). So every header
+      // fell to the initial alone and the line printed "S 38 . S 31", labelling
+      // Series 1 and Series 2 identically - on a breakdown that exists ONLY to
+      // say which of the two series is the weak one. The `title` carried the
+      // full names, which a phone has no way to ask for.
+      const digits = /\d+$/.exec(c.header);
+      const short = c.header.charAt(0).toUpperCase() + (digits ? digits[0] : "");
       return { short, header: c.header, rawMax: c.rawMax,
                mark: raw === null ? dash : String(Math.round(raw)) };
     });
   const anyMarked = () => parts().some((p) => p.mark !== dash);
+  // `assessed` is true on a course whose internal is a PUBLISHED total, and
+  // there the components were never entered - so the line came out "S1 - . S2 -
+  // . Asg -" beside a CIE of 33/40, telling a student their series marks are
+  // missing when the college has already totalled them. Nothing to break down
+  // means no breakdown.
+  const published = () =>
+    props.course.cie_override !== "" && props.course.cie_override != null;
 
   return (
-    <Show when={showsComponents() && parts().length > 0 && (anyMarked() || props.ev.assessed)}>
+    <Show when={showsComponents() && parts().length > 0
+                && (anyMarked() || (props.ev.assessed && !published()))}>
       <div class="cie-parts"
            title={parts().map((p) => `${p.header} ${p.mark}/${p.rawMax}`).join(" · ")}>
         <For each={parts()}>{(p, i) => (
@@ -498,6 +512,29 @@ function CieParts(props: { course: Course; ev: Evaluation }) {
 export function Ledger() {
   const [open, setOpen] = createSignal<number | null>(null);
   const toggle = (i: number) => setOpen(open() === i ? null : i);
+
+  /**
+   * The open panel names a POSITION, and positions move.
+   *
+   * `row.index` is where a course sits in the list, not which course it is -
+   * there is no stable id to key on, because a code can be blank or repeated.
+   * So removing any subject above the open one, or removing the open one
+   * itself, or switching semester, left the panel open at the same NUMBER over
+   * a different subject: press "x" on Computer Networks and Networks Lab's
+   * edit boxes silently take the open row's place, holding another course's
+   * marks under a cursor that has not moved. Measured, not theorised - the
+   * detail's `previousElementSibling` was a different course code after each
+   * of the three.
+   *
+   * Closing is the honest answer to "the list you were pointing into is no
+   * longer that list". Adding a subject closes it too, which costs one press
+   * and cannot ever show the wrong course.
+   */
+  createEffect(() => {
+    state.activeSemester;
+    activeCourses().length;
+    setOpen(null);
+  });
 
   /**
    * Rows paired with their attendance gaps in ONE pass.
