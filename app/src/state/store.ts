@@ -385,9 +385,23 @@ export function selectSemester(name: string) {
  * could not see: with S1 and S3 present, `length + 1` is S3, which already
  * exists, so the button silently selected an existing semester instead of
  * adding one. The lowest unused slot is the thing actually being asked for.
+ *
+ * Wrong a third way, until now: a semester can be taken WITHOUT being in
+ * `state.semesters`. Importing a grade card files finished semesters under
+ * `state.history`, which is the normal route for anyone who does not start
+ * using this app in their first week - they sync, four published semesters
+ * land in history, one working semester exists, and the button read "Add S1".
+ * S1 is not next for that student; it is four semesters behind them, and
+ * accepting the offer would have opened an empty S1 beside the S1 they had
+ * already passed.
+ *
+ * So a slot counts as taken if EITHER map has it. The two are asked together
+ * rather than merged, because they mean different things - `semesters` is
+ * work in progress, `history` is a published result - and the only question
+ * here is whether the number is spoken for at all.
  */
 export const nextSemester = createMemo<string | null>(() => {
-  const taken = new Set(semesterNames());
+  const taken = new Set([...semesterNames(), ...Object.keys(state.history)]);
   for (let n = 1; n <= PROGRAMME_SEMESTERS; n += 1) {
     if (!taken.has(`S${n}`)) return `S${n}`;
   }

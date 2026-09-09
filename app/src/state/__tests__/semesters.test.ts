@@ -50,6 +50,22 @@ describe("the programme ends at S8", () => {
     addSemester();
     expect(semesterNames()).toEqual(["S1", "S2", "S3"]);
   });
+
+  it("counts published semesters as taken, not as missing", () => {
+    // The shape of anyone who does not start using this app in their first
+    // week: they sync, four finished semesters land in `history`, and exactly
+    // one working semester exists. Counting only `semesters` offered "Add S1"
+    // to a student in S5 - four semesters behind them, and accepting it would
+    // have opened an empty S1 beside the S1 they had already passed.
+    reset(["S5"], "S5");
+    edit((s) => {
+      s.history = {
+        S1: { sgpa: 7.1, credits: 22 }, S2: { sgpa: 7.4, credits: 21 },
+        S3: { sgpa: 6.9, credits: 23 }, S4: { sgpa: 7.8, credits: 22 },
+      } as never;
+    });
+    expect(nextSemester()).toBe("S6");
+  });
 });
 
 describe("a semester can be removed", () => {
