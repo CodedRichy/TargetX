@@ -814,6 +814,24 @@ export function App() {
    * would land an X the width of the whole tab, centred between the icon and
    * the word. The icon's own rect is where the eye expects the mark to stop.
    *
+   * And on a phone that icon is now the mark itself: the Home tab wears the
+   * app's X in its green tile (`.tabmark`, TabBar.tsx). When it did not - when
+   * the tab held a house - this code had to dissolve the X in the last frames,
+   * because there is no way to hand an X over to a different drawing. That
+   * dissolve is now WRONG, and it is what made the opening look broken on the
+   * phone: the mark faded out on approach and the tile it was flying into lit
+   * up separately, so the landing read as two events instead of one. The mark
+   * inside the tile is asked FOR ITS OWN RECT and reported as holding the mark,
+   * which puts the phone on exactly the header's path - the flyer stops on a
+   * drawing identical to itself, and the swap is invisible.
+   *
+   * `.tabmark > svg` rather than `.tabmark`: the tile is a 32px green square
+   * and the drawing inside it is 19px. Flying to the square would land an X
+   * the full size of the tile, overhanging the mark that is about to appear
+   * beneath it. The tile stays visible throughout either way - only its mark
+   * is held back (`.boot ~ .app .tabmark > svg`, motion.css), the same trick
+   * `.homebtn.waiting > svg` plays in the header.
+   *
    * The Home tab is found through `VIEWS` rather than as `:first-child`,
    * because `TabBar` renders that array in order and the order is that file's
    * to change.
@@ -829,6 +847,12 @@ export function App() {
 
     const i = VIEWS.findIndex((v) => v.id === "home");
     const tab = i < 0 ? null : document.querySelectorAll(".tabbar button")[i];
+
+    const mark = usable(tab?.querySelector(".tabmark > svg"));
+    if (mark) return { rect: mark, holdsTheMark: true };
+
+    // No tile: an older markup, or a Home tab drawn as something else. Fly to
+    // whatever glyph is there and dissolve on arrival (below).
     const icon = usable(tab?.querySelector("svg") ?? tab);
     return icon ? { rect: icon, holdsTheMark: false } : null;
   };

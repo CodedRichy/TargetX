@@ -17,7 +17,7 @@
  * the same problem and gets exactly the same answer, and one code path that
  * both platforms take is one that cannot rot on the platform nobody tests.
  */
-import { For } from "solid-js";
+import { For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { VIEWS, setView, view } from "../state/nav";
 import { Mark } from "./Mark";
@@ -47,7 +47,7 @@ const ICONS: Record<View, () => JSX.Element> = {
    * square. `mobile.css` styles it to match.
    */
   home: () => (
-    <span class="tabmark" aria-hidden="true"><Mark size={13} /></span>
+    <span class="tabmark" aria-hidden="true"><Mark size={19} /></span>
   ),
   // A mark sheet: lines of a table.
   ledger: () => (
@@ -91,10 +91,26 @@ export function TabBar() {
         return (
           <button type="button"
                   aria-current={view() === v.id}
+                  aria-label={v.label}
                   title={v.hint}
                   onClick={() => setView(v.id)}>
             <Icon />
-            <span class="tabbar-label">{v.label}</span>
+            {/*
+              * Home is the mark alone, no word under it.
+              *
+              * The other four need their labels: a table, a calendar, a clock
+              * and a stack are generic glyphs that could mean several things
+              * each. The mark could not - it is the one icon here that names
+              * itself, and the desktop header draws it the same way, as a
+              * tile with nothing written beneath it.
+              *
+              * `aria-label` moved onto the button above so the tab keeps its
+              * accessible name once the visible text is gone; the label is
+              * decoration for the other four, not the name.
+              */}
+            <Show when={v.id !== "home"}>
+              <span class="tabbar-label">{v.label}</span>
+            </Show>
           </button>
         );
       }}</For>

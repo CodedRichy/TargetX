@@ -82,26 +82,27 @@ class MainActivity : TauriActivity() {
     webView.isHorizontalScrollBarEnabled = false
 
     /*
-     * Let the page hear that the system is in dark mode.
+     * NEVER let the platform repaint this app.
      *
-     * WebView does not pass the app night mode through to
-     * `prefers-color-scheme` on its own. Without this the media query answered
-     * "light" on a phone whose system theme was dark, `theme.ts` resolved
-     * "system" to its LIGHT palette, and the OS then algorithmically darkened
-     * the light pixels it got - so the app rendered in colours nobody chose.
-     * Measured on device: computed `--surface-1` was `oklch(0.99 ...)` while
-     * the screenshot was black, and the tab bar's selected item came out
-     * DARKER (L 0.43) than its unselected neighbours (L 0.505), which is the
-     * inversion reading backwards.
+     * `setAlgorithmicDarkeningAllowed(true)` was tried first, as the
+     * documented way to make `prefers-color-scheme` follow the app's night
+     * mode. It did not do that here - measured after a cold start, with the
+     * activity configuration reporting `night` and the call confirmed in the
+     * shipped dex, the media query still said `light`. What it DID do was
+     * give the system permission to invert: with the phone in dark mode and
+     * the student having chosen LIGHT in the app, the page declared
+     * `color-scheme: light`, WebView darkened it anyway, and light mode came
+     * out as neither theme. That is a worse failure than the one it was
+     * meant to fix, because it overrides a choice the student made on
+     * purpose.
      *
-     * Allowing algorithmic darkening is what switches that off, despite the
-     * name: once the page declares `color-scheme` - which `tokens.css` does,
-     * in both blocks - WebView stops inverting anything and reports the real
-     * scheme instead, leaving the app's own contrast-tested dark palette to do
-     * the work.
+     * So darkening is refused outright and the scheme is carried below, in
+     * the user agent, where this app decides its own colours in every case:
+     * system dark with "System" selected gives the dark palette; system dark
+     * with "Light" selected gives the light one, unmolested.
      */
     if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-      WebSettingsCompat.setAlgorithmicDarkeningAllowed(webView.settings, true)
+      WebSettingsCompat.setAlgorithmicDarkeningAllowed(webView.settings, false)
     }
 
     /*

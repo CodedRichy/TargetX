@@ -707,6 +707,37 @@
    */
   .setup-actions { flex-wrap: wrap; }
   .setup-actions > button { flex: 0 0 auto; }
+
+  /*
+   * The curriculum picker, at a width KTU's own names never anticipated.
+   *
+   * Branch and Semester sit on one row with a running subject count, sized by
+   * `flex: 0 1 34ch` for an 816px desktop row. At 411px that basis collapses
+   * and the branch select clipped its value mid-word - "Computer Sci" - which
+   * is the one control that decides which subjects the student is even shown.
+   * Each field takes the full width instead, and the count moves to its own
+   * line rather than competing for the remainder.
+   */
+  .picker-controls { flex-wrap: wrap; }
+  .picker-controls > label:first-child { flex: 1 1 100%; }
+  .picker-controls > .fineprint { margin-left: 0; }
+
+  /*
+   * Subject names wrap rather than truncate.
+   *
+   * `.pick-name` is `nowrap` with an ellipsis, which is the right call in a
+   * wide row and the wrong one here: beside a checkbox, an optional "choose
+   * one" pill and a credit count, the name had the least room and lost most
+   * of itself - "Mathematics for Informatio...". The student is picking BY
+   * that name, so it is the last thing that should be abbreviated. Rows grow
+   * to two lines where they need to; the list already scrolls.
+   */
+  .picks .pick-name {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+  .picks li { align-items: flex-start; }
   .setup-head {
     flex-wrap: wrap;
     gap: var(--s3);
@@ -1505,10 +1536,24 @@
    */
   .tabbar .tabmark {
     background: var(--brand);
-    block-size: 22px;
-    border-radius: 7px;
+    /*
+     * The same corner as the desktop's `.homebtn`, via the same token.
+     *
+     * This was 7px on a 22px tile, against the desktop's 6px on a 2.1rem one
+     * - proportionally almost twice as round, which is why the two stopped
+     * reading as one object despite being the same drawing. The radius is
+     * shared now, so the tile cannot drift again when the token moves.
+     */
+    border-radius: var(--radius-lg);
+    /*
+     * Larger, because the word underneath is gone. The other four tabs stack
+     * a 22px glyph over a 10px label; a lone 22px tile would centre in that
+     * height and sit visibly lower than its neighbours' icons. At 32px it
+     * occupies about what icon-plus-label does, so the row stays level.
+     */
+    block-size: 32px;
+    inline-size: 32px;
     display: grid;
-    inline-size: 22px;
     place-items: center;
   }
   /* The strokes are white on the tile whatever the tab's own colour is doing,

@@ -176,7 +176,16 @@ button.link.back { display: block; margin-bottom: var(--s4); }
   font-size: var(--text-sm);
   gap: var(--s2);
 }
-.remember input { accent-color: var(--brand); cursor: pointer; }
+/*
+ * Checkboxes and radios are drawn by the operating system, and its default
+ * is the OS accent - on Android, a blue that appears nowhere else in this
+ * app. Only `.remember` had ever said otherwise, so the curriculum picker in
+ * setup - nine ticked rows, the densest run of controls a new student sees -
+ * rendered in system blue against a teal palette. Set once, for every box.
+ */
+input[type="checkbox"],
+input[type="radio"] { accent-color: var(--brand); }
+.remember input { cursor: pointer; }
 
 label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
 

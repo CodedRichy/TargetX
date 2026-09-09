@@ -180,6 +180,15 @@ button:active:not(:disabled) { transform: translateY(1px); }
    header does not reflow when the animation finishes. */
 .homebtn.waiting > svg { opacity: 0; }
 
+/* The same hand-off on the bottom bar, where the phone's Home control lives.
+   The tile is the destination and stays lit the whole way; the drawing inside
+   it waits, so the flyer arrives on an empty tile and simply becomes its mark.
+   Keyed off `.boot` being in the document rather than off a `waiting` class,
+   because `TabBar` does not know the boot phase and should not have to be told
+   - `.boot` is a sibling of `.app`, and it is removed at exactly the moment the
+   mark should appear. */
+.boot ~ .app .tabbar .tabmark > svg { opacity: 0; }
+
 /* --- inline busy ---------------------------------------------------------- */
 
 .busy {
