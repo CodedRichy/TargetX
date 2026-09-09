@@ -35,8 +35,18 @@ import { seed, serve } from "./seed.mjs";
 const WIDTHS = [320, 360, 411, 430];
 const HEIGHT = 900;
 
-/** Screens reachable from the nav, by their accessible button name. */
-const SCREENS = ["Home", "Semester", "Attendance", "History", "Data"];
+/**
+ * Screens reachable from the nav, by their accessible button name.
+ *
+ * Every view in `state/nav.ts`, and it has to stay that way. Schemes arrived
+ * from the desktop branch as a 430-line screen with tables, a two-column
+ * authoring form and a file picker, and this list did not mention it - so the
+ * gate went green four widths running without ever having drawn it. A missing
+ * name here does not fail; it silently narrows what "no horizontal overflow at
+ * any tested width" means, which is the one sentence this tool exists to be
+ * able to say.
+ */
+const SCREENS = ["Home", "Semester", "Attendance", "History", "Data", "Schemes"];
 
 /**
  * Setup is measured separately, and it is not optional.

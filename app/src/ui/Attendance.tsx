@@ -1,6 +1,5 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import {
-  ATTENDANCE_CONDONE, ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN,
   attendanceMarks, courseLabel, daywiseBySubject, monthLabel, monthsHeld,
   toOptionalFloat,
 } from "../engine";
@@ -10,6 +9,7 @@ import type {
 import { isNarrow } from "../state/platform";
 import { rows, state } from "../state/store";
 import { setView } from "../state/nav";
+import { activeProfile, fullMarksPct } from "../state/schemes";
 
 /**
  * Attendance.
@@ -85,10 +85,10 @@ export function Attendance() {
         <div>
           <h2>How many classes can you miss?</h2>
           <p class="lede">
-            {state.activeSemester} · the room you have above the {ATTENDANCE_MIN}%
+            {state.activeSemester} · the room you have above the {activeProfile().attendanceMin}%
             eligibility line, per subject. The meter marks both lines that
-            matter: {ATTENDANCE_MIN}% to sit the exam, and{" "}
-            {ATTENDANCE_FULL_MARKS_PCT}% to stop losing internal marks.
+            matter: {activeProfile().attendanceMin}% to sit the exam, and{" "}
+            {fullMarksPct()}% to stop losing internal marks.
           </p>
         </div>
       </div>
@@ -735,9 +735,10 @@ function TimetableDayList(props: { days: TimetableDay[]; cols: number }) {
 /**
  * Where a percentage stands against KTU's two attendance lines, drawn once.
  *
- * The two lines are the point. `ATTENDANCE_MIN` (75) is eligibility - below it
- * the exam cannot be sat - and `ATTENDANCE_FULL_MARKS_PCT` (85) is where R
- * 7.5.ii finally pays all five internal marks. The band between them is the
+ * The two lines are the point. `activeProfile().attendanceMin` (75 under KTU
+ * 2024) is eligibility - below it the exam cannot be sat - and
+ * `ATTENDANCE_FULL_MARKS_PCT` (85) is where R 7.5.ii finally pays all five
+ * internal marks. The band between them is the
  * figure this whole app exists to surface: a student sitting at 78% is
  * "fine" by the only number their college quotes them, and is losing internal
  * marks every week for it.
@@ -750,27 +751,34 @@ function TimetableDayList(props: { days: TimetableDay[]; cols: number }) {
 function ThresholdMeter(props: { current: number }) {
   const pct = () => Math.max(0, Math.min(100, props.current));
   const tone = () => (
-    pct() >= ATTENDANCE_FULL_MARKS_PCT ? "" :
-    pct() >= ATTENDANCE_MIN ? " warn" : " bad"
+    pct() >= fullMarksPct() ? "" :
+    pct() >= activeProfile().attendanceMin ? " warn" : " bad"
   );
   /** What R 7.5.ii pays at this percentage. Engine-computed, never guessed. */
   const earned = () => attendanceMarks(pct()) ?? 0;
   const label = () =>
-    `Attendance ${pctText(pct())}%. Eligibility line ${ATTENDANCE_MIN}%. `
-    + `Full internal marks from ${ATTENDANCE_FULL_MARKS_PCT}%. `
-    + `Currently earning ${earned()} of ${ATTENDANCE_MARK_MAX} attendance marks.`;
+    `Attendance ${pctText(pct())}%. Eligibility line ${activeProfile().attendanceMin}%. `
+    + `Full internal marks from ${fullMarksPct()}%. `
+    + `Currently earning ${earned()} of ${activeProfile().attendanceMarkMax} attendance marks.`;
 
   return (
     <div class="meter">
       <div class="meter-track" role="img" aria-label={label()}>
-        {/* The bleed zone: eligible, but not earning full marks. */}
+        {/* The bleed zone: eligible, but not earning full marks.
+            Under KTU the eligibility line (75) sits below the full-marks line
+            (85) and this band is the gap between them. A profile is free to
+            put them the other way round - a college can demand 88% to sit the
+            exam while still paying full marks from 85 - and that is a real
+            scheme, not a mistake worth refusing. So the band is clamped rather
+            than validated away: a negative width is not a CSS length, and
+            leaving it computed would silently drop the band entirely. */}
         <span class="meter-band" style={{
-          left: `${ATTENDANCE_MIN}%`,
-          width: `${ATTENDANCE_FULL_MARKS_PCT - ATTENDANCE_MIN}%`,
+          left: `${Math.min(activeProfile().attendanceMin, fullMarksPct())}%`,
+          width: `${Math.abs(fullMarksPct() - activeProfile().attendanceMin)}%`,
         }} />
         <span class={`meter-fill${tone()}`} style={{ "inline-size": `${pct()}%` }} />
-        <span class="meter-mark" style={{ left: `${ATTENDANCE_MIN}%` }} />
-        <span class="meter-mark strong" style={{ left: `${ATTENDANCE_FULL_MARKS_PCT}%` }} />
+        <span class="meter-mark" style={{ left: `${activeProfile().attendanceMin}%` }} />
+        <span class="meter-mark strong" style={{ left: `${fullMarksPct()}%` }} />
       </div>
       {/* The right end prices the position in the unit that actually moves the
           student's grade. Repeating the 85% constant on every card said the
@@ -780,7 +788,7 @@ function ThresholdMeter(props: { current: number }) {
       <div class="meter-ends">
         <span class="num">{pctText(pct())}%</span>
         <span>
-          <strong class="num">{earned()}</strong> of {ATTENDANCE_MARK_MAX} marks
+          <strong class="num">{earned()}</strong> of {activeProfile().attendanceMarkMax} marks
         </span>
       </div>
     </div>
@@ -850,10 +858,10 @@ function SubjectCard(props: { line: Line }) {
               <p class="tile-verdict bad">
                 <Show when={p().attend !== null} fallback={
                   <>At {pctText(p().current)}% there is no way back above{" "}
-                    {ATTENDANCE_MIN}% this semester.</>
+                    {activeProfile().attendanceMin}% this semester.</>
                 }>
                   At <strong class="num">{pctText(p().current)}%</strong> — below the{" "}
-                  {ATTENDANCE_MIN}% line. Attend the next{" "}
+                  {activeProfile().attendanceMin}% line. Attend the next{" "}
                   <strong class="num">{p().attend}</strong> without missing one to get back.
                 </Show>
                 {/*
@@ -866,13 +874,13 @@ function SubjectCard(props: { line: Line }) {
                  * Above 60% a shortage is a fee and a form; below it R 6.2
                  * gives no appeal at all, and a student reading a recovery
                  * count has no way to tell which of those they are in. The
-                 * engine already knows - `ATTENDANCE_CONDONE` is the line
+                 * engine already knows - `attendanceCondone` is the line
                  * `isDebarred` is drawn from - and the recovery number stays
                  * on screen because it is still true and still what they must
                  * do; it is now said next to what it cannot fix on its own.
                  */}
-                <Show when={p().current < ATTENDANCE_CONDONE}>
-                  {" "}Also below the <strong class="num">{ATTENDANCE_CONDONE}%</strong>{" "}
+                <Show when={p().current < activeProfile().attendanceCondone}>
+                  {" "}Also below the <strong class="num">{activeProfile().attendanceCondone}%</strong>{" "}
                   floor R 6.2 lets the Principal condone — under that line there
                   is no appeal, so getting back over it is the first thing this
                   count has to buy.
@@ -881,7 +889,7 @@ function SubjectCard(props: { line: Line }) {
             }>
               <p class="tile-verdict">
                 At <strong class="num">{pctText(p().current)}%</strong>. Miss more than{" "}
-                <strong class="num">{p().skip}</strong> and you drop below {ATTENDANCE_MIN}%.
+                <strong class="num">{p().skip}</strong> and you drop below {activeProfile().attendanceMin}%.
               </p>
             </Show>
           </>

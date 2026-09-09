@@ -1,15 +1,17 @@
 import { attendanceMarks, effectiveAttendance } from "./attendance";
-import { COURSE_TYPES, DEFAULT_TYPE, ESE_PASS_FRACTION } from "./constants";
+import { activeScheme, courseTypes } from "./scheme";
 import type { Course, CourseSpec, MarkInput, TypeKey } from "./types";
 import { ceil, clamp, round, toOptionalFloat } from "./util";
 
-export const specFor = (typeKey: TypeKey | undefined): CourseSpec =>
-  COURSE_TYPES[typeKey as TypeKey] ?? COURSE_TYPES[DEFAULT_TYPE];
+export const specFor = (typeKey: TypeKey | undefined): CourseSpec => {
+  const types = courseTypes();
+  return types[typeKey as TypeKey] ?? types[activeScheme().defaultType];
+};
 
 /** Separate ESE minimum, rounded up so the printed number always passes. */
 export function eseCutoff(eseMax: number): number {
   if (eseMax <= 0) return 0;
-  return ceil(eseMax * ESE_PASS_FRACTION);
+  return ceil(eseMax * activeScheme().esePassFraction);
 }
 
 /**

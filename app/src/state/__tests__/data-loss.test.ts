@@ -8,6 +8,7 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { blankCourse } from "../../engine";
+import { KTU_2024 } from "../../engine/scheme";
 import type { GradeCard } from "../../sync/gradecard";
 import { applyGradeCard, exportJson, importJson, resetEverything } from "../actions";
 import { edit, setHistory, state } from "../store";
@@ -229,7 +230,12 @@ describe("erase everything leaves nothing behind", () => {
     // Not a record of anything, and losing it would be an unexplained change
     // rather than a deletion the student asked for.
     expect(state.theme).toBe("dark");
-    expect(state.scheme).toBe("KTU 2024");
+    // Against the scheme's own id rather than a literal. This assertion read
+    // "KTU 2024" - the display name - and went stale the moment schemes became
+    // things a student can pick between and `defaultState` started storing an
+    // id. The preference being kept is the point; how it is spelled is not
+    // this test's to decide.
+    expect(state.scheme).toBe(KTU_2024.id);
     expect(state.version).toBe(1);
   });
 });

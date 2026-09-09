@@ -69,7 +69,7 @@ export function Setup(props: { onDone: () => void }) {
 function Welcome(props: { onNext: () => void }) {
   return (
     <section class="setup-body">
-      <p class="eyebrow">KTU 2024 scheme</p>
+      <p class="eyebrow">Built on KTU Regulations 2024</p>
       <h2>Every other calculator tells you what you already scored.</h2>
       <p class="lede">
         TargetX tells you the mark you still need — per subject, as you type. It

@@ -2,7 +2,7 @@ import { For, Show, createSignal } from "solid-js";
 import { goalRequirement, rows, summary } from "../state/store";
 import { AttendanceScatter, GoalGauge } from "./charts";
 import { TargetsTab } from "./Targets";
-import { TERMS } from "../state/glossary";
+import { terms } from "../state/glossary";
 
 /**
  * Column glossary.
@@ -59,7 +59,7 @@ export function Drawer() {
       <Show when={tab() === "analytics"} fallback={
         <Show when={tab() === "legend"}>
         <dl>
-          <For each={TERMS}>{(term) => (
+          <For each={terms()}>{(term) => (
             <><dt>{term.name}</dt><dd>{term.body}</dd></>
           )}</For>
         </dl>

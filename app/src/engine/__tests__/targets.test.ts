@@ -28,21 +28,21 @@ describe("the default attendance target teaches 85, not 75", () => {
    * tells them that.
    */
   it("is the lowest attendance that pays every attendance mark", () => {
-    expect(DEFAULT_ATTENDANCE_TARGET).toBe(85);
-    expect(DEFAULT_ATTENDANCE_TARGET).toBe(ATTENDANCE_FULL_MARKS_PCT);
-    expect(attendanceMarks(ATTENDANCE_FULL_MARKS_PCT)).toBe(ATTENDANCE_MARK_MAX);
-    expect(attendanceMarks(ATTENDANCE_FULL_MARKS_PCT - 0.01)).toBeLessThan(ATTENDANCE_MARK_MAX);
+    expect(DEFAULT_ATTENDANCE_TARGET()).toBe(85);
+    expect(DEFAULT_ATTENDANCE_TARGET()).toBe(ATTENDANCE_FULL_MARKS_PCT());
+    expect(attendanceMarks(ATTENDANCE_FULL_MARKS_PCT())).toBe(ATTENDANCE_MARK_MAX);
+    expect(attendanceMarks(ATTENDANCE_FULL_MARKS_PCT() - 0.01)).toBeLessThan(ATTENDANCE_MARK_MAX);
   });
 
   it("sits above the eligibility threshold, and the gap costs 2 of the 5 marks", () => {
-    expect(DEFAULT_ATTENDANCE_TARGET).toBeGreaterThan(ATTENDANCE_MIN);
+    expect(DEFAULT_ATTENDANCE_TARGET()).toBeGreaterThan(ATTENDANCE_MIN);
     expect(attendanceMarks(ATTENDANCE_MIN)).toBe(3);
     expect(ATTENDANCE_MARK_MAX - (attendanceMarks(ATTENDANCE_MIN) ?? 0)).toBe(2);
   });
 
   it("takes the passing floor off the grade table rather than a literal", () => {
-    expect(PASSING_GPA_MIN).toBe(5.5);
-    expect(PASSING_GPA_MIN).toBe(GRADE_POINTS.P);
+    expect(PASSING_GPA_MIN()).toBe(5.5);
+    expect(PASSING_GPA_MIN()).toBe(GRADE_POINTS.P);
   });
 });
 
@@ -53,7 +53,7 @@ describe("a saved goal widens into the full target set without losing anything",
   it("keeps the CGPA target a student already set", () => {
     const out = normaliseTargets(OLD_SAVE);
     expect(out.cgpa).toBe(8);
-    expect(out.attendance).toBe(DEFAULT_ATTENDANCE_TARGET);
+    expect(out.attendance).toBe(DEFAULT_ATTENDANCE_TARGET());
     expect(out.sgpaBySemester).toEqual({});
     expect(out.sgpaDefault).toBeNull();
   });
@@ -86,7 +86,7 @@ describe("a saved goal widens into the full target set without losing anything",
    */
   it("tells a cleared attendance target apart from one never set", () => {
     expect(normaliseTargets({ cgpa: null, attendance: null }).attendance).toBeNull();
-    expect(normaliseTargets({ cgpa: null }).attendance).toBe(DEFAULT_ATTENDANCE_TARGET);
+    expect(normaliseTargets({ cgpa: null }).attendance).toBe(DEFAULT_ATTENDANCE_TARGET());
   });
 
   it("starts a student with no goal on nothing but the attendance default", () => {
@@ -162,7 +162,7 @@ describe("a target under a KTU threshold is allowed, and is named", () => {
 
   it("names a GPA target that cannot be met with every course passed", () => {
     expect(checkGpaTarget(5)?.belowPassing).toBe(true);
-    expect(checkGpaTarget(PASSING_GPA_MIN)?.belowPassing).toBe(false);
+    expect(checkGpaTarget(PASSING_GPA_MIN())?.belowPassing).toBe(false);
     expect(checkGpaTarget(8)?.belowPassing).toBe(false);
   });
 });
@@ -211,7 +211,7 @@ describe("distance to eligibility and distance to your own target are two answer
   const course = { ...blankCourse("TH1", "Theory", 4, "TH 40/60"), attended: 80, held: 100 };
 
   it("solves the same course against both floors", () => {
-    const gap = attendanceTargetGap(course, DEFAULT_ATTENDANCE_TARGET);
+    const gap = attendanceTargetGap(course, DEFAULT_ATTENDANCE_TARGET());
     expect(gap.current).toBe(80);
     expect(gap.target).toBe(85);
     expect(gap.toEligible?.state).toBe("surplus");

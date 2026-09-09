@@ -1,6 +1,5 @@
 import { For, Index, Show, createEffect, createMemo, createSignal } from "solid-js";
 import {
-  ATTENDANCE_CONDONE, ATTENDANCE_MIN, COURSE_TYPES, TARGET_CHOICES, TYPE_KEYS,
   isIncomplete, requiredEseCell, specFor, toOptionalFloat,
 } from "../engine";
 import type {
@@ -10,7 +9,7 @@ import {
   activeCourses, addCourse, attendanceGaps, removeCourse, removeSemester, rows,
   semesterNames, state, updateCourse,
 } from "../state/store";
-import { activeProfile } from "../state/schemes";
+import { activeProfile, schemeCourseTypes } from "../state/schemes";
 import { AttendanceBar } from "./charts";
 
 const dash = "–";
@@ -136,8 +135,8 @@ function AttendancePct(props: { pct: number | null }) {
       <AttendanceBar pct={props.pct} />{" "}
       <span class="num" style={{
         color: props.pct === null ? "var(--text-faint)"
-          : props.pct < ATTENDANCE_CONDONE ? "var(--danger)"
-          : props.pct < ATTENDANCE_MIN ? "var(--warn)" : "var(--text-dim)",
+          : props.pct < activeProfile().attendanceCondone ? "var(--danger)"
+          : props.pct < activeProfile().attendanceMin ? "var(--warn)" : "var(--text-dim)",
       }}>{props.pct === null ? dash : `${props.pct.toFixed(0)}%`}</span>
       {/* The colour on that figure is the only thing saying which side of the
           two lines it falls, and the Status column does not always repeat it:
@@ -145,11 +144,11 @@ function AttendancePct(props: { pct: number | null }) {
           attendance, so on those rows the colour is the sole carrier. Said in
           words for everyone who cannot see it, quoting the same two constants
           the colour uses. */}
-      <Show when={props.pct !== null && props.pct < ATTENDANCE_MIN}>
+      <Show when={props.pct !== null && props.pct < activeProfile().attendanceMin}>
         <span class="sr-only">
-          {props.pct! < ATTENDANCE_CONDONE
-            ? ` below the ${ATTENDANCE_CONDONE.toFixed(0)}% condonation floor`
-            : ` below the ${ATTENDANCE_MIN.toFixed(0)}% eligibility line`}
+          {props.pct! < activeProfile().attendanceCondone
+            ? ` below the ${activeProfile().attendanceCondone.toFixed(0)}% condonation floor`
+            : ` below the ${activeProfile().attendanceMin.toFixed(0)}% eligibility line`}
         </span>
       </Show>
     </>
@@ -252,7 +251,7 @@ export function TargetGap(props: { gap: AttendanceTargetGap; ev: Evaluation }) {
 function Detail(props: {
   index: number; course: Course; ev: Evaluation; gap: AttendanceTargetGap;
 }) {
-  const spec = () => COURSE_TYPES[(props.course.type ?? "TH 40/60") as TypeKey];
+  const spec = () => schemeCourseTypes()[(props.course.type ?? "TH 40/60") as TypeKey];
   const set = (patch: Partial<Course>) => updateCourse(props.index, patch);
   // The same pairing the table cell uses, so the row and its expansion cannot
   // quote different figures for the same requirement.
@@ -365,7 +364,7 @@ function Detail(props: {
               <span>Course type</span>
               <select class="cell-input" aria-label="Course type" value={props.course.type}
                       onChange={(e) => set({ type: e.currentTarget.value as TypeKey })}>
-                <For each={TYPE_KEYS}>{(k) => <option value={k}>{COURSE_TYPES[k].label}</option>}</For>
+                <For each={Object.keys(schemeCourseTypes()) as TypeKey[]}>{(k) => <option value={k}>{schemeCourseTypes()[k].label}</option>}</For>
               </select>
             </div>
             <div class="field">
@@ -470,7 +469,7 @@ function Detail(props: {
 function CieParts(props: { course: Course; ev: Evaluation }) {
   const showsComponents = () => !(props.course.type ?? "").startsWith("LAB");
   const parts = () =>
-    COURSE_TYPES[(props.course.type ?? "TH 40/60") as TypeKey].components.map((c) => {
+    schemeCourseTypes()[(props.course.type ?? "TH 40/60") as TypeKey].components.map((c) => {
       const raw = toOptionalFloat(props.course[c.key]);
       // Initial, plus any trailing number - and the number is the whole point.
       // This read `startsWith("Series")`, which no header has ever begun with:
@@ -687,7 +686,7 @@ export function Ledger() {
                     <select class="cell-input" aria-label="Target grade" value={entry().row.ev.target}
                             onChange={(e) => updateCourse(entry().row.index, {
                               target: e.currentTarget.value as Letter })}>
-                      <For each={TARGET_CHOICES}>{(g) => <option value={g}>{g}</option>}</For>
+                      <For each={activeProfile().targetChoices}>{(g) => <option value={g}>{g}</option>}</For>
                     </select>
                   </td>
                   <td data-col="need" data-label="Need"><Need need={entry().row.ev.needTarget} best={entry().row.ev.needTargetBest}

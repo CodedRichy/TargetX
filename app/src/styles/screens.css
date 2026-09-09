@@ -558,6 +558,12 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
 }
 .paste:focus { border-color: var(--brand-deep); outline: none; }
 
+/* A profile on its way to someone else. Monospaced because what is in the box
+   is a file, not prose - a student comparing two of them is looking for a
+   number that differs, and proportional type hides exactly that. */
+.transfer { margin-top: var(--s4); }
+.paste.mono { font-family: var(--font-mono); font-size: var(--text-xs); }
+
 /* --- history --------------------------------------------------------------- */
 
 .history-grid {

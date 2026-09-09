@@ -1,6 +1,4 @@
-import {
-  ATTENDANCE_CONDONE, ATTENDANCE_MIN, GRADE_MIN, GRADE_POINTS, TOTAL_PASS_MARK,
-} from "./constants";
+import { activeScheme, gradeMin, gradePoints } from "./scheme";
 import {
   attendanceMarks, attendancePlan, effectiveAttendance, nextAttendanceBand,
 } from "./attendance";
@@ -29,7 +27,7 @@ export function evaluate(course: Course): Evaluation {
   const attendance = effectiveAttendance(course, plan);
   // Unknown stays unknown: `null` here must never read as "below 75%" (that
   // is `false`) or "fine" (`true`) to any consumer.
-  const eligible = attendance === null ? null : attendance >= ATTENDANCE_MIN;
+  const eligible = attendance === null ? null : attendance >= activeScheme().attendanceMin;
   const { cie, ceiling: cieCeiling } = cieBounds(course, attendance);
   const published = toOptionalFloat(course.cie_override);
 
@@ -106,9 +104,9 @@ export function evaluate(course: Course): Evaluation {
       // - until the missing figure arrives. The published-grade branch above
       // is untouched: what the university printed outranks anything derived.
       total = round(cie + (ese ?? 0), 2);
-      if (total < TOTAL_PASS_MARK) {
+      if (total < activeScheme().totalPassMark) {
         grade = "F";
-        failedReason = `Total ${total.toFixed(0)} < ${TOTAL_PASS_MARK}`;
+        failedReason = `Total ${total.toFixed(0)} < ${activeScheme().totalPassMark}`;
       } else {
         grade = gradeForTotal(total);
       }
@@ -116,7 +114,7 @@ export function evaluate(course: Course): Evaluation {
   }
 
   let target = (course.target ?? "B+") as Letter;
-  if (!(target in GRADE_MIN)) target = "B+";
+  if (!(target in gradeMin())) target = "B+";
 
   return {
     cie,
@@ -168,7 +166,7 @@ export function evaluate(course: Course): Evaluation {
  * plan check `grade === null` alongside this.
  */
 export function isDebarred(ev: Evaluation): boolean {
-  return ev.attendance !== null && ev.attendance < ATTENDANCE_CONDONE;
+  return ev.attendance !== null && ev.attendance < activeScheme().attendanceCondone;
 }
 
 /** Single verdict per subject. Worst condition wins. */
@@ -367,14 +365,14 @@ export function summarise(courses: Course[]): Summary {
     // every open range; a projection is a forecast and takes the reachable
     // end. The two disagree on an unpriced course on purpose.
     if (ev.grade !== null) {
-      confirmed.push([ev.credits, GRADE_POINTS[ev.grade]]);
-      projected.push([ev.credits, GRADE_POINTS[ev.grade]]);
+      confirmed.push([ev.credits, gradePoints()[ev.grade]]);
+      projected.push([ev.credits, gradePoints()[ev.grade]]);
     } else if (isDebarred(ev)) {
       projected.push([ev.credits, 0]);
     } else if (ev.needTargetBest.possible) {
-      projected.push([ev.credits, GRADE_POINTS[ev.target]]);
+      projected.push([ev.credits, gradePoints()[ev.target]]);
     } else {
-      projected.push([ev.credits, GRADE_POINTS[ev.maxPossibleGrade]]);
+      projected.push([ev.credits, gradePoints()[ev.maxPossibleGrade]]);
     }
 
     // `impossible` names exactly the courses `statusFor` calls UNREACHABLE,

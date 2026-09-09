@@ -18,7 +18,7 @@
 import { cleanup, render } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Course } from "../../../engine";
-import { activeProfile } from "../../../state/schemes";
+import { activeScheme } from "../../../engine/scheme";
 import { addCourse, edit, updateCourse } from "../../../state/store";
 import { Face } from "../Face";
 import { overallMood } from "../mood";
@@ -74,7 +74,7 @@ describe("the mood is read off the record, not invented", () => {
     // and is two attendance marks down here, so a face that only reacted to
     // the eligibility line would be as silent about it as the portal is.
     seed(CLEAR, BLEEDING);
-    expect(activeProfile().attendanceMin).toBeLessThan(78);
+    expect(activeScheme().attendanceMin).toBeLessThan(78);
     expect(overallMood()).toBe("concerned");
   });
 

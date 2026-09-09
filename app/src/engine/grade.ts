@@ -1,4 +1,4 @@
-import { GRADE_BANDS, GRADE_MIN, GRADE_POINTS } from "./constants";
+import { activeScheme, gradeMin, gradePoints } from "./scheme";
 import { eseCutoff } from "./cie";
 import type { Grade, Incomplete, Letter, RequiredEse } from "./types";
 import { ceil } from "./util";
@@ -41,12 +41,12 @@ export function normaliseGrade(
   if (text === "I" || text === "W") return text;
   // AB stays: the student was admitted to the exam and did not appear.
   if (["FAIL", "FAILED", "F", "FE", "AB"].includes(text)) return "F";
-  return text in GRADE_POINTS ? (text as Grade) : null;
+  return text in gradePoints() ? (text as Grade) : null;
 }
 
 export function gradeForTotal(total: number): Grade {
-  for (const [letter, lo] of GRADE_BANDS) {
-    if (total >= lo) return letter;
+  for (const { letter, minPct } of activeScheme().gradeBands) {
+    if (total >= minPct) return letter;
   }
   return "F";
 }
@@ -66,7 +66,7 @@ export function gradeForTotal(total: number): Grade {
 export function requiredEse(
   cie: number, targetLetter: Letter, eseMax: number,
 ): RequiredEse {
-  const bandMin = GRADE_MIN[targetLetter];
+  const bandMin = gradeMin()[targetLetter];
   const cutoff = eseCutoff(eseMax);
 
   if (eseMax === 0) {

@@ -10,7 +10,7 @@ import { edit, state } from "./store";
  * steps look skippable in the UI and the main views look sequential.
  */
 
-export type View = "home" | "ledger" | "attendance" | "history" | "data";
+export type View = "home" | "ledger" | "attendance" | "history" | "data" | "schemes";
 
 /**
  * `keys` are the words a student uses for a screen that are not its name.
@@ -41,6 +41,9 @@ export const VIEWS: Array<{ id: View; label: string; hint: string; keys: string[
   { id: "data", label: "Data", hint: "Sync, import, catalogue and backup",
     keys: ["sync", "etlab", "ktu", "import", "export", "backup", "restore",
            "password", "login", "portal", "catalogue"] },
+  { id: "schemes", label: "Schemes", hint: "Pick or author the rules TargetX computes with",
+    keys: ["scheme", "schemes", "profile", "profiles", "regulation", "regulations",
+           "autonomous", "rules", "grading", "grade scheme", "pass mark"] },
 ];
 
 // Home is the landing screen: the ledger answers "what are my marks", which is

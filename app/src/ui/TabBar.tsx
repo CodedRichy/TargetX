@@ -72,6 +72,22 @@ const ICONS: Record<View, () => JSX.Element> = {
       <circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" />
     </svg>
   ),
+  /*
+   * Sliders, as in rules you set rather than rules you are given.
+   *
+   * Deliberately not a document or a certificate: those read as "the
+   * regulation", something handed down and looked up, and this screen exists
+   * because a college's rules are a thing the student can choose between and
+   * author. Two tracks with the handles at different positions say adjustable
+   * without saying anything about what is being adjusted.
+   */
+  schemes: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M4 8h10M18 8h2M4 16h4M12 16h8" />
+      <circle cx="16" cy="8" r="2" /><circle cx="10" cy="16" r="2" />
+    </svg>
+  ),
   // A stack, as in stored records.
   data: () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"

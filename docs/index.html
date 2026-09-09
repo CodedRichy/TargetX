@@ -124,6 +124,7 @@
           Your record is a file on your own machine, and no account is needed
           to use any of it.
         </p>
+        <a class="scroll-cue" href="#marks">The marks you are already losing <span>&darr;</span></a>
       </div>
 
       <!-- The app's own surface, rendered live rather than screenshotted. -->
@@ -269,16 +270,52 @@
               skip it entirely and type things in by hand.
             </p>
           </article>
+          <article class="does-item">
+            <h3>Your college’s rules, not just KTU’s</h3>
+            <p>
+              It ships set to Regulations 2024, checked against the document
+              rather than copied from another calculator. But the numbers are
+              not welded in: the grade bands, the pass mark, the separate exam
+              minimum, the attendance you need and what attendance is worth all
+              live in a profile you can copy and edit. If you are at an
+              autonomous college, set yours once and every figure after that is
+              computed against your rules. The built-in profile is marked
+              <em>checked</em>; one you have edited is marked
+              <em>not checked</em>, everywhere it appears.
+            </p>
+            <p>
+              And a profile travels. Whoever reads the regulations once exports
+              theirs and hands the text to the rest of your course. It carries
+              rules and nothing else &mdash; no marks, no attendance, no name
+              &mdash; and it cannot arrive claiming to be checked, because that
+              flag is never read off a file. You get the numbers, and you get to
+              know who sent them.
+            </p>
+          </article>
         </div>
 
         <figure class="shot">
-          <img src="home.png" width="1600" height="950" loading="lazy" decoding="async"
-               alt="The TargetX home screen: a CGPA of 7.09, a tile reading “Attendance is costing you marks — 10 CIE marks lost across 7 subjects”, and a list of subjects needing attention.">
+          <img src="home.png" width="1600" height="860" loading="lazy" decoding="async"
+               alt="The TargetX home screen: a CGPA of 7.10, a tile reading “Attendance is costing you marks — 7 CIE marks lost across 7 subjects”, and one subject flagged as below 75%.">
           <figcaption class="shot-cap">
             The home screen. The middle tile is the one no other tool draws —
             marks already forfeited, and the cheapest way to win one back.
           </figcaption>
         </figure>
+
+        <div class="shot-pair">
+          <figure class="shot-phone">
+            <img src="home-phone.png" width="750" height="1600" loading="lazy" decoding="async"
+                 alt="The same home screen on an Android phone: an Ask Tex bar at the top, the standing card reading 7.09 CGPA with a projected SGPA gauge, and the attendance tile beginning below it.">
+          </figure>
+          <p class="shot-note">
+            The same record on a phone, same engine underneath — one arithmetic,
+            not a cut-down second version of it.
+            <strong>The Android build is not released yet.</strong> What you can
+            install today is in the table below: Windows, macOS and Linux. This
+            is here so you know what is coming, not to suggest you can have it.
+          </p>
+        </div>
       </div>
     </div>
   </section>
@@ -300,16 +337,17 @@
             had told me: not the portal, not any of the calculators, nobody.
           </p>
           <p>
-            That annoyed me enough to build this. Then it turned into 862 tests,
-            because once you are the thing telling people what they need to
-            score, being approximately right is not good enough.
+            That annoyed me enough to build this. Then it turned into a
+            thousand tests, because once you are the thing telling people what
+            they need to score, being approximately right is not good enough.
           </p>
           <p>
-            <strong>This release, 0.4.0, is the last one built on etlab
+            <strong>This release, 0.5.0, is the last one built on etlab
             sync.</strong> Not because it broke &mdash; it works better than it
-            ever has. Two things students reported are fixed in it, and Tex
-            finally answers you properly instead of silently jumping you to a
-            screen.
+            ever has. Your college&rsquo;s rules can now be written once and
+            passed to everyone else on your course, Tex answers you properly
+            instead of silently jumping you to a screen, and the things students
+            reported are fixed in it.
           </p>
           <p>
             The real reason is harder to say out loud. To keep working on this I
@@ -419,11 +457,32 @@
           </table>
         </div>
 
+        <div class="notice plain">
+          <strong>There is no iPhone version, and there is not going to be
+          one.</strong> Apple desktops are covered by the .dmg above; it is the
+          phone that is missing. An iPhone runs only what Apple has signed, and
+          Apple signs for members of its Developer Program, which costs $99 a
+          year. It is rent. The year the payments stop, the app stops installing
+          for everyone who has it. TestFlight is not a way round it either: a
+          build uploaded there stops opening 90 days later, so a student would
+          lose the app four times a year and have to be re-invited each time.
+          Everything on this page is a file you download and keep. iOS has
+          nothing of that shape. The Android build works, and is not released
+          yet.
+        </div>
+
         <div class="notice">
-          <strong>Windows will say the publisher is unknown.</strong> The
-          installers are not yet code-signed, so SmartScreen shows a warning —
-          choose <em>More info</em>, then <em>Run anyway</em>. Rather than ask you
-          to take that on trust, every release publishes
+          <strong>Windows may refuse to download this.</strong> The installers
+          are not code-signed, so Windows has nothing to identify the publisher
+          with and falls back to reputation — which a new file with few
+          downloads does not have. Usually that is SmartScreen asking you to
+          choose <em>More info</em>, then <em>Run anyway</em>. Sometimes Defender
+          is blunter and blocks the download outright, or deletes the file after
+          it lands. If that happens, the <strong>.msi</strong> on the same
+          release page goes through Windows Installer and is flagged far less
+          often; it installs for the whole machine, so it asks for administrator
+          rights, which the .exe deliberately does not. Rather than ask you
+          to take any of that on trust, every release publishes
           <code>SHA256SUMS-&lt;platform&gt;.txt</code> beside the installers, so
           you can check that what you downloaded is what was built. In
           PowerShell:
@@ -450,11 +509,12 @@
         </div>
 
         <div class="notice plain">
-          <strong>Updates come to you.</strong> The app checks for a new version
-          a few seconds after it opens and offers it; you accept or decline.
-          Update payloads are signed, and a build only installs one signed by the
-          key compiled into it — an unsigned or wrongly signed update is refused
-          rather than installed.
+          <strong>Updates are signed, even though the installer is not.</strong>
+          A few seconds after launch the app checks whether a newer version
+          exists, and asks you before doing anything about it. What it downloads
+          has to carry a signature made with the key your copy was built to
+          trust. If it does not match, the file is thrown away and nothing is
+          installed.
         </div>
       </div>
     </div>

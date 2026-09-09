@@ -14,7 +14,8 @@
  */
 import { cleanup, render } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MIN, attendancePlan } from "../../engine";
+import { ATTENDANCE_FULL_MARKS_PCT, attendancePlan } from "../../engine";
+import { activeScheme } from "../../engine/scheme";
 import type { Course } from "../../engine";
 import { addCourse, edit, updateCourse } from "../../state/store";
 import { Attendance } from "../Attendance";
@@ -75,8 +76,8 @@ describe("the attendance screen", () => {
     expect(meter).not.toBeNull();
     const label = meter!.getAttribute("aria-label") ?? "";
     expect(label).toContain(`${plan.current.toFixed(0)}%`);
-    expect(label).toContain(`${ATTENDANCE_MIN}%`);
-    expect(label).toContain(`${ATTENDANCE_FULL_MARKS_PCT}%`);
+    expect(label).toContain(`${activeScheme().attendanceMin}%`);
+    expect(label).toContain(`${ATTENDANCE_FULL_MARKS_PCT()}%`);
     // A subject above the full-marks line is not tinted as a warning.
     expect(c.querySelectorAll(".meter-fill.bad")).toHaveLength(0);
   });
@@ -120,6 +121,6 @@ describe("the attendance screen", () => {
     expect(() => { container = seed(SURPLUS, DEFICIT, UNRECORDED); }).not.toThrow();
     // One card per subject, each stating the 75% line it is measured against.
     expect(container!.querySelectorAll(".att-card")).toHaveLength(3);
-    expect(container!.textContent).toContain(`${ATTENDANCE_MIN}%`);
+    expect(container!.textContent).toContain(`${activeScheme().attendanceMin}%`);
   });
 });

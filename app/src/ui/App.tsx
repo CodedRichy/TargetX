@@ -19,6 +19,7 @@ import { Home } from "./Home";
 import { Ledger } from "./Ledger";
 import { Setup } from "./Setup";
 import { Mark } from "./Mark";
+import { Schemes } from "./Schemes";
 import { Palette, usePaletteShortcut } from "./Palette";
 import { Popover } from "./Popover";
 import { Face } from "./tex/Face";
@@ -1090,6 +1091,7 @@ export function App() {
         <Show when={view() === "attendance"}><Attendance /></Show>
         <Show when={view() === "history"}><History /></Show>
         <Show when={view() === "data"}><Data /></Show>
+        <Show when={view() === "schemes"}><Schemes /></Show>
 
         <Palette open={paletteOpen()} onClose={closePalette} />
         <SignedInToast />

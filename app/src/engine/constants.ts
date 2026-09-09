@@ -1,149 +1,58 @@
-import type { Component, CourseSpec, Grade, Letter, TypeKey } from "./types";
+import type { CourseSpec, Grade, Letter, TypeKey } from "./types";
+import { KTU_2024, resolveCourseTypes } from "./scheme";
 
 /**
- * KTU 2024 scheme constants.
+ * The KTU 2024 numbers, in the shapes the engine has always imported them in.
  *
- * Every number here was checked against the B.Tech Regulations 2024 PDF or a
- * live grade card. Where a value contradicts what older KTU calculators show,
- * the comment says why - those tools mostly still encode the 2019 scheme.
+ * These are no longer authored here. They are derived from the `KTU_2024`
+ * profile in `scheme.ts`, which is where a number gets changed and where the
+ * comment explaining it lives. This file exists so that the ~30 modules that
+ * import `ATTENDANCE_MIN` or `COURSE_TYPES` keep compiling unchanged while
+ * the profile work lands underneath them.
+ *
+ * Everything here is the built-in scheme specifically. Code that should
+ * follow the student's chosen profile must read the active scheme instead -
+ * these bindings are fixed at module load and cannot change.
  */
 
-export const GRADE_BANDS: ReadonlyArray<readonly [Letter, number, number]> = [
-  ["S", 90, 10.0],
-  ["A+", 85, 9.0],
-  ["A", 80, 8.5],
-  ["B+", 75, 8.0],
-  ["B", 70, 7.5],
-  ["C+", 65, 7.0],
-  ["C", 60, 6.5],
-  ["D", 55, 6.0],
-  ["P", 50, 5.5],
-];
+export const GRADE_BANDS: ReadonlyArray<readonly [Letter, number, number]> =
+  KTU_2024.gradeBands.map((b) => [b.letter, b.minPct, b.points] as const);
 
 export const GRADE_POINTS: Record<Grade, number> = {
-  ...(Object.fromEntries(GRADE_BANDS.map(([l, , gp]) => [l, gp])) as Record<Letter, number>),
+  ...(Object.fromEntries(
+    KTU_2024.gradeBands.map((b) => [b.letter, b.points]),
+  ) as Record<Letter, number>),
   F: 0.0,
 };
 
 export const GRADE_MIN: Record<Letter, number> = Object.fromEntries(
-  GRADE_BANDS.map(([l, lo]) => [l, lo]),
+  KTU_2024.gradeBands.map((b) => [b.letter, b.minPct]),
 ) as Record<Letter, number>;
 
 /** CIE + ESE must reach 50/100. */
-export const TOTAL_PASS_MARK = 50;
+export const TOTAL_PASS_MARK = KTU_2024.totalPassMark;
 /** Separate ESE minimum: 40% of the ESE maximum. Both conditions bind. */
-export const ESE_PASS_FRACTION = 0.4;
+export const ESE_PASS_FRACTION = KTU_2024.esePassFraction;
 /** Eligibility threshold (%). */
-export const ATTENDANCE_MIN = 75.0;
-/**
- * R 6.2: the Principal may condone attendance below 75% only down to 60%,
- * for at most two semesters and against a fee. Below 60% there is no appeal.
- */
-export const ATTENDANCE_CONDONE = 60.0;
+export const ATTENDANCE_MIN = KTU_2024.attendanceMin;
+/** R 6.2: condonable below 75% only down to 60%. Below that there is no appeal. */
+export const ATTENDANCE_CONDONE = KTU_2024.attendanceCondone;
 /** R 6.3.ii: "Attendance relaxation is allowed up to a maximum of 10%". */
-export const DL_CAP_PCT = 10.0;
+export const DL_CAP_PCT = KTU_2024.dlCapPct;
+
+/** R 7.5.ii - CIE marks earned by attendance alone. */
+export const ATTENDANCE_MARK_BANDS: ReadonlyArray<readonly [number, number]> =
+  KTU_2024.attendanceMarkBands.map((b) => [b.minPct, b.marks] as const);
+export const ATTENDANCE_MARK_MAX = KTU_2024.attendanceMarkMax;
 
 /**
- * R 7.5.ii - CIE Marks for Attendance.
- *
- * Attendance is not only an eligibility gate, it is worth marks inside the
- * internal total. This is the part every other KTU calculator misses: a
- * student sitting at 76% is not "fine", they are two marks down before
- * writing a single exam.
+ * Course evaluation patterns, with attendance's marks already taken out of
+ * the component weights. Each component is entered on its own natural scale
+ * and scaled into the CIE bucket, so a series marked out of 50 stays entered
+ * as /50 instead of being pre-scaled by hand on paper.
  */
-export const ATTENDANCE_MARK_BANDS: ReadonlyArray<readonly [number, number]> = [
-  [85.0, 5],
-  [80.0, 4],
-  [75.0, 3],
-  [70.0, 2],
-  [60.0, 1],
-];
-export const ATTENDANCE_MARK_MAX = 5;
-
-const comp = (
-  key: Component["key"], header: string, rawMax: number, weight: number,
-): Component => ({ key, header, rawMax, weight });
-
-/**
- * Make room for the attendance marks inside a CIE bucket.
- *
- * The weights below are authored on the full `cieMax` scale, which is how
- * this app has always modelled them, and this rescales them proportionally
- * into `cieMax - attMax` so that components + attendance total `cieMax`
- * exactly. Relative weights are preserved; only the room for attendance comes
- * out of them.
- *
- * This is a deliberate approximation. KTU's official per-course-type split of
- * the remaining marks for the 2024 scheme is not reproduced anywhere in this
- * repo, and inventing one would be a fabrication dressed as a regulation - so
- * attendance takes the regulation's own number (5) and everything else keeps
- * the proportions already modelled. Whoever obtains the real split replaces
- * the `weight` numbers below and drops this call, spelling `attMax` out on
- * each entry instead - `CourseSpec` requires it either way. The structure
- * around them is already right.
- *
- * Worked example, TH 40/60: 15/15/10 (= 40) becomes 13.125/13.125/8.75
- * (= 35), plus attMax 5 = 40.
- */
-function withAttendance(spec: Omit<CourseSpec, "attMax">): CourseSpec {
-  const room = spec.cieMax - ATTENDANCE_MARK_MAX;
-  const authored = spec.components.reduce((sum, c) => sum + c.weight, 0);
-  return {
-    ...spec,
-    attMax: ATTENDANCE_MARK_MAX,
-    components: spec.components.map((c) => ({ ...c, weight: (c.weight / authored) * room })),
-  };
-}
-
-/**
- * Course evaluation patterns. Each component is entered on its own natural
- * scale and scaled into the CIE bucket, so a series marked out of 50 stays
- * entered as /50 instead of being pre-scaled by hand on paper.
- */
-export const COURSE_TYPES: Record<TypeKey, CourseSpec> = {
-  "TH 40/60": withAttendance({
-    label: "Theory - CIE 40 / ESE 60",
-    cieMax: 40,
-    eseMax: 60,
-    components: [comp("s1", "S1", 50, 15), comp("s2", "S2", 50, 15), comp("other", "Asg", 10, 10)],
-  }),
-  "TH 50/50": withAttendance({
-    label: "Theory - CIE 50 / ESE 50",
-    cieMax: 50,
-    eseMax: 50,
-    components: [comp("s1", "S1", 50, 20), comp("s2", "S2", 50, 20), comp("other", "Asg", 10, 10)],
-  }),
-  // The 2024 scheme's real lab split. Earlier schemes used 75/25, which is
-  // why so many calculators still show it - the pass mark differs.
-  "LAB 50/50": withAttendance({
-    label: "Lab / Practical - CIE 50 / ESE 50",
-    cieMax: 50,
-    eseMax: 50,
-    components: [comp("s1", "Cont", 50, 25), comp("s2", "Test", 50, 15), comp("other", "Rec", 10, 10)],
-  }),
-  // Project-based-learning courses invert the split: more weight inside the
-  // semester, a smaller final exam - but the 40% ESE rule still applies, so
-  // the cutoff is 16/40.
-  "PBL 60/40": withAttendance({
-    label: "Project-based course - CIE 60 / ESE 40",
-    cieMax: 60,
-    eseMax: 40,
-    components: [comp("s1", "Eval1", 50, 25), comp("s2", "Eval2", 50, 25), comp("other", "Work", 10, 10)],
-  }),
-  "LAB 75/25": withAttendance({
-    label: "Lab / Practical - CIE 75 / ESE 25",
-    cieMax: 75,
-    eseMax: 25,
-    components: [comp("s1", "Cont", 50, 45), comp("s2", "Test", 50, 20), comp("other", "Rec", 10, 10)],
-  }),
-  "PRJ 100/0": withAttendance({
-    label: "Project / Internal only - CIE 100",
-    cieMax: 100,
-    eseMax: 0,
-    components: [comp("s1", "Eval1", 50, 50), comp("s2", "Eval2", 50, 40), comp("other", "Rep", 10, 10)],
-  }),
-};
+export const COURSE_TYPES: Record<TypeKey, CourseSpec> = resolveCourseTypes(KTU_2024);
 
 export const TYPE_KEYS = Object.keys(COURSE_TYPES) as TypeKey[];
-export const DEFAULT_TYPE: TypeKey = "TH 40/60";
-export const TARGET_CHOICES: Letter[] = ["S", "A+", "A", "B+", "B", "C+", "C", "D", "P"];
+export const DEFAULT_TYPE: TypeKey = KTU_2024.defaultType;
+export const TARGET_CHOICES: Letter[] = [...KTU_2024.targetChoices];
