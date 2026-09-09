@@ -40,6 +40,33 @@ import type { Change } from "../engine";
 const FORFEIT_AT_ELIGIBILITY =
   ATTENDANCE_MARK_MAX - (attendanceMarks(ATTENDANCE_MIN) ?? 0);
 
+/**
+ * A figure as the screen will actually print it.
+ *
+ * `toFixed` and not `Math.round(x * 100) / 100`, which is the same thing until
+ * it is not: the two disagree on the doubles that sit a hair either side of a
+ * half-cent, and every figure here is rendered with `toFixed`. Rounding the
+ * operands of a subtraction by a rule the printer does not use reintroduces
+ * the exact mismatch this exists to remove - it did, at 7.93 - 6.88 = 1.06.
+ */
+const show2 = (value: number) => Number(value.toFixed(2));
+
+/**
+ * A date a student can read, or null when the stored stamp is not one.
+ *
+ * `new Date(x).toLocaleDateString()` answers the string "Invalid Date" for
+ * anything it cannot parse, and the header printed that verbatim: "Synced
+ * Invalid Date". That is the app stating a fact it does not have, in the one
+ * place that is supposed to say how much to trust everything below it - and
+ * it is not a fact a student can act on either. A stamp that cannot be read
+ * is treated as no stamp, which routes the header to the button that offers
+ * to sync again.
+ */
+function readableDate(stamp: string): string | null {
+  const at = new Date(stamp);
+  return Number.isNaN(at.getTime()) ? null : at.toLocaleDateString();
+}
+
 /** A subject worth surfacing, with the reason it made the list. */
 interface Concern {
   /** The subject as the student knows it. See `courseLabel`. */
@@ -51,7 +78,26 @@ interface Concern {
 }
 
 export function Home() {
-  const started = () => summary().credits > 0 || overall().credits > 0;
+  /**
+   * Has the student put anything in yet?
+   *
+   * Credits alone was the wrong question to ask. `blankCourse` types credits
+   * as `number | ""`, so a cleared credits cell - or a portal import that
+   * never carried credits at all - drops `summary().credits` to zero while a
+   * full register of marks and attendance sits underneath it. Home answered
+   * that with "TargetX has no marks to work from" printed over seven
+   * subjects, one of them below the condonation floor: the screen hiding the
+   * most urgent thing it knew, because of an empty cell in another column.
+   *
+   * So the question is whether any subject carries anything at all. The three
+   * blank rows a student gets from tapping "+ Subject" still read as not
+   * started, which is the case the empty state is actually for.
+   */
+  const started = () =>
+    summary().credits > 0 || overall().credits > 0
+    || rows().some(({ course, ev }) =>
+      (course.code ?? "").trim() !== "" || (course.name ?? "").trim() !== ""
+      || ev.attendance !== null || ev.grade !== null || ev.assessed);
 
 
   /**
@@ -195,7 +241,13 @@ export function Home() {
   const short = () => {
     const n = need();
     if (!n || !n.possible || n.slack || n.required == null) return 0;
-    return Math.max(0, n.required - summary().sgpaProjected);
+    // Subtract what the sentence SHOWS, not what the solver returned. Both
+    // operands are printed to two decimals and the gap used to be taken from
+    // the raw floats, so the stock record read "have to average 7.92 ... you
+    // are projecting 7.09 ... short by 0.82" - three numbers on one line, one
+    // of them contradicting the other two, in the sentence a student is most
+    // likely to check on their fingers.
+    return Math.max(0, show2(n.required) - show2(summary().sgpaProjected));
   };
 
   /** The last semester the goal is solved over; the active one without a horizon. */
@@ -272,12 +324,10 @@ export function Home() {
             two identical primary buttons on one screen is a choice the student
             has to make between two things that do the same thing. */}
         <Show when={state.lastSync || onRecord() > 0}>
-        <Show when={state.lastSync} fallback={
+        <Show when={state.lastSync && readableDate(state.lastSync)} fallback={
           <button class="ghost" onClick={() => setView("data")}>Get your marks in</button>
         }>
-          <span class="fineprint num">
-            Synced {new Date(state.lastSync!).toLocaleDateString()}
-          </span>
+          {(when) => <span class="fineprint num">Synced {when()}</span>}
         </Show>
         </Show>
       </div>
@@ -414,13 +464,15 @@ export function Home() {
               <div class="hero-number tight">
                 <span class="huge num">{attendanceCost().lost.toFixed(0)}</span>
                 <span class="hero-unit">
-                  CIE marks lost across {attendanceCost().counted} subjects
+                  CIE marks lost across {attendanceCost().counted} subject
+                  {attendanceCost().counted === 1 ? "" : "s"}
                 </span>
               </div>
               <Show when={attendanceCost().blindSpot > 0}>
                 <p class="tile-verdict">
-                  <strong class="num">{attendanceCost().blindSpot}</strong> of them are
-                  above {ATTENDANCE_MIN}% and losing marks anyway. Full marks start at{" "}
+                  <strong class="num">{attendanceCost().blindSpot}</strong> of them
+                  {attendanceCost().blindSpot === 1 ? " is" : " are"} above{" "}
+                  {ATTENDANCE_MIN}% and losing marks anyway. Full marks start at{" "}
                   <strong class="num">{ATTENDANCE_FULL_MARKS_PCT}%</strong> — sitting on{" "}
                   {ATTENDANCE_MIN}% forfeits{" "}
                   <span class="unit">
@@ -526,8 +578,26 @@ export function Home() {
               </div>
             </div>
             <p class="tile-verdict">
-              <Show when={summary().credits > 0} fallback={
+              {/* Two different emptinesses, and this gated on the wrong one.
+                  `summary().credits` is zero both when the semester holds no
+                  subjects AND when it holds a full register whose credits
+                  cells are blank - `blankCourse` types credits as
+                  `number | ""` - so the tile said "No subjects in S5 yet"
+                  on a screen that named two S5 subjects three cards above it.
+                  The second case is not an empty semester, it is a semester
+                  that cannot be weighted, and the fix for it is a credit
+                  figure rather than a subject. */}
+              <Show when={rows().length > 0} fallback={
                 <>No subjects in {state.activeSemester} yet.</>
+              }>
+              <Show when={summary().credits > 0} fallback={
+                <>
+                  <strong class="num">{rows().length}</strong> subject
+                  {rows().length === 1 ? "" : "s"} here, and{" "}
+                  {rows().length === 1 ? "it carries" : "not one carries"} a credit
+                  value — so nothing can be weighted into an SGPA yet. Fill the
+                  credits column in on the Semester screen.
+                </>
               }>
               {/* "Every subject has been assessed" is true and, on its own,
                   is the reassurance this engine exists to withhold. `pending`
@@ -560,6 +630,7 @@ export function Home() {
                   is not settled — a component mark or the attendance is still
                   missing, so no grade is being read off it yet.
                 </Show>
+              </Show>
               </Show>
               </Show>
             </p>
@@ -603,14 +674,19 @@ const CHANGE_CAP = 8;
 function ChangesPanel(props: { at: string; items: Change[] }) {
   const sorted = () => [...props.items].sort(
     (a, b) => CHANGE_ORDER[a.kind] - CHANGE_ORDER[b.kind]);
-  const when = () => new Date(props.at).toLocaleDateString();
+  // Null rather than the string "Invalid Date" - see `readableDate`.
+  const when = () => readableDate(props.at);
 
   return (
     <section class="changes" classList={{ quiet: props.items.length === 0 }}>
       <div class="changes-head">
         <h3>
           <Show when={props.items.length > 0}
-                fallback={<>Synced {when()} — nothing had moved</>}>
+                fallback={
+                  <Show when={when()} fallback={<>Your last sync moved nothing</>}>
+                    {(at) => <>Synced {at()} — nothing had moved</>}
+                  </Show>
+                }>
             What changed since your last sync
           </Show>
         </h3>

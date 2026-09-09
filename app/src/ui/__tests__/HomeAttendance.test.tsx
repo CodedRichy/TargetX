@@ -77,7 +77,9 @@ describe("the two attendance lines are different numbers", () => {
 describe("the blind-spot sentence on Home", () => {
   it("names the count, both lines, and the forfeit when a subject is caught in the gap", () => {
     const text = seed(BLIND);
-    expect(text).toContain("of them are above 75% and losing marks anyway");
+    // `is`/`are` either way: the sentence agrees with its own count, and what
+    // this test is about is the count, not the verb.
+    expect(text).toMatch(/of them (?:is|are) above 75% and losing marks anyway/);
     expect(text).toContain("Full marks start at");
     expect(text).toContain("85%");
     expect(text).toContain("forfeits");
@@ -88,7 +90,7 @@ describe("the blind-spot sentence on Home", () => {
     // 78 is in the gap; 90 is past it; 70 is below eligibility and is the
     // ledger's problem, not this sentence's. So the count is 1, not 3.
     const text = seed(BLIND, CLEAR, SHORT);
-    expect(text).toMatch(/1\s*of them are above 75% and losing marks anyway/);
+    expect(text).toMatch(/1\s*of them is above 75% and losing marks anyway/);
   });
 
   it("stays silent when nothing sits in the gap", () => {
