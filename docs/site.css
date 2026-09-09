@@ -522,6 +522,34 @@ p { margin: 0; }
   line-height: 1.6;
 }
 
+/* The phone shot sits beside its own note rather than under the desktop one:
+   stacked, two screenshots of the same screen read as the page repeating
+   itself. Capped at 18rem because a phone rendered as tall as the desktop
+   frame claims to be the main event, and it is not - it is not even released
+   yet. Collapses to one column at the same 52rem the feature grid does. */
+.shot-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
+  gap: var(--s5);
+  align-items: center;
+  margin-top: var(--s5);
+  max-width: 1600px;
+}
+.shot-phone {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-1);
+  line-height: 0;
+  margin: 0;
+}
+.shot-phone img { width: 100%; height: auto; display: block; }
+.shot-note { color: var(--text-dim); font-size: 0.96rem; max-width: 46ch; }
+@media (max-width: 52rem) {
+  .shot-pair { grid-template-columns: minmax(0, 1fr); }
+  .shot-phone { max-width: 18rem; }
+}
+
 /* --- downloads ---------------------------------------------------------- */
 .dl-primary {
   max-width: 84rem;

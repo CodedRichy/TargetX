@@ -52,7 +52,11 @@ thing. The numbers, and the person who sent them.
 
 ---
 
-![The TargetX home screen: a CGPA of 7.09, a tile reading "Attendance is costing you marks - 10 CIE marks lost across 7 subjects", and the subjects that need attention](docs/home.png)
+![The TargetX home screen: a CGPA of 7.10, a tile reading "Attendance is costing you marks - 7 CIE marks lost across 7 subjects", and one subject flagged as below 75%](docs/home.png)
+
+<img src="docs/home-phone.png" alt="The same home screen on an Android phone: Ask Tex at the top, the standing card reading 7.09 CGPA with a projected SGPA gauge, and the attendance tile below it" width="300">
+
+*The same record on a phone. The Android build is not in the releases yet — everything you can install today is Windows, macOS and Linux.*
 
 ---
 
