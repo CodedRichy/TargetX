@@ -614,19 +614,116 @@ function About() {
   );
 }
 
+/**
+ * Is this actually a backup, all the way down?
+ *
+ * `importJson` checks the envelope - that the file parses and carries a
+ * `semesters` key - and then trusts everything under it. That guard passes
+ * `{"semesters": "hello"}`, and what happens next is the worst sequence this
+ * app can perform: the restore COMMITS, `persist()` writes the garbage over
+ * the student's record, and only then does a render reach for
+ * `courses.length` and throw. The throw is uncaught, so there is no message;
+ * the write already landed, so there is nothing to roll back to. Measured on
+ * a five-semester record, the next cold start opened on the setup wizard.
+ *
+ * So the shape is checked BEFORE anything is written, and the check walks as
+ * far as the crash did: semesters must be a map of objects, each with an
+ * array of course objects. Anything else is refused with a sentence a student
+ * can act on, and the record on screen is left exactly as it was.
+ *
+ * This is deliberately structural and not a full schema. A field holding the
+ * wrong kind of number is a wrong mark - bad, visible, and fixable in the
+ * Semester table. A field holding the wrong kind of THING takes the app down
+ * and the record with it, and that is the class being stopped here.
+ */
+function checkBackup(text: string): void {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error("That file is not JSON — it may have been truncated, or "
+      + "saved from the wrong place. Pick the targetx-….json you exported.");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("That file is not a TargetX backup.");
+  }
+  // Not a crash, but a lie on every screen: a numeric `activeSemester`
+  // restores cleanly and Home then reads "42 · the room you have above the
+  // 75% eligibility line". Measured.
+  const active = (parsed as { activeSemester?: unknown }).activeSemester;
+  if (active !== undefined && typeof active !== "string") {
+    throw new Error("The current semester in that file is not a semester name. "
+      + "The file looks hand-edited; nothing was changed.");
+  }
+  const semesters = (parsed as { semesters?: unknown }).semesters;
+  if (!semesters || typeof semesters !== "object" || Array.isArray(semesters)) {
+    throw new Error("That file has no semesters in it, so it is not a TargetX "
+      + "backup — or it has been edited into a shape TargetX cannot read. "
+      + "Nothing was changed.");
+  }
+  for (const [name, semester] of Object.entries(semesters as Record<string, unknown>)) {
+    if (!semester || typeof semester !== "object" || Array.isArray(semester)) {
+      throw new Error(`${name} in that file is not a semester. The file looks `
+        + "hand-edited; nothing was changed.");
+    }
+    const courses = (semester as { courses?: unknown }).courses;
+    // Absent is fine - a semester written before it had any subjects. Present
+    // and not an array is not, and is exactly what crashed the render.
+    if (courses !== undefined && !Array.isArray(courses)) {
+      throw new Error(`The subject list for ${name} in that file is not a list. `
+        + "The file looks hand-edited; nothing was changed.");
+    }
+    for (const course of (Array.isArray(courses) ? courses : [])) {
+      if (!course || typeof course !== "object" || Array.isArray(course)) {
+        throw new Error(`${name} in that file holds something that is not a `
+          + "subject. The file looks hand-edited; nothing was changed.");
+      }
+      // `code` is read as a string by everything downstream, including the
+      // `.trim()` that threw on a numeric one.
+      const code = (course as { code?: unknown }).code;
+      if (code !== undefined && typeof code !== "string") {
+        throw new Error(`A subject in ${name} has a course code that is not `
+          + "text. The file looks hand-edited; nothing was changed.");
+      }
+    }
+  }
+}
+
 function Backup() {
   const [confirming, setConfirming] = createSignal(false);
+  const [note, setNote] = createSignal("");
+  const [error, setError] = createSignal("");
   let fileInput: HTMLInputElement | undefined;
 
   const stamp = () => new Date().toISOString().slice(0, 10);
 
   const restore = async (event: Event) => {
-    const file = (event.currentTarget as HTMLInputElement).files?.[0];
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    // Cleared before anything else, exactly as the two file pickers above do.
+    // Without it `change` does not fire when the same file is chosen a second
+    // time, so a student who restored a backup, kept working, and reached for
+    // the same file again got NOTHING - no restore and no message. On this
+    // control, silence reads as "it worked".
+    input.value = "";
     if (!file) return;
+    setNote(""); setError("");
     try {
-      importJson(await file.text());
+      const text = await file.text();
+      checkBackup(text);
+      importJson(text);
+      const count = Object.keys(state.semesters).length;
+      // A restore that says nothing is indistinguishable from a restore that
+      // did nothing, and this one replaces the whole document.
+      setNote(`Restored ${count} semester${count === 1 ? "" : "s"} from `
+        + `${file.name}. Everything that was here has been replaced.`);
     } catch (exc) {
-      alert(`Could not restore that file: ${String(exc)}`);
+      // Was an `alert()`: a blocking OS dialog carrying a raw stack-trace
+      // string ("TypeError: Ot(...).map is not a function"), which is not a
+      // sentence anyone can act on. The refusal belongs on the card, beside
+      // the button that caused it, in the same voice as every other notice
+      // on this screen.
+      setError(exc instanceof Error ? exc.message : String(exc));
     }
   };
 
@@ -654,6 +751,15 @@ function Backup() {
         <input type="file" accept="application/json" hidden
                ref={fileInput} onChange={restore} />
       </div>
+
+      <Show when={error()}>
+        <div class="notice bad" role="alert">
+          <strong>Could not restore that file.</strong> {error()}
+        </div>
+      </Show>
+      <Show when={note()}>
+        <p class="fineprint" role="status">{note()}</p>
+      </Show>
 
       <hr class="rule" />
 
