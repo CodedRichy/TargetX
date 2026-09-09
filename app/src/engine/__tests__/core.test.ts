@@ -562,6 +562,42 @@ describe("registered credits are the CGPA denominator", () => {
     expect(historyCredits({ sgpa: 4.75, creditsRegistered: null, creditsEarned: null })).toBe(0);
   });
 
+  it("treats a registered total of zero as no total, not as a weight of zero", () => {
+    // `??` only falls through on null, so a stored 0 was returned as the
+    // semester's weight - and a semester weighing zero is not in the CGPA at
+    // all. `History.tsx` refuses a typed 0 for this reason, but three paths
+    // write the field without passing that box: an etlab sync where every
+    // course in a semester is incomplete or withdrawn sums to 0, a grade card
+    // import takes its figure as given, and a restored backup is whatever the
+    // file says.
+    expect(historyCredits({ sgpa: 4.75, creditsRegistered: 0, creditsEarned: 16 })).toBe(16);
+    expect(historyCredits({ sgpa: 4.75, creditsRegistered: 0, creditsEarned: null })).toBe(0);
+    // Negative and non-finite are the same answer for the same reason - they
+    // are not credit totals, and a negative one printed a CGPA above 10.
+    expect(historyCredits({ sgpa: 4.75, creditsRegistered: -20, creditsEarned: 16 })).toBe(16);
+    expect(historyCredits({ sgpa: 4.75, creditsRegistered: Number.NaN, creditsEarned: 16 })).toBe(16);
+    expect(historyCredits({ sgpa: 4.75, creditsRegistered: 0, creditsEarned: 0 })).toBe(0);
+  });
+
+  it("says a semester with a zero total is unconfirmed, rather than confirmed", () => {
+    // The half that made the first bug silent. This filtered on `== null`, so
+    // a stored 0 read as a KNOWN total - the semester dropped out of the
+    // average and the notice that exists to say so never fired. The CGPA in
+    // the header was then computed over a different set of semesters than the
+    // list under it, with nothing on screen admitting it.
+    const rows = unconfirmedSemesters({
+      S1: { sgpa: 8, creditsRegistered: 22, creditsEarned: 22 },
+      S2: { sgpa: 7, creditsRegistered: 0, creditsEarned: 18 },
+      S3: { sgpa: 6, creditsRegistered: 0, creditsEarned: null },
+    });
+    expect(rows).toEqual([
+      // Earned stands in, so the figure is a little off rather than absent.
+      { name: "S2", basis: "earned" },
+      // Nothing to stand in: this one really is out of the average.
+      { name: "S3", basis: "none" },
+    ]);
+  });
+
   it("names every semester it had to fall back on, and only those", () => {
     // A save written before the two totals were told apart. The CGPA is the
     // old one rather than a silent correction, and says so.

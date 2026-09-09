@@ -23,8 +23,33 @@ import { round, toFloat } from "./util";
  * missing data this engine exists to refuse. It is reported instead, with
  * basis `none`, and every surface that prints the CGPA has to say so.
  */
+/**
+ * Whether a stored credit total is one this engine can weigh a semester by.
+ *
+ * A total has to be PRESENT and POSITIVE. The presence half was all this asked
+ * for, through `??`, and zero is not nullish - so a stored `creditsRegistered`
+ * of 0 was returned as the semester's weight, and a semester weighing zero is
+ * not in the CGPA at all. Not a small error in the divisor: an average over a
+ * different set of semesters, printed with the same confidence as a correct
+ * one. `History.tsx` refuses a typed 0 for exactly this reason and measured it
+ * - 6.91 to 9.00, with no notice anywhere on screen - but three other paths
+ * write this field and none of them pass through that box:
+ *
+ *   - `sync/etlab.ts` sums the credits of courses that are not incomplete or
+ *     withdrawn. A semester where every course is one of those sums to 0.
+ *   - `state/actions.ts` takes a grade card's figure as given.
+ *   - `state/store.ts` restores whatever a backup file says.
+ *
+ * So the check lives here, at the read, where every path arrives - rather than
+ * as a fourth guard at a third write.
+ */
+const usable = (credits: number | null | undefined): credits is number =>
+  credits != null && Number.isFinite(credits) && credits > 0;
+
 export function historyCredits(entry: HistoryFigure): number {
-  return entry.creditsRegistered ?? entry.creditsEarned ?? 0;
+  if (usable(entry.creditsRegistered)) return entry.creditsRegistered;
+  if (usable(entry.creditsEarned)) return entry.creditsEarned;
+  return 0;
 }
 
 /**
@@ -61,10 +86,10 @@ export function unconfirmedSemesters(
   history: Record<string, HistoryFigure>,
 ): UnconfirmedSemester[] {
   return Object.entries(history)
-    .filter(([, v]) => v.creditsRegistered == null)
+    .filter(([, v]) => !usable(v.creditsRegistered))
     .map(([name, v]): UnconfirmedSemester => ({
       name,
-      basis: v.creditsEarned == null ? "none" : "earned",
+      basis: usable(v.creditsEarned) ? "earned" : "none",
     }));
 }
 
