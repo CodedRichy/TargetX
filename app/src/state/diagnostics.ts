@@ -13,17 +13,23 @@
  * for saving one Explorer window.
  */
 import { invoke } from "@tauri-apps/api/core";
+import { isDesktopShell } from "./platform";
 
 /**
  * True when running inside the desktop shell.
  *
- * Mirrors `canUpdate` in `../sync/update` and `canSync` in `../sync/etlab`
- * rather than inventing a third detection. In a browser build there is no log
- * file at all, so the honest answer is "nothing to show" rather than a path
- * that does not exist.
+ * In a browser build there is no log file at all, so the honest answer is
+ * "nothing to show" rather than a path that does not exist.
+ *
+ * `isDesktopShell` and not the `"__TAURI_INTERNALS__" in window` test this
+ * used to carry. `app_log_dir()` does resolve on Android, so the panel showed
+ * a real path - `/data/user/0/<pkg>/files/logs` - beside the instruction to
+ * read the file and attach it to an issue. That directory is app-private
+ * storage: a student cannot open it without root or adb. A support step
+ * nobody can follow is worse than no support step, because it sends them
+ * looking rather than asking.
  */
-export const canDiagnose = (): boolean =>
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+export const canDiagnose = (): boolean => isDesktopShell();
 
 /**
  * The folder holding `targetx.log`, or null.

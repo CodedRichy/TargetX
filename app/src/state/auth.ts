@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { createSignal } from "solid-js";
-import { canSync } from "../sync/etlab";
+import { isDesktopShell } from "./platform";
 
 /**
  * The account, front-end side.
@@ -81,9 +81,31 @@ const [authError, setAuthError] = createSignal<string | null>(null);
 const [justSignedIn, setJustSignedIn] = createSignal(false);
 export { authBusy, authError, justSignedIn, session };
 
-/** Whether this build was given a provider to talk to at all. */
+/**
+ * Whether this build was given a provider to talk to at all.
+ *
+ * The DESKTOP shell, not merely a shell. This read `canSync()`, which is
+ * `"__TAURI_INTERNALS__" in window` and true on Android - so the phone offered
+ * "Sign in", and every part of what followed was broken:
+ *
+ * `oauth_begin` binds a loopback listener on 127.0.0.1, then `open_in_browser`
+ * takes the `#[cfg(all(unix, not(macos)))]` arm and shells out to `xdg-open`,
+ * which does not exist on Android. The `spawn()` fails and `let _ =` throws the
+ * error away, so no browser ever opens. `oauth_finish` then blocks on
+ * `recv_timeout(BROWSER_TIMEOUT)` - five minutes - and finally reports
+ * "Sign-in timed out. The browser never came back."
+ *
+ * Five minutes of "Signing in..." and then a message blaming a browser that
+ * was never launched. And it could not have succeeded anyway: `vault_save`
+ * and `vault_load` are the `#[cfg(not(windows))]` no-ops, so a token would
+ * not have survived the session.
+ *
+ * Absent on Android instead. Sync and the portal login are unaffected - they
+ * are plain `reqwest` and registered unconditionally; this is the ACCOUNT
+ * sign-in only.
+ */
 export const authConfigured = (): boolean =>
-  canSync() && ISSUER !== "" && CLIENT_ID !== "";
+  isDesktopShell() && ISSUER !== "" && CLIENT_ID !== "";
 
 export const signedIn = (): boolean => session() !== null;
 
