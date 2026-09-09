@@ -124,6 +124,13 @@
           Your record is a file on your own machine, and no account is needed
           to use any of it.
         </p>
+        <!-- Filled in by site.js from the worker's live count, and left empty
+             on every path where that count cannot be read. Deliberately not
+             written into the markup: a spots-left figure typed into a static
+             page is a number that stopped being true the day it was typed,
+             which is the difference between this and the dark pattern it would
+             otherwise be. -->
+        <p class="hero-note seat-note" id="seat-note" hidden></p>
         <a class="scroll-cue" href="#marks">The marks you are already losing <span>&darr;</span></a>
       </div>
 

@@ -10,6 +10,7 @@ import { ASSISTANT, answerFor, defineFor, detectTopic } from "../state/answers";
 import { trace } from "../state/trace";
 import type { Topic } from "../state/answers";
 import { authBusy, authConfigured, signIn, signedIn } from "../state/auth";
+import { seats, seatsLine } from "../state/seats";
 import { morph } from "./morph";
 import { Face } from "./tex/Face";
 import { moodLabel, overallMood } from "./tex/mood";
@@ -808,6 +809,16 @@ export function Palette(props: { open: boolean; onClose: () => void }) {
                             </button>
                             {" "}— everything else in TargetX works without an account.
                           </p>
+                          {/* The ceiling, where the ceiling is about to be
+                              hit. Clerk's instance stops at a hundred, and
+                              without this the student who is number 101 meets
+                              it as a sign-in that fails for no stated reason.
+                              Shown only when the server actually reported a
+                              figure - see state/seats.ts, which returns
+                              nothing rather than a plausible number. */}
+                          <Show when={seatsLine(seats())}>{(line) => (
+                            <p class="fineprint seats">{line()}</p>
+                          )}</Show>
                         </Show>
                       }>
                         <p class="fineprint">

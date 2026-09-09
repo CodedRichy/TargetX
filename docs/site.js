@@ -281,3 +281,48 @@
   }, { rootMargin: "0px 0px -8% 0px" });
   targets.forEach(function (el) { el.classList.add("rise"); observer.observe(el); });
 })();
+
+/* --- how many sign-ins are left ----------------------------------------- */
+/*
+ * Tex is the one part of TargetX that needs an account, and the account
+ * provider's instance stops at a fixed number of students. That ceiling is
+ * real and already in force - it is not a number invented to hurry anyone -
+ * so it is worth saying out loud, and worth saying carefully.
+ *
+ * The care is all in the failure path. A "spots left" line is the oldest trick
+ * on the web, and the only thing separating a true one from a fake one is
+ * whether it disappears when the truth is unavailable. This element starts
+ * empty and hidden, is written only from a figure the worker returned, and
+ * stays hidden on every error - no fallback copy, no last-known value, no
+ * number typed into the HTML for it to fall back to.
+ */
+(function () {
+  var note = document.getElementById("seat-note");
+  if (!note || !window.fetch) return;
+
+  fetch("https://targetx-ask.rishipraseeth.workers.dev/seats", {
+    headers: { Accept: "application/json" }
+  }).then(function (response) {
+    /* 503 is the worker saying it could not read the count, which is a
+       different thing from a count of zero and must not be drawn as one. */
+    if (!response.ok) return null;
+    return response.json();
+  }).then(function (seats) {
+    if (!seats) return;
+    var cap = seats.cap, left = seats.left;
+    if (typeof cap !== "number" || typeof left !== "number") return;
+    if (!isFinite(cap) || !isFinite(left) || cap <= 0 || left < 0) return;
+
+    /* Flat on purpose. No exclamation mark, no colour that means alarm, no
+       ticking. The figure is scarce by itself, and dressing a true number as
+       an emergency is what teaches people to stop believing it. */
+    note.textContent = left <= 0
+      ? "Tex, the assistant, is the one part that needs an account — and all "
+        + cap + " spots are taken."
+      : "Tex, the assistant, is the one part that needs an account — "
+        + left + " of " + cap + " spots left.";
+    note.hidden = false;
+  }).catch(function () {
+    /* Stays hidden. Saying nothing is the honest answer here. */
+  });
+})();

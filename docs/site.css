@@ -444,6 +444,18 @@ p { margin: 0; }
   line-height: 1.7;
 }
 
+/*
+ * The remaining Tex sign-ins. Tighter to the note above it, because it is a
+ * continuation of the same thought, and in exactly the same faint grey as the
+ * rest of it - the figure is genuinely scarce, and a scarce number painted in
+ * an alarm colour reads as a sales tactic rather than a fact. Tabular figures
+ * so it does not jog the line as it falls.
+ */
+.seat-note {
+  margin-top: var(--s2);
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- the readout: the app's own surface, rendered live ------------------ */
 .readout {
   background: linear-gradient(var(--surface-1), var(--surface-1)) padding-box,

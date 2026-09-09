@@ -32,6 +32,7 @@ import {
   authBusy, authConfigured, authError, justSignedIn, resumeAccount, session,
   signIn, signOut, signedIn,
 } from "../state/auth";
+import { checkSeats } from "../state/seats";
 import type { Finding } from "../state/launch";
 import { checkForAndroidUpdate, checkForUpdate } from "../sync/update";
 import type { Available, AndroidUpdate } from "../sync/update";
@@ -830,6 +831,13 @@ export function App() {
     // so this is two questions asked and at most one answered.
     setTimeout(() => { void checkForUpdate().then(setUpdate); }, 2000);
     setTimeout(() => { void checkForAndroidUpdate().then(setAndroidUpdate); }, 2000);
+
+    // How many sign-ins the account provider has left in it. Only asked when
+    // this student has not signed in - the number is for the person deciding
+    // whether to, and asking on behalf of someone already through the door
+    // spends a request to display nothing. Swallows every failure and stores
+    // nothing on the way; see state/seats.ts.
+    if (!signedIn()) setTimeout(() => { void checkSeats(); }, 2500);
 
     // Refresh from the portal without being asked, but only when the student
     // has already put their login in the OS vault - see `autoSync`, which owns

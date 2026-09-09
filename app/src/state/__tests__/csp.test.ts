@@ -41,6 +41,15 @@ describe("every host the frontend fetches is in connect-src", () => {
     expect(allowed).toContain(originOf(CATALOGUE_URL));
   });
 
+  it("allows the seat count, which shares the router's origin", () => {
+    // Same host as the router by construction - `seats.ts` builds its URL from
+    // the ask endpoint rather than carrying its own - so this asserts the
+    // construction, not a second entry in the policy.
+    const endpoint = String(import.meta.env.VITE_ASK_ENDPOINT ?? "").trim()
+      || "https://targetx-ask.rishipraseeth.workers.dev";
+    expect(allowed).toContain(originOf(new URL("/seats", endpoint).toString()));
+  });
+
   it("allows the question router", () => {
     // Read from the build's own configuration when it is set, so a changed
     // endpoint fails here rather than silently in a student's copy. The
@@ -59,7 +68,7 @@ describe("every host the frontend fetches is in connect-src", () => {
 });
 
 describe("the frontend fetches nothing this file has not accounted for", () => {
-  it("makes exactly two kinds of request from the webview", () => {
+  it("makes exactly three kinds of request from the webview", () => {
     // A census on purpose: a third `fetch` is a third host, and the failure it
     // causes is invisible from inside the app. When this number changes, add
     // the host above rather than raising the count.
@@ -67,9 +76,10 @@ describe("the frontend fetches nothing this file has not accounted for", () => {
       readFileSync(new URL("../actions.ts", import.meta.url), "utf-8"),
       readFileSync(new URL("../ask.ts", import.meta.url), "utf-8"),
       readFileSync(new URL("../auth.ts", import.meta.url), "utf-8"),
+      readFileSync(new URL("../seats.ts", import.meta.url), "utf-8"),
       readFileSync(new URL("../../engine/catalogue.ts", import.meta.url), "utf-8"),
     ].join("\n");
     const calls = sources.match(/\bfetch\s*\(/g) ?? [];
-    expect(calls).toHaveLength(2);
+    expect(calls).toHaveLength(3);
   });
 });

@@ -10,6 +10,16 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 CLERK_ISSUER = "https://prompt-elf-6362.clerk.accounts.dev"
 
+# The sign-in ceiling `/seats` counts down to. Clerk's development instances
+# refuse the 101st user, so this is a real limit already in force, not a number
+# chosen to hurry anyone. Delete this line the day the instance goes to
+# production and the endpoint stops reporting a cap - which is how the counter
+# disappears from the app and the website without shipping either again.
+#
+# NOT a secret. CLERK_SECRET_KEY is, and is set with
+# `wrangler secret put CLERK_SECRET_KEY` - never here.
+SEAT_CAP = "100"
+
 [[durable_objects.bindings]]
 name = "QUOTA"
 class_name = "Quota"

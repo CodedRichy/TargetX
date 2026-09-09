@@ -23,6 +23,7 @@ import { claim } from "./limit";
 import { route } from "./gemini";
 import { parseAction, parseAskRequest } from "./schema";
 import { logAsk, outcomeOf } from "./log";
+import { seats } from "./seats";
 
 export { Quota } from "./limit";
 
@@ -30,6 +31,10 @@ interface Env {
   GEMINI_KEY: string;
   CLERK_ISSUER: string;
   QUOTA: DurableObjectNamespace;
+  /** Both optional; without them `/seats` reports 503 and the clients say
+      nothing. See src/seats.ts. */
+  CLERK_SECRET_KEY?: string;
+  SEAT_CAP?: string;
   /**
    * Optional. A deployment without the dataset bound still answers questions;
    * see `logAsk`. Analytics Engine is not on every plan, and losing the log is
@@ -42,7 +47,7 @@ interface Env {
 const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-headers": "authorization,content-type",
-  "access-control-allow-methods": "POST,OPTIONS",
+  "access-control-allow-methods": "GET,POST,OPTIONS",
 };
 
 function json(body: unknown, status = 200, extra: Record<string, string> = {}) {
@@ -52,9 +57,24 @@ function json(body: unknown, status = 200, extra: Record<string, string> = {}) {
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
-    if (request.method !== "POST") return json({ error: "method" }, 405);
 
     const url = new URL(request.url);
+
+    /*
+     * How many sign-ins are left, read before anyone has signed in.
+     *
+     * Unauthenticated on purpose: the people it is for are exactly the people
+     * with no token, and it is also read by the website, which has no way to
+     * hold a credential at all. What it discloses is a number the app is about
+     * to put on screen. See src/seats.ts for the cache that keeps it from
+     * being a free way to spend our Clerk quota.
+     */
+    if (url.pathname === "/seats") {
+      if (request.method !== "GET") return json({ error: "method" }, 405);
+      return seats(request, env, CORS);
+    }
+
+    if (request.method !== "POST") return json({ error: "method" }, 405);
     if (url.pathname !== "/ask") return json({ error: "not_found" }, 404);
 
     // Identity first, before the body is even read. An unauthenticated caller

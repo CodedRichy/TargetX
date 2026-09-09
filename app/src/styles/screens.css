@@ -86,6 +86,21 @@
 
 .fineprint { color: var(--text-faint); font-size: var(--text-xs); }
 
+/*
+ * The remaining sign-ins.
+ *
+ * Sits a step below the line above it and stays in the same faint grey as
+ * every other piece of fine print. Deliberately not a warning colour and
+ * deliberately not bold: the figure is genuinely scarce, and dressing a true
+ * number up as an alarm is what makes readers stop believing the ones that
+ * matter. Tabular figures only so the count does not shift the line as it
+ * falls.
+ */
+.fineprint.seats {
+  margin-block-start: 0.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
 button.primary, button.ghost, button.danger, button.link {
   border-radius: var(--radius);
   cursor: pointer;

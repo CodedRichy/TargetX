@@ -9,3 +9,9 @@
 # to disk. The key must not go anywhere near app/.env: Vite inlines every
 # VITE_* value into the shipped bundle, so it would ship inside the installer.
 GEMINI_KEY=
+
+# Clerk Backend API key, for the /seats count. Same rules as above: set on the
+# deployed worker with `npx wrangler secret put CLERK_SECRET_KEY`, never in
+# app/.env, never in wrangler.toml. This key can read and delete every user in
+# the instance; the worker uses it for one integer and nothing else.
+CLERK_SECRET_KEY=
