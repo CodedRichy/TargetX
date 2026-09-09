@@ -33,3 +33,6 @@ NEXT_SESSION.md
 keystore.properties
 *.jks
 *.keystore
+
+# Brainstorming visual companion (local session scratch)
+.superpowers/brainstorm/
