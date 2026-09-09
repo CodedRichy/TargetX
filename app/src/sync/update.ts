@@ -24,16 +24,26 @@
  *      a failure DURING an install the student asked for is worth reporting.
  */
 import type { Update } from "@tauri-apps/plugin-updater";
+import { isDesktopShell } from "../state/platform";
 
 /**
  * True when running inside the desktop shell.
  *
  * The updater is a Rust plugin, so in a browser (`npm run dev`, and every
- * test) the import itself is fine but the call has nothing behind it. Mirrors
- * `canSync` in `./etlab` rather than inventing a second detection.
+ * test) the import itself is fine but the call has nothing behind it.
+ *
+ * The DESKTOP shell, not merely a shell. This mirrored `canSync`, which asks
+ * `"__TAURI_INTERNALS__" in window` - and that is true on Android, where
+ * `lib.rs` registers the updater plugin under `#[cfg(desktop)]` and therefore
+ * does not register it at all. So the phone offered "Check for updates",
+ * `check()` threw into the catch below, and the student was told there was no
+ * update available. Not an error, not a refusal: a confident wrong answer,
+ * every time, from a build that can never update itself this way.
+ *
+ * Android takes updates by installing a new APK, so there is nothing here for
+ * it to do and the control is simply absent instead of lying.
  */
-export const canUpdate = (): boolean =>
-  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+export const canUpdate = (): boolean => isDesktopShell();
 
 /** An update that exists, with the means to take it. */
 export interface Available {

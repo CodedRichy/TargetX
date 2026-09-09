@@ -1273,8 +1273,15 @@
      *
      * Padding rather than a margin, so the sheet's own background still fills
      * the inset and the strip above the field reads as part of the sheet.
+     *
+     * The inset PLUS a gap, not the inset alone. Clearing the status bar by
+     * exactly its own height puts the field's top edge on the boundary at
+     * y=52, touching the clock with nothing between them - technically not
+     * overlapped and still reading as jammed against the top of the screen.
+     * `.head` has always added its own padding on top of this inset for the
+     * same reason; the sheet was the one surface that did not.
      */
-    padding-block-start: env(safe-area-inset-top, 0px);
+    padding-block-start: calc(env(safe-area-inset-top, 0px) + var(--s3));
   }
   .palette-close {
     background: none;
