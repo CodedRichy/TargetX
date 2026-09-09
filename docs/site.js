@@ -338,12 +338,12 @@
        "hurry". What escalates is the colour, and only in proportion to how
        full the instance really is. */
     if (left <= 0) {
-      count.textContent = "All " + cap + " taken";
-      what.textContent = "Tex is full for now";
+      count.textContent = "All " + cap;
+      what.textContent = "Tex spots taken";
       note.className += " full";
     } else {
-      count.textContent = left + " of " + cap + " left";
-      what.textContent = "Tex spots";
+      count.textContent = left + " of " + cap;
+      what.textContent = "Tex spots left";
       var ratio = taken / cap;
       if (ratio >= 0.9) note.className += " nearly-full";
       else if (ratio >= 0.75) note.className += " filling";
