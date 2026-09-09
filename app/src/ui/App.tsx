@@ -34,6 +34,7 @@ import {
 import type { Finding } from "../state/launch";
 import { checkForUpdate } from "../sync/update";
 import type { Available } from "../sync/update";
+import { show2 } from "./num";
 
 /**
  * The goal line.
@@ -118,8 +119,12 @@ export function GoalBar() {
                   {state.activeSemester} must deliver <strong>{n().required!.toFixed(2)}</strong>
                   {" "}SGPA. You are projecting{" "}
                   <strong>{summary().sgpaProjected.toFixed(2)}</strong>
+                  {/* Both operands as PRINTED, not as stored - they are shown to
+                      two decimals immediately above, and taking the gap from the
+                      raw floats made this line disagree with itself and with
+                      Home, which quoted 0.40 for the pair this said 0.41 for. */}
                   <Show when={risky()}> — short by{" "}
-                    {(n().required! - summary().sgpaProjected).toFixed(2)}
+                    {(show2(n().required!) - show2(summary().sgpaProjected)).toFixed(2)}
                   </Show>.
                 </>
               }>

@@ -1,5 +1,6 @@
 import { For, Show } from "solid-js";
 import type { SgpaPlan } from "../engine";
+import { show2 } from "./num";
 
 /**
  * One route to one SGPA target.
@@ -143,7 +144,7 @@ export function RoutePanel(props: RouteProps) {
             <Show when={stillOpen()} fallback={
               <>That is below <span class="num">{props.target.toFixed(2)}</span>, so no route
                 reaches your target this semester — short by{" "}
-                <strong class="num">{(props.target - max()!).toFixed(2)}</strong>.</>
+                <strong class="num">{(show2(props.target) - show2(max()!)).toFixed(2)}</strong>.</>
             }>
               Your target sits inside that, so it is still reachable — just not
               by the route above.

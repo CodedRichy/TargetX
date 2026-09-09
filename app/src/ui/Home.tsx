@@ -13,6 +13,7 @@ import { GoalGauge, TrendChart } from "./charts";
 import { Face } from "./tex/Face";
 import { moodLabel, overallMood } from "./tex/mood";
 import type { Change } from "../engine";
+import { show2 } from "./num";
 
 /**
  * Home.
@@ -40,16 +41,6 @@ import type { Change } from "../engine";
 const FORFEIT_AT_ELIGIBILITY =
   ATTENDANCE_MARK_MAX - (attendanceMarks(ATTENDANCE_MIN) ?? 0);
 
-/**
- * A figure as the screen will actually print it.
- *
- * `toFixed` and not `Math.round(x * 100) / 100`, which is the same thing until
- * it is not: the two disagree on the doubles that sit a hair either side of a
- * half-cent, and every figure here is rendered with `toFixed`. Rounding the
- * operands of a subtraction by a rule the printer does not use reintroduces
- * the exact mismatch this exists to remove - it did, at 7.93 - 6.88 = 1.06.
- */
-const show2 = (value: number) => Number(value.toFixed(2));
 
 /**
  * A date a student can read, or null when the stored stamp is not one.
