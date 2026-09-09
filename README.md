@@ -56,7 +56,7 @@ thing. The numbers, and the person who sent them.
 
 <img src="docs/home-phone.png" alt="The same home screen on an Android phone: Ask Tex at the top, the standing card reading 7.09 CGPA with a projected SGPA gauge, and the attendance tile below it" width="300">
 
-*The same record on a phone. The Android build is not in the releases yet.*
+*The same record on a phone. Android 7 and up, arm64 and x86-64.*
 
 ---
 
@@ -65,7 +65,13 @@ thing. The numbers, and the person who sent them.
 Windows, macOS and Linux. Every release carries a `.exe` and `.msi`, a
 universal `.dmg`, and an `.AppImage` and `.deb`.
 
-The Android build in the picture above works. It is not released yet.
+Android 7.0 and up, on the phone in the picture above. It is one `.apk`
+covering arm64 phones and x86-64 tablets, signed with a 4096-bit key, and it is
+the same app rather than a cut-down one - every screen, every figure, the
+assistant, sync, backups. Not on Google Play: you download the file and install
+it, the same as the desktop builds, and the app tells you when a newer one
+exists rather than a store doing it. There is no iPad or iPhone build for the
+reason below.
 
 There is no iPhone version, and there is not going to be one. An iPhone runs
 only what Apple has signed, and Apple signs for members of its Developer
@@ -133,6 +139,10 @@ after results.
 - **Updates arrive on their own.** A few seconds after launch the app tells you
   when there is a newer version. It never installs one unless you say yes. When
   the check fails, because you are offline or GitHub is down, it says nothing.
+  On Android it goes one step less far on purpose: it offers the download and
+  hands it to your browser, and you install it. Installing from inside the app
+  would mean holding the permission that lets an app put other software on your
+  phone, which is not a trade worth one saved tap.
 
 Two SGPA figures are shown on purpose. **Confirmed** counts only subjects with a
 real ESE mark. **Projected** assumes you hit your target where it is reachable,

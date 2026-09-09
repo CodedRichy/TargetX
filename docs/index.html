@@ -453,6 +453,17 @@
                 <td class="size">—</td>
                 <td><a href="https://github.com/CodedRichy/TargetX/releases">Releases</a></td>
               </tr>
+              <!-- ANDROID: when the APK is uploaded to the release, replace the
+                   last cell with the same Releases link the rows above use.
+                   Until then this says "not yet" rather than pointing at a
+                   page with no APK on it, because a download link that leads
+                   nowhere is worse than a row that admits the date. -->
+              <tr>
+                <td>Android</td>
+                <td class="file">.apk, phones and tablets <span class="unsigned">sideloaded</span></td>
+                <td class="size">27 MB</td>
+                <td>not yet</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -467,8 +478,24 @@
           build uploaded there stops opening 90 days later, so a student would
           lose the app four times a year and have to be re-invited each time.
           Everything on this page is a file you download and keep. iOS has
-          nothing of that shape. The Android build works, and is not released
-          yet.
+          nothing of that shape. Android does: the build is finished and
+          listed above, and goes up on the release page shortly.
+        </div>
+
+        <div class="notice">
+          <strong>Android will warn you before installing this.</strong> It is
+          not sold through Google Play, so the phone treats it as coming from
+          an unknown source and asks you to allow it once, for the app doing
+          the installing &mdash; usually your browser. That prompt is Android
+          working correctly, and you should be suspicious of any app that tells
+          you to turn the warning off and move on. What you can check instead is
+          that the file is the one that was built: every release publishes the
+          APK&rsquo;s SHA-256 beside it, and any file manager or
+          <code>Termux</code> can print the same figure for the file you
+          downloaded. The app is signed with a 4096-bit key held by the person
+          who wrote it, which is what lets your phone confirm that a later
+          update came from the same place &mdash; and is why an update signed
+          by anyone else will be refused rather than quietly installed.
         </div>
 
         <div class="notice">

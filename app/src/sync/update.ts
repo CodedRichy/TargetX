@@ -24,7 +24,7 @@
  *      a failure DURING an install the student asked for is worth reporting.
  */
 import type { Update } from "@tauri-apps/plugin-updater";
-import { isDesktopShell } from "../state/platform";
+import { isAndroid, isDesktopShell } from "../state/platform";
 
 /**
  * True when running inside the desktop shell.
@@ -114,6 +114,122 @@ export async function checkForUpdate(): Promise<Available | null> {
       });
       const { relaunch } = await import("@tauri-apps/plugin-process");
       await relaunch();
+    },
+  };
+}
+
+/* --- Android ---------------------------------------------------------------
+
+ * A phone cannot take the update above, and for a while it was told so by
+ * being shown nothing. That was honest and it was not enough: the reason this
+ * module exists - an engine that reports a wrong number as confidently as a
+ * right one - is exactly as true on a phone, and a sideloaded APK has no store
+ * behind it to push a fix. A student who installs once and never hears from
+ * the app again is running that build until they think to go looking.
+ *
+ * So the phone gets the same question ("is there a newer one?") answered a
+ * different way, and the difference is deliberate rather than a shortfall:
+ *
+ * IT DOES NOT INSTALL ANYTHING. It opens the APK's download link in the
+ * browser, and the student installs it themselves. Installing from inside the
+ * app would mean holding `REQUEST_INSTALL_PACKAGES` - a permission that lets
+ * an app put OTHER software on the phone - plus a `FileProvider`, and handing
+ * that to a process that also renders a college portal's HTML is not a trade
+ * worth one saved tap. The browser's download and the system installer are
+ * screens a student already recognises, and they are the ones that ask the
+ * consent this deserves to ask.
+ *
+ * The check reads a small file from the repository rather than the GitHub API,
+ * for a plain reason: the CSP allows `raw.githubusercontent.com` and does not
+ * allow `api.github.com`, and widening a content policy to save a file is the
+ * wrong direction. `engine/catalogue.ts` already refreshes the curriculum this
+ * way.
+ */
+
+/** Where the phone build asks what the newest phone build is. */
+export const ANDROID_LATEST_URL =
+  "https://raw.githubusercontent.com/CodedRichy/TargetX/main/android-latest.json";
+
+/** True on the phone, where an update means downloading an APK. */
+export const canUpdateAndroid = (): boolean => isAndroid();
+
+/** A newer APK than the one running, and the link to it. */
+export interface AndroidUpdate {
+  version: string;
+  notes: string | null;
+  /** Opens the download in the system browser. Installing is the student's. */
+  open: () => Promise<void>;
+}
+
+/**
+ * Compare two dotted version strings.
+ *
+ * Numeric per segment, so 0.10.0 is correctly newer than 0.9.0 - the string
+ * comparison that looks like it would do reports the opposite, and would have
+ * stopped offering updates at the tenth minor release with no symptom before
+ * then. Missing segments are zero, and anything unparseable is zero, so a
+ * malformed feed is "no update" rather than a crash.
+ */
+function isNewer(candidate: string, current: string): boolean {
+  const parts = (v: string) => v.split(".").map((n) => Number.parseInt(n, 10) || 0);
+  const a = parts(candidate);
+  const b = parts(current);
+  for (let i = 0; i < Math.max(a.length, b.length); i += 1) {
+    const x = a[i] ?? 0;
+    const y = b[i] ?? 0;
+    if (x !== y) return x > y;
+  }
+  return false;
+}
+
+/**
+ * Ask whether a newer APK exists.
+ *
+ * Silent about every failure, exactly as `checkForUpdate` is and for the same
+ * reason: offline, GitHub down, or a feed that is not there yet are all
+ * "nothing happens" to a student in a lecture hall.
+ */
+export async function checkForAndroidUpdate(): Promise<AndroidUpdate | null> {
+  if (!canUpdateAndroid()) return null;
+
+  let feed: { version?: unknown; url?: unknown; notes?: unknown };
+  try {
+    const response = await fetch(ANDROID_LATEST_URL, { cache: "no-store" });
+    if (!response.ok) return null;
+    feed = await response.json() as typeof feed;
+  } catch {
+    return null;
+  }
+
+  const version = typeof feed.version === "string" ? feed.version : "";
+  const url = typeof feed.url === "string" ? feed.url : "";
+  if (!version || !url) return null;
+
+  // The link is checked here rather than trusted, because this file is fetched
+  // over the network and its job is to be handed to `openUrl`. Anything but a
+  // release of this project on github.com is refused - the capability in
+  // `src-tauri` refuses it too, and neither of those is a reason to skip the
+  // other.
+  if (!url.startsWith("https://github.com/CodedRichy/TargetX/releases/")) return null;
+
+  let current: string;
+  try {
+    const { getVersion } = await import("@tauri-apps/api/app");
+    current = await getVersion();
+  } catch {
+    return null;
+  }
+  if (!isNewer(version, current)) return null;
+
+  const notes = typeof feed.notes === "string" && feed.notes.trim()
+    ? feed.notes.trim() : null;
+
+  return {
+    version,
+    notes,
+    open: async () => {
+      const { openUrl } = await import("@tauri-apps/plugin-opener");
+      await openUrl(url);
     },
   };
 }

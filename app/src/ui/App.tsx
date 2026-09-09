@@ -33,8 +33,8 @@ import {
   signIn, signOut, signedIn,
 } from "../state/auth";
 import type { Finding } from "../state/launch";
-import { checkForUpdate } from "../sync/update";
-import type { Available } from "../sync/update";
+import { checkForAndroidUpdate, checkForUpdate } from "../sync/update";
+import type { Available, AndroidUpdate } from "../sync/update";
 import { show2 } from "./num";
 
 /**
@@ -297,6 +297,52 @@ export function UpdateNotice(props: { update: Available; onDismiss: () => void }
           </div>
         )}
       </Show>
+    </div>
+  );
+}
+
+/**
+ * The same news on a phone, where taking it is a different act.
+ *
+ * Deliberately NOT folded into `UpdateNotice` with a branch inside. That
+ * component's whole shape - a progress bar, "Install and restart", a failure
+ * row explaining why an install did not happen - describes an app replacing
+ * itself while the student watches. None of that is true here: this hands the
+ * download to the browser and stops. A shared component would have carried
+ * three pieces of dead machinery and one misleading button label.
+ *
+ * The label says what actually happens. "Update" would be a small lie - the
+ * app does not update itself, the student installs an APK - and this is an app
+ * whose entire claim is that its numbers are honest. Buttons are numbers too.
+ */
+export function AndroidUpdateNotice(props: {
+  update: AndroidUpdate; onDismiss: () => void;
+}) {
+  const [opened, setOpened] = createSignal(false);
+
+  const open = async () => {
+    setOpened(true);
+    // No catch that reports: the browser either came up or it did not, and
+    // there is nothing a student can do about `openUrl` failing that the
+    // release page in their browser would not already tell them.
+    try { await props.update.open(); } catch { /* see above */ }
+  };
+
+  return (
+    <div class="launch-notice stack" role="status">
+      <div class="notice" title={props.update.notes ?? undefined}>
+        <strong>TargetX {props.update.version} is available</strong>
+        <Show when={!opened()} fallback={
+          <span class="dim">
+            Downloading in your browser. Open it to install.
+          </span>
+        }>
+          <button class="link offer" onClick={open}>Download</button>
+        </Show>
+        <Show when={!opened()}>
+          <button class="link" onClick={props.onDismiss}>Not now</button>
+        </Show>
+      </div>
     </div>
   );
 }
@@ -704,6 +750,7 @@ export function App() {
   };
   usePaletteShortcut(openPalette);
   const [update, setUpdate] = createSignal<Available | null>(null);
+  const [androidUpdate, setAndroidUpdate] = createSignal<AndroidUpdate | null>(null);
   const [updateDismissed, setUpdateDismissed] = createSignal(false);
 
   // Pointer-tracked light, wired once for the whole app.
@@ -779,7 +826,10 @@ export function App() {
     // number should never wait on GitHub to find out anything. It resolves
     // to null on every failure, so there is nothing to catch and nothing to
     // report when it finds nothing.
+    // Both are no-ops off their own platform and both swallow every failure,
+    // so this is two questions asked and at most one answered.
     setTimeout(() => { void checkForUpdate().then(setUpdate); }, 2000);
+    setTimeout(() => { void checkForAndroidUpdate().then(setAndroidUpdate); }, 2000);
 
     // Refresh from the portal without being asked, but only when the student
     // has already put their login in the OS vault - see `autoSync`, which owns
@@ -1084,6 +1134,12 @@ export function App() {
         <Show when={!updateDismissed() && update()}>
           {(u) => (
             <UpdateNotice update={u()} onDismiss={() => setUpdateDismissed(true)} />
+          )}
+        </Show>
+        <Show when={!updateDismissed() && androidUpdate()}>
+          {(u) => (
+            <AndroidUpdateNotice update={u()}
+                                 onDismiss={() => setUpdateDismissed(true)} />
           )}
         </Show>
 
