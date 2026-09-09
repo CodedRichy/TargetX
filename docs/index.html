@@ -127,11 +127,19 @@
              when the network does. It renders beside the buttons rather than
              as a bar across the top because a full-width strip is the visual
              language of sale countdowns, and this figure is real. -->
-        <p class="seat-chip" id="seat-note" hidden>
-          <span class="seat-dot" aria-hidden="true"></span>
-          <span class="seat-count" id="seat-count"></span>
-          <span class="seat-what" id="seat-what"></span>
-        </p>
+        <div class="seat-chip" id="seat-note" hidden>
+          <!-- One cell per spot, drawn by site.js from the count it was given.
+               A hundred dots is the same figure as "95 of 100" and lands in a
+               different part of the brain: the block fills as the instance
+               fills, so the day it IS urgent it looks urgent, with nobody
+               editing anything. Decorative - the sentence beside it is what a
+               screen reader gets. -->
+          <div class="seat-grid" id="seat-grid" aria-hidden="true"></div>
+          <p class="seat-text">
+            <span class="seat-count" id="seat-count"></span>
+            <span class="seat-what" id="seat-what"></span>
+          </p>
+        </div>
         <p class="hero-note">
           Free for students, forever — written into the licence.<br>
           Your record is a file on your own machine, and no account is needed

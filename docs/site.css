@@ -445,68 +445,110 @@ p { margin: 0; }
 }
 
 /*
- * The remaining Tex sign-ins.
+ * The remaining Tex sign-ins, drawn as the hundred spots they are.
  *
- * Sits with the download buttons, at the size of real interface rather than
- * fine print, because a number nobody reads is not worth fetching. What it is
- * NOT is a bar across the top of the page: that shape belongs to cookie
- * notices and sale countdowns, and a reader who has learnt to distrust it will
- * distrust this - which would be a shame, because unlike almost every counter
- * they have seen, this one is measuring something.
+ * The figure on its own reads as text and gets skimmed. A hundred cells is
+ * the same fact rendered as a quantity you can see the size of - and it has a
+ * property no sentence has: it becomes alarming by itself, in proportion, on
+ * the day the thing it measures becomes alarming. Nobody has to remember to
+ * restyle it, and nobody has to decide that ninety-five free spots should
+ * feel scarce, which is the decision that turns a real number into a trick.
  *
- * So: bordered, quiet, brand rather than alarm. The count is the only thing
- * with full-strength colour; the words after it stay dim, so the eye lands on
- * the figure and the sentence explains it rather than selling it.
- */
-/*
- * `display` on the chip beats the browser's own `[hidden] { display: none }`,
- * which is a rule of CSS and not a detail: without this line every failure
- * path - worker down, bad JSON, no network - drew an empty bordered box in
- * the hero. An empty box where a scarcity figure goes is worse than no box
- * at all, and it is invisible in every test that only measures overflow.
+ * So the escalation below is tied to how full the instance actually is, and
+ * at today's five per cent it is deliberately calm. That is not the design
+ * failing to convey urgency; it is the design declining to invent it.
  */
 .seat-chip[hidden] { display: none; }
 
 .seat-chip {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.4rem;
-  /* One line, always. Wrapped, it stops reading as a chip and starts reading
-     as a paragraph in a box. There is little enough in it that this cannot
-     overflow even at 320px - the audit checks. */
-  white-space: nowrap;
+  align-items: center;
+  gap: 0.7rem;
   margin-top: var(--s4);
-  padding: 0.42rem 0.7rem;
+  padding: 0.55rem 0.75rem;
   border: 1px solid var(--hairline-strong);
   border-radius: var(--radius);
   background: var(--surface-2);
   font-family: var(--font-mono);
   font-size: 0.76rem;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 
-/* Static, never pulsing. A blinking dot is a countdown's tell, and it would
-   be claiming the figure updates as you watch - it is cached for minutes. */
-.seat-dot {
-  align-self: center;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--brand);
+/* Ten by ten. Sized so the whole block is about the height of two lines of
+   the text beside it, which keeps the chip a chip rather than a panel. */
+.seat-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 2px;
   flex: none;
+  width: 4.6rem;
 }
+
+.seat-cell {
+  aspect-ratio: 1;
+  border-radius: 1px;
+  background: var(--hairline);
+}
+
+/*
+ * A taken spot.
+ *
+ * They light in sequence on first paint - about a third of a second for the
+ * whole block, whatever the count. That is the "alive" part, and it is honest
+ * because it is a reveal of a figure that was just fetched, not a ticker
+ * pretending to count in real time. It happens once; nothing pulses
+ * afterwards, because a thing that keeps moving is claiming to keep changing.
+ */
+.seat-cell.taken {
+  background: var(--brand);
+  animation: seat-land var(--med) var(--ease) both;
+}
+
+@keyframes seat-land {
+  from { opacity: 0; transform: scale(0.4); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.seat-text { margin: 0; }
 
 .seat-count {
   color: var(--text);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.seat-what { color: var(--text-dim); }
+.seat-what {
+  display: block;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
 
-/* Full is a fact, not an emergency - the reader has lost nothing they had,
-   and everything except Tex still works without an account. Warm, not red. */
-.seat-chip.full .seat-dot { background: var(--warn); }
+/*
+ * Escalation, by how full it actually is.
+ *
+ * Three quarters gone is worth a warmer colour; nine tenths is worth a real
+ * one. Below that it stays calm, because below that it is calm. The point of
+ * writing all three now is that the transition happens on its own, from the
+ * measurement, rather than from someone deciding one afternoon that the
+ * number ought to look scarier than it is.
+ */
+.seat-chip.filling { border-color: var(--warn); }
+.seat-chip.filling .seat-cell.taken { background: var(--warn); }
+.seat-chip.filling .seat-count { color: var(--warn); }
+
+.seat-chip.nearly-full { border-color: var(--danger); background: var(--danger-wash); }
+.seat-chip.nearly-full .seat-cell.taken { background: var(--danger); }
+.seat-chip.nearly-full .seat-count { color: var(--danger); }
+
+.seat-chip.full { border-color: var(--hairline-strong); background: var(--surface-2); }
+.seat-chip.full .seat-cell.taken { background: var(--text-faint); }
+.seat-chip.full .seat-count { color: var(--text-dim); }
+
+/* Someone who has asked for less movement gets the block, not the arrival. */
+@media (prefers-reduced-motion: reduce) {
+  .seat-cell.taken { animation: none; }
+}
 
 /* --- the readout: the app's own surface, rendered live ------------------ */
 .readout {

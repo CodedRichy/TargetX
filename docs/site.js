@@ -313,22 +313,40 @@
     if (typeof cap !== "number" || typeof left !== "number") return;
     if (!isFinite(cap) || !isFinite(left) || cap <= 0 || left < 0) return;
 
-    /* Two parts, because they are read differently: the figure carries the
-       weight and takes the full-strength colour, the sentence after it stays
-       dim and explains what the figure counts. Flat wording on purpose - no
-       exclamation mark, no "only", no "hurry". Dressing a true number as an
-       emergency is what teaches people to stop believing the true ones. */
     var count = document.getElementById("seat-count");
     var what = document.getElementById("seat-what");
-    if (!count || !what) return;
+    var grid = document.getElementById("seat-grid");
+    if (!count || !what || !grid) return;
 
+    var taken = cap - left;
+
+    /* One cell per spot, taken ones lit and staggered so the block arrives
+       rather than appears. The stagger is spread across a fixed budget rather
+       than a fixed step: at five taken that is a quick ripple, at ninety-five
+       it is the same third of a second, so a full instance does not sit there
+       animating for three seconds like a progress bar. */
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < cap; i++) {
+      var cell = document.createElement("span");
+      cell.className = i < taken ? "seat-cell taken" : "seat-cell";
+      if (i < taken) cell.style.animationDelay = (taken > 1 ? (i / (taken - 1)) * 320 : 0) + "ms";
+      frag.appendChild(cell);
+    }
+    grid.appendChild(frag);
+
+    /* Wording stays flat at every level - no exclamation mark, no "only", no
+       "hurry". What escalates is the colour, and only in proportion to how
+       full the instance really is. */
     if (left <= 0) {
-      count.textContent = "All " + cap;
-      what.textContent = "Tex spots taken";
+      count.textContent = "All " + cap + " taken";
+      what.textContent = "Tex is full for now";
       note.className += " full";
     } else {
-      count.textContent = left + " of " + cap;
-      what.textContent = "Tex spots left";
+      count.textContent = left + " of " + cap + " left";
+      what.textContent = "Tex spots";
+      var ratio = taken / cap;
+      if (ratio >= 0.9) note.className += " nearly-full";
+      else if (ratio >= 0.75) note.className += " filling";
     }
     note.hidden = false;
   }).catch(function () {
