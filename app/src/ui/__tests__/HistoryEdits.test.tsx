@@ -18,7 +18,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
-import { defaultTargets } from "../../engine";
+import { blankCourse, defaultTargets } from "../../engine";
 import { edit, state } from "../../state/store";
 import { History } from "../History";
 
@@ -185,5 +185,169 @@ describe("editing a figure changes whose figure it is", () => {
     // published figure, so there is no disagreement to record.
     expect(state.history["S3"]!.source).toBe("manual");
     expect(state.history["S3"]!.conflict).toBeNull();
+  });
+});
+
+/**
+ * A row is a POSITION in this table, not a semester.
+ *
+ * `Index` is what keeps a focused input alive across a store write, and the
+ * price of it is that removing a semester does not destroy the row beneath -
+ * it hands that row the next semester's data while the drafts stay as they
+ * were. Measured on a device before the fix: with S1 (9.00 / 20) and S3
+ * (8.42 / 20) published, removing S3 left the row below reading "8.42" and
+ * "20", and a bare focus-and-blur wrote them back under the wrong semester's
+ * name, inventing a grade card out of the figures just deleted.
+ */
+describe("a row that becomes a different semester", () => {
+  it("does not carry the removed semester's figures into the row below", () => {
+    edit((s) => {
+      s.semesters = { S5: { courses: [] } };
+      s.history = {
+        S1: { sgpa: 9, creditsRegistered: 20, creditsEarned: 20,
+              source: "gradecard", conflict: null },
+        S3: { sgpa: 8.42, creditsRegistered: 20, creditsEarned: 20,
+              source: "gradecard", conflict: null },
+      };
+    });
+    render(() => <History />);
+    fireEvent.click(screen.getByLabelText("Remove S3 from history"));
+    // By class, not by text: S1 is published too, so its own Remove control
+    // makes a document-wide query for the word ambiguous.
+    fireEvent.click(document.querySelector(".remove-go")!);
+    // S5 has taken S3's position in the table. Its boxes must be its own.
+    const box = screen.getByLabelText("Published SGPA for S5") as HTMLInputElement;
+    expect(box.value).toBe("");
+    fireEvent.blur(box);
+    expect(state.history["S5"]).toBeUndefined();
+    expect(state.history["S3"]).toBeUndefined();
+  });
+
+  it("empties the boxes of a row whose own record was just removed", () => {
+    // S3 is a ledger semester too, so the row survives its own removal with
+    // the same name - the reset above cannot fire for it, and the remove
+    // handler has to clear the drafts itself.
+    edit((s) => { s.semesters = { S3: { courses: [] }, S5: { courses: [] } }; });
+    seedCard();
+    render(() => <History />);
+    fireEvent.click(screen.getByLabelText("Remove S3 from history"));
+    fireEvent.click(screen.getByText("Remove"));
+    expect(sgpaBox().value).toBe("");
+    expect(creditBox().value).toBe("");
+    fireEvent.blur(sgpaBox());
+    expect(state.history["S3"]).toBeUndefined();
+  });
+});
+
+/**
+ * The boxes accept a figure KTU could have printed, and nothing else.
+ *
+ * `Number.isFinite` was the only guard, so the CGPA in the header would print
+ * whatever was typed: a sixteen-digit paste read 646678418636100.75, "99" for
+ * "9.9" read 56.14, and a stray minus read below zero. A rejected value is put
+ * back rather than left in the box - text used to sit there unwritten and
+ * unremarked, which told the student their correction had been recorded.
+ */
+describe("a box holds only a figure the university could have printed", () => {
+  const cases: Array<[string, string]> = [
+    ["a sixteen-digit paste", "1234567890123456"],
+    ["a missing decimal point", "99"],
+    ["a negative SGPA", "-3"],
+    ["text", "abc"],
+  ];
+  for (const [what, value] of cases) {
+    it(`refuses ${what} and puts the published figure back`, () => {
+      seedCard();
+      render(() => <History />);
+      put(sgpaBox(), value);
+      expect(state.history["S3"]!.sgpa).toBe(8.42);
+      expect(state.history["S3"]!.source).toBe("gradecard");
+      expect(sgpaBox().value).toBe("8.42");
+    });
+  }
+
+  it("still accepts both ends of the range", () => {
+    seedCard();
+    render(() => <History />);
+    put(sgpaBox(), "10");
+    expect(state.history["S3"]!.sgpa).toBe(10);
+    put(sgpaBox(), "0");
+    expect(state.history["S3"]!.sgpa).toBe(0);
+  });
+
+  /**
+   * Zero credits is the quietest of these and the worst. `historyCredits`
+   * reads `creditsRegistered ?? creditsEarned`, so a stored 0 is not nullish,
+   * beats the earned total, and drops the semester out of the CGPA entirely -
+   * while `unconfirmedSemesters` looks only for a MISSING total, so the notice
+   * that exists to say a semester is not in the average never fires.
+   */
+  it("refuses a registered-credit total of zero", () => {
+    seedCard();
+    render(() => <History />);
+    put(creditBox(), "0");
+    expect(state.history["S3"]!.creditsRegistered).toBe(20);
+    expect(creditBox().value).toBe("20");
+  });
+
+  it("refuses a negative registered-credit total", () => {
+    seedCard();
+    render(() => <History />);
+    put(creditBox(), "-5");
+    expect(state.history["S3"]!.creditsRegistered).toBe(20);
+    expect(creditBox().value).toBe("20");
+  });
+
+  it("still lets the credits box be emptied, which means 'I do not know yet'", () => {
+    seedCard();
+    render(() => <History />);
+    put(creditBox(), "");
+    expect(state.history["S3"]!.creditsRegistered).toBeNull();
+  });
+});
+
+/**
+ * A recomputed SGPA next to a published one that it disagrees with is the
+ * loudest thing on the row, and for a partial record it means nothing at all -
+ * the app has priced four of seven subjects. The reconcile warning is
+ * deliberately suppressed there (firing it would cry wolf), so the row has to
+ * account for the gap itself rather than leave two contradictory numbers side
+ * by side under a column headed "Cross-check".
+ */
+describe("a recomputed figure that cannot be compared says so", () => {
+  it("explains the gap on a partial record", () => {
+    edit((s) => {
+      s.semesters = {
+        S3: { courses: [{ ...blankCourse("X", "X", 4, "TH 40/60"),
+                          portal_grade: "A" }] },
+        S5: { courses: [] },
+      };
+      s.history["S3"] = {
+        sgpa: 6.0, creditsRegistered: 20, creditsEarned: 20,
+        source: "gradecard", conflict: null,
+      };
+    });
+    render(() => <History />);
+    const text = document.body.textContent ?? "";
+    expect(text).toMatch(/partial record — 4 of 20 credits/);
+    expect(text).toMatch(/not a second opinion/);
+  });
+
+  it("says nothing extra when the partial recompute happens to agree", () => {
+    edit((s) => {
+      s.semesters = {
+        S3: { courses: [{ ...blankCourse("X", "X", 4, "TH 40/60"),
+                          portal_grade: "A" }] },
+        S5: { courses: [] },
+      };
+      s.history["S3"] = {
+        sgpa: 8.5, creditsRegistered: 20, creditsEarned: 20,
+        source: "gradecard", conflict: null,
+      };
+    });
+    render(() => <History />);
+    const text = document.body.textContent ?? "";
+    expect(text).toMatch(/partial record — 4 of 20 credits/);
+    expect(text).not.toMatch(/not a second opinion/);
   });
 });

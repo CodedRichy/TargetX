@@ -1,4 +1,4 @@
-import { Index, Show, createMemo, createSignal } from "solid-js";
+import { Index, Show, createEffect, createMemo, createSignal, on } from "solid-js";
 import {
   driftsFrom, evaluate, isGraded, sgpa as computeSgpa, unconfirmedNames,
   GRADE_POINTS,
@@ -12,6 +12,24 @@ import { TrendChart } from "./charts";
  * that is the word a student uses for the university's own record; the college
  * portal is "portal" for the same reason. See `HistorySource`.
  */
+/**
+ * The range a published SGPA can occupy.
+ *
+ * KTU's highest grade point is S = 10 and its lowest is F = 0, so a weighted
+ * average of them cannot leave 0..10. Anything outside it is a typo, and the
+ * SGPA box had no bound at all: a sixteen-digit value pasted into it stored
+ * happily and the CGPA in the header above read 646678418636100.75 over
+ * "6466784186361014.0%". Smaller slips did the same quietly - "99" for "9.9"
+ * gave a CGPA of 56.14, and a stray minus gave one below zero.
+ *
+ * Worse than the display: `setHistory` reads a changed SGPA as a deliberate
+ * correction, tags it `manual`, and demotes the figure it replaced to a
+ * conflict - so a mistyped digit outranks the grade card it overwrote on the
+ * next sync, and the row goes on printing the real number as the loser.
+ */
+const SGPA_MIN = 0;
+const SGPA_MAX = 10;
+
 const SOURCE_LABEL: Record<HistorySource, string> = {
   gradecard: "KTU grade card",
   manual: "your entry",
@@ -235,10 +253,39 @@ interface Row {
 }
 
 function HistoryRow(props: { row: Row }) {
-  const [sgpaDraft, setSgpaDraft] = createSignal(
-    props.row.published ? String(props.row.published.sgpa) : "");
-  const [creditDraft, setCreditDraft] = createSignal(
-    props.row.registered === null ? "" : String(props.row.registered));
+  const storedSgpa = () => (props.row.published ? String(props.row.published.sgpa) : "");
+  const storedCredits = () => (props.row.registered === null
+    ? "" : String(props.row.registered));
+
+  const [sgpaDraft, setSgpaDraft] = createSignal(storedSgpa());
+  const [creditDraft, setCreditDraft] = createSignal(storedCredits());
+
+  /**
+   * Put both boxes back to what is stored when this row becomes a DIFFERENT
+   * semester.
+   *
+   * `Index` keys a row by position, which is what keeps the focused input
+   * alive across a store write (see the note at the `Index` above) - and the
+   * same property means that when a semester is removed the row beneath it is
+   * not destroyed. It is handed the next semester's data while still holding
+   * the drafts it was created with. Measured: with S1 (9.00 / 20) and S2
+   * (5.00 / 22) published, removing S2 left the S4 row's boxes reading "5"
+   * and "22", and merely focusing and blurring one of them called
+   * `setHistory("S4", 5, 22)` - inventing a grade card the university never
+   * published, for the wrong semester, out of the figures the student had
+   * just deleted. The CGPA moved 9.00 -> 6.91 with nothing typed.
+   *
+   * `on` with the name ALONE is what makes this safe to add. The body reads
+   * `published` and `registered` untracked, so an ordinary store write cannot
+   * re-run it and throw away what a student is halfway through typing - which
+   * is precisely the failure `For` caused and the reason `Index` is here.
+   * `defer`, because the signals above already hold this row's own values.
+   */
+  createEffect(on(() => props.row.name, () => {
+    setSgpaDraft(storedSgpa());
+    setCreditDraft(storedCredits());
+  }, { defer: true }));
+
   /**
    * Removal is two presses, and deliberately not a modal.
    *
@@ -271,11 +318,34 @@ function HistoryRow(props: { row: Row }) {
       setSgpaDraft(String(props.row.published.sgpa));
       return;
     }
-    if (!Number.isFinite(sgpaValue)) return;
+    // Anything that is not a figure KTU could have printed goes back to what
+    // is stored, rather than being written OR left sitting in the box.
+    //
+    // Left in the box was the old behaviour for text: "abc" failed
+    // `Number.isFinite`, the store was correctly untouched, and the box then
+    // went on showing "abc" indefinitely with nothing said - so the one
+    // student who most needed telling had every reason to believe their
+    // correction had been recorded. The blank box already restores. These now
+    // agree, and the bound above catches the typo that used to store.
+    if (!Number.isFinite(sgpaValue) || sgpaValue < SGPA_MIN || sgpaValue > SGPA_MAX) {
+      setSgpaDraft(storedSgpa());
+      return;
+    }
     // A blank credit box is "I do not know yet", not zero - the CGPA falls
     // back to the earned total and says so rather than dividing by nothing.
     const credits = creditDraft().trim() === "" ? null : creditValue;
-    if (credits !== null && !Number.isFinite(credits)) return;
+    // Zero is neither. `historyCredits` reads `creditsRegistered ?? ...`, so a
+    // stored 0 is not nullish, wins over the earned total, and drops the
+    // semester out of the CGPA completely - while `unconfirmedSemesters`
+    // looks only for a MISSING total, so the notice that exists to say a
+    // semester is not in the average never fires. Measured: typing 0 into S2
+    // took the header from 6.91 to 9.00 with no notice anywhere on screen and
+    // the row still reading as if it counted. A negative did the same in
+    // reverse, printing a CGPA of 10.33 - above the maximum KTU awards.
+    if (credits !== null && (!Number.isFinite(credits) || credits <= 0)) {
+      setCreditDraft(storedCredits());
+      return;
+    }
     // Same reason: a blur off an untouched box used to rewrite the semester
     // with the values it already had.
     if (props.row.published?.sgpa === sgpaValue
@@ -321,6 +391,34 @@ function HistoryRow(props: { row: Row }) {
                 <Show when={props.row.recomputed !== null}
                       fallback={<>no graded subjects stored</>}>
                   partial record — {props.row.credits} of {props.row.registered} credits
+                  {/* The two figures disagree, the columns print them side by
+                      side, the column is headed "Cross-check", and the lede
+                      promises this screen checks one against the other - and
+                      then nothing said why they differ. Measured on the seed:
+                      published 6.71 beside a recomputed 7.62 explained only
+                      as "13 of 24 credits"; with a single 2-credit lab stored
+                      of a 24-credit semester, 4.50 beside 8.50. A student
+                      reads that as TargetX calling their grade card wrong.
+                      The `drifting()` notice stays suppressed for a partial
+                      record - firing it would cry wolf on arithmetic that was
+                      never comparable - so the row has to say so itself. */}
+                  <Show when={props.row.recomputed !== null
+                              && driftsFrom(props.row.recomputed,
+                                            props.row.published!.sgpa)}>
+                    {/* The cell inherits `white-space: nowrap` - right for a
+                        one-line pill, fatal for a sentence: measured at 411px
+                        it ran 58px past the screen edge with nothing above it
+                        clipping, and 149px past at 320px. Inline, because the
+                        rule belongs in `.source-conflict` in screens.css and
+                        that file is not mine to edit. */}
+                    <span class="source-conflict" style={{ "white-space": "normal" }}>
+                      Recomputed from part of the semester, so{" "}
+                      <span class="num">{props.row.recomputed!.toFixed(2)}</span> is not
+                      a second opinion on{" "}
+                      <strong class="num">{props.row.published!.sgpa.toFixed(2)}</strong>.
+                      Enter the rest of the subjects to compare them.
+                    </span>
+                  </Show>
                 </Show>
               </Show>
             </Show>
@@ -339,8 +437,12 @@ function HistoryRow(props: { row: Row }) {
             dropped, so a student can see the portal was wrong instead of
             wondering why the number moved. #5. */}
         <Show when={props.row.published?.conflict}>
+          {/* The `white-space` below answers the same inherited `nowrap` the
+              partial-record sentence does. This branch is in no seed, so it
+              has never been measured on a phone - two source labels and two
+              figures on one unwrappable line would leave the screen. */}
           {(c) => (
-            <span class="source-conflict">
+            <span class="source-conflict" style={{ "white-space": "normal" }}>
               {SOURCE_LABEL[props.row.published!.source]}{" "}
               <strong class="num">{props.row.published!.sgpa.toFixed(2)}</strong>
               {" · "}{SOURCE_LABEL[c().source]} said{" "}
@@ -369,6 +471,15 @@ function HistoryRow(props: { row: Row }) {
               </span>
               <button class="link remove-go" onClick={() => {
                 edit((s) => { delete s.history[props.row.name]; });
+                // The boxes still hold the figures just discarded, and this
+                // row SURVIVES the removal whenever the semester is also in
+                // the ledger - the name is unchanged, so the reset effect
+                // above does not fire for it. Without this, the next blur
+                // anywhere in the row put the removed record straight back:
+                // measured on the seed, removing S4 left "6.71" and "24" in
+                // the boxes of a row now reading "not recorded".
+                setSgpaDraft("");
+                setCreditDraft("");
                 setConfirming(false);
               }}>Remove</button>
               <button class="link" onClick={() => setConfirming(false)}>Keep</button>
