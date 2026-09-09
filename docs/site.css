@@ -445,16 +445,68 @@ p { margin: 0; }
 }
 
 /*
- * The remaining Tex sign-ins. Tighter to the note above it, because it is a
- * continuation of the same thought, and in exactly the same faint grey as the
- * rest of it - the figure is genuinely scarce, and a scarce number painted in
- * an alarm colour reads as a sales tactic rather than a fact. Tabular figures
- * so it does not jog the line as it falls.
+ * The remaining Tex sign-ins.
+ *
+ * Sits with the download buttons, at the size of real interface rather than
+ * fine print, because a number nobody reads is not worth fetching. What it is
+ * NOT is a bar across the top of the page: that shape belongs to cookie
+ * notices and sale countdowns, and a reader who has learnt to distrust it will
+ * distrust this - which would be a shame, because unlike almost every counter
+ * they have seen, this one is measuring something.
+ *
+ * So: bordered, quiet, brand rather than alarm. The count is the only thing
+ * with full-strength colour; the words after it stay dim, so the eye lands on
+ * the figure and the sentence explains it rather than selling it.
  */
-.seat-note {
-  margin-top: var(--s2);
+/*
+ * `display` on the chip beats the browser's own `[hidden] { display: none }`,
+ * which is a rule of CSS and not a detail: without this line every failure
+ * path - worker down, bad JSON, no network - drew an empty bordered box in
+ * the hero. An empty box where a scarcity figure goes is worse than no box
+ * at all, and it is invisible in every test that only measures overflow.
+ */
+.seat-chip[hidden] { display: none; }
+
+.seat-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  /* One line, always. Wrapped, it stops reading as a chip and starts reading
+     as a paragraph in a box. There is little enough in it that this cannot
+     overflow even at 320px - the audit checks. */
+  white-space: nowrap;
+  margin-top: var(--s4);
+  padding: 0.42rem 0.7rem;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+/* Static, never pulsing. A blinking dot is a countdown's tell, and it would
+   be claiming the figure updates as you watch - it is cached for minutes. */
+.seat-dot {
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+  flex: none;
+}
+
+.seat-count {
+  color: var(--text);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+
+.seat-what { color: var(--text-dim); }
+
+/* Full is a fact, not an emergency - the reader has lost nothing they had,
+   and everything except Tex still works without an account. Warm, not red. */
+.seat-chip.full .seat-dot { background: var(--warn); }
 
 /* --- the readout: the app's own surface, rendered live ------------------ */
 .readout {

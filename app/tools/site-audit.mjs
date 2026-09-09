@@ -209,6 +209,51 @@ const CASES = [
   { name: "pixel-7", device: "Pixel 7", theme: "dark" },
 ];
 
+/*
+ * The seat chip, in the states nobody looks at.
+ *
+ * It carries a scarcity figure, so the one rule it must never break is that it
+ * shows nothing at all when the count cannot be read - a "spots left" box that
+ * survives its own data is indistinguishable from a fabricated one, which is
+ * the exact thing this feature was built not to be.
+ *
+ * It broke that rule the day it was written. `.seat-chip { display:inline-flex }`
+ * outranks the browser's own `[hidden] { display:none }`, so every failure path
+ * drew an empty bordered box in the hero - and no overflow, spacing or meta
+ * check could see it, because an empty box is the right size and the right
+ * colour. Hence a probe of its own, driving the failures on purpose.
+ */
+async function seatStates(browser, base) {
+  const cases = [
+    ["a real count", 200, '{"taken":6,"cap":100,"left":94}', true],
+    ["a full instance", 200, '{"taken":100,"cap":100,"left":0}', true],
+    ["the worker down", 503, '{"error":"unavailable"}', false],
+    ["figures of the wrong type", 200, '{"cap":"lots","left":null}', false],
+    ["a reply that is not JSON", 200, "<html>nope", false],
+    ["no network at all", null, null, false],
+  ];
+  const found = [];
+  for (const [name, status, body, shouldShow] of cases) {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await page.route("**/seats", (route) =>
+      status === null
+        ? route.abort()
+        : route.fulfill({ status, contentType: "application/json", body }));
+    await page.goto(base, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(900);
+
+    const chip = page.locator("#seat-note");
+    const shown = await chip.isVisible();
+    const text = ((await chip.textContent()) || "").trim();
+    // Two ways to be wrong: showing when there is nothing to show, and showing
+    // an empty box, which is the same failure wearing a border.
+    if (shown !== shouldShow) found.push(`${name}: chip ${shown ? "shown" : "hidden"}, expected ${shouldShow ? "shown" : "hidden"}`);
+    else if (shown && text === "") found.push(`${name}: chip shown but empty`);
+    await page.close();
+  }
+  return found;
+}
+
 const local = LIVE ? null : await serve();
 const base = LIVE ? "https://codedrichy.github.io/TargetX/" : local.url;
 const browser = await chromium.launch();
@@ -291,6 +336,19 @@ for (const c of CASES) {
   await page.screenshot({ path: path.join(OUT, `site-${c.name}.png`), fullPage: true });
   await ctx.close();
   console.log("");
+}
+
+/* Local only: it stubs the worker, and against the live site that would be
+   testing the stub rather than the page. */
+if (!LIVE) {
+  const seatProblems = await seatStates(browser, base);
+  if (seatProblems.length) {
+    problems += seatProblems.length;
+    for (const p of seatProblems) console.log(`  SEATS   ${p}`);
+  } else {
+    console.log("seat chip  shows a real count, and nothing at all without one");
+    console.log("");
+  }
 }
 
 await browser.close();

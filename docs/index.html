@@ -119,18 +119,26 @@
           </a>
           <a class="btn btn-quiet" href="#download">Other platforms</a>
         </div>
+        <!-- The remaining Tex sign-ins, filled in by site.js from the worker's
+             live count and left absent on every path where that count cannot
+             be read. Nothing is written here: a spots-left figure typed into a
+             static page is a number that stopped being true the day it was
+             typed, and an element with fallback copy is an element that lies
+             when the network does. It renders beside the buttons rather than
+             as a bar across the top because a full-width strip is the visual
+             language of sale countdowns, and this figure is real. -->
+        <p class="seat-chip" id="seat-note" hidden>
+          <span class="seat-dot" aria-hidden="true"></span>
+          <span class="seat-count" id="seat-count"></span>
+          <span class="seat-what" id="seat-what"></span>
+        </p>
         <p class="hero-note">
           Free for students, forever — written into the licence.<br>
           Your record is a file on your own machine, and no account is needed
-          to use any of it.
+          to use any of it &mdash; except Tex, whose sign-in is capped while
+          it is in testing.
         </p>
-        <!-- Filled in by site.js from the worker's live count, and left empty
-             on every path where that count cannot be read. Deliberately not
-             written into the markup: a spots-left figure typed into a static
-             page is a number that stopped being true the day it was typed,
-             which is the difference between this and the dark pattern it would
-             otherwise be. -->
-        <p class="hero-note seat-note" id="seat-note" hidden></p>
+
         <a class="scroll-cue" href="#marks">The marks you are already losing <span>&darr;</span></a>
       </div>
 

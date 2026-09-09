@@ -313,14 +313,23 @@
     if (typeof cap !== "number" || typeof left !== "number") return;
     if (!isFinite(cap) || !isFinite(left) || cap <= 0 || left < 0) return;
 
-    /* Flat on purpose. No exclamation mark, no colour that means alarm, no
-       ticking. The figure is scarce by itself, and dressing a true number as
-       an emergency is what teaches people to stop believing it. */
-    note.textContent = left <= 0
-      ? "Tex, the assistant, is the one part that needs an account — and all "
-        + cap + " spots are taken."
-      : "Tex, the assistant, is the one part that needs an account — "
-        + left + " of " + cap + " spots left.";
+    /* Two parts, because they are read differently: the figure carries the
+       weight and takes the full-strength colour, the sentence after it stays
+       dim and explains what the figure counts. Flat wording on purpose - no
+       exclamation mark, no "only", no "hurry". Dressing a true number as an
+       emergency is what teaches people to stop believing the true ones. */
+    var count = document.getElementById("seat-count");
+    var what = document.getElementById("seat-what");
+    if (!count || !what) return;
+
+    if (left <= 0) {
+      count.textContent = "All " + cap;
+      what.textContent = "Tex spots taken";
+      note.className += " full";
+    } else {
+      count.textContent = left + " of " + cap;
+      what.textContent = "Tex spots left";
+    }
     note.hidden = false;
   }).catch(function () {
     /* Stays hidden. Saying nothing is the honest answer here. */
