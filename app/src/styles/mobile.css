@@ -29,6 +29,31 @@
  */
 .tabbar { display: none; }
 
+/*
+ * The semester strip's edge fades, as animatable lengths.
+ *
+ * Registered so they INTERPOLATE - an unregistered custom property is a
+ * string to the animation engine and would jump from one end to the other
+ * rather than sliding. Declared at the top level because `@property` is a
+ * document-wide registration; the rules that use them are inside the phone
+ * breakpoint, where the strip is the only thing that scrolls.
+ */
+@property --sems-fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --sems-fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@keyframes sems-edges {
+  from { --sems-fade-start: 0px;  --sems-fade-end: 24px; }
+  to   { --sems-fade-start: 24px; --sems-fade-end: 0px; }
+}
+
 /* --- touch ----------------------------------------------------------------
  *
  * Keyed off the POINTER, not the width. A narrow desktop window is still a
@@ -520,8 +545,43 @@
      * that is being cut off, which is the affordance a scrollbar used to
      * carry, at zero layout cost and with no element to keep in sync.
      */
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--s5)), transparent);
-    mask-image: linear-gradient(to right, #000 calc(100% - var(--s5)), transparent);
+    /*
+     * The fade follows the SCROLL, rather than being painted always.
+     *
+     * A fixed right-edge fade was wrong in both directions it could be wrong:
+     * it dimmed the last chip even when the row fitted and there was nothing
+     * to scroll to, and it stayed on the right after you had scrolled to the
+     * end, pointing at content that was no longer there. Because the mask
+     * fades to whatever is behind, on the dark theme that read as a black
+     * smear down one side - which is how it was reported, and it was right.
+     *
+     * A scroll-driven timeline puts the fade where the hidden content
+     * actually is: right only at the start, both while in the middle, left
+     * only at the end. And a `scroll()` timeline on a container that cannot
+     * scroll is INACTIVE, so the unanimated state below - no fade at all - is
+     * what a student with four semesters sees. That is the case the old rule
+     * got wrong and the one hardest to notice, since it needs a short strip.
+     *
+     * Widths are literal rather than `var(--s5)`: these interpolate, and a
+     * registered custom property animating to a var() is not worth the risk
+     * for 24px. Browsers without scroll timelines keep the honest default of
+     * no fade instead of a permanent one.
+     */
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0, #000 var(--sems-fade-start),
+      #000 calc(100% - var(--sems-fade-end)), transparent 100%);
+    mask-image: linear-gradient(
+      to right,
+      transparent 0, #000 var(--sems-fade-start),
+      #000 calc(100% - var(--sems-fade-end)), transparent 100%);
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .head .sems .sems-scroll {
+      animation: sems-edges linear both;
+      animation-timeline: scroll(self inline);
+    }
   }
 
   /* Never scrolls away with the chips, and never shrinks to a sliver. */
@@ -622,6 +682,23 @@
    * never rendered it. Fixed here; covered in `mobile-fit.mjs` now too.
    */
   .setup-frame { padding: var(--s4); }
+
+  /*
+   * The button keeps its own width; the sentence beside it goes underneath.
+   *
+   * `.setup-actions` is a flex ROW holding the primary button and a line of
+   * fineprint, which is fine at 880px and wrong at 411: the sentence takes
+   * the space, and a flex item may shrink to its MIN-CONTENT, so the button
+   * collapsed to the width of the word "started" and broke its own label
+   * across two lines. That is the first control a new student ever sees.
+   *
+   * `flex: 0 0 auto` is the fix - the button stops shrinking - and `wrap`
+   * gives the sentence somewhere to go once it no longer fits alongside.
+   * Step 3's Back/Finish pair is the same container and stays on one line,
+   * because two short buttons still fit.
+   */
+  .setup-actions { flex-wrap: wrap; }
+  .setup-actions > button { flex: 0 0 auto; }
   .setup-head {
     flex-wrap: wrap;
     gap: var(--s3);

@@ -99,7 +99,7 @@ function Welcome(props: { onNext: () => void }) {
       <div class="setup-actions">
         <button class="primary" onClick={props.onNext}>Get started</button>
         <span class="fineprint">
-          Everything stays on this computer. No account, no server.
+          Everything stays on this device. No account, no server.
         </span>
       </div>
     </section>

@@ -800,7 +800,7 @@ function Backup() {
              aria-label="Confirm erasing everything"
              ref={(el) => queueMicrotask(() => el.focus())}>
           <strong>This deletes every subject, mark and past semester on this
-          computer.</strong> It cannot be undone, and TargetX has no copy of your
+          device.</strong> It cannot be undone, and TargetX has no copy of your
           data anywhere else. Export a backup first if there is any doubt.
           <div class="setup-actions">
             <button class="danger" onClick={() => { resetEverything(); setConfirming(false); }}>

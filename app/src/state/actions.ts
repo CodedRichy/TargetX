@@ -480,7 +480,7 @@ export function importJson(text: string) {
  * Erase everything, and mean it.
  *
  * The control that calls this promises "This deletes every subject, mark and
- * past semester on this computer." It used to clear the seven fields below the
+ * past semester on this device." It used to clear the seven fields below the
  * comment and stop, and everything the sync pages had written stayed exactly
  * where it was. Measured in a browser after pressing "Yes, erase it":
  * `daywiseAttendance` survived with the day-by-day, period-by-period grid and
