@@ -25,3 +25,11 @@ app/src-tauri/target/
 app/shots/
 app/src-tauri/gen/schemas/
 NEXT_SESSION.md
+
+# Android release signing. The key and its passwords are the app's identity -
+# change them later and every user must uninstall and lose their data - so they
+# live on the machine that does releases and nowhere else. See
+# docs/ANDROID-SIGNING.md.
+keystore.properties
+*.jks
+*.keystore

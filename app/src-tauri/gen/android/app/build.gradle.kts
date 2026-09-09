@@ -13,6 +13,28 @@ val tauriProperties = Properties().apply {
     }
 }
 
+/*
+ * Release signing, read from a file that is NOT in this repository.
+ *
+ * `keystore.properties` sits beside this build script, is listed in
+ * `.gitignore`, and holds four values: `storeFile`, `storePassword`,
+ * `keyAlias`, `keyPassword`. `docs/ANDROID-SIGNING.md` has the one command
+ * that creates it and the reasons it must be backed up.
+ *
+ * Absent, this is empty and release builds come out UNSIGNED rather than
+ * failing - which is what happens on any machine that does not have the key,
+ * CI included. A build that stops dead because a secret is missing is a build
+ * nobody else can run; an unsigned APK announces the problem at install time,
+ * to the one person who could fix it.
+ */
+val keystoreProperties = Properties().apply {
+    val propFile = file("keystore.properties")
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+val hasSigningKey = keystoreProperties.getProperty("storeFile") != null
+
 android {
     compileSdk = 36
     namespace = "cv.codedrichy.targetx"
@@ -24,6 +46,17 @@ android {
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
     }
+    signingConfigs {
+        if (hasSigningKey) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         getByName("debug") {
             applicationIdSuffix = ".debug"
@@ -50,6 +83,8 @@ android {
             }
         }
         getByName("release") {
+            // Only when there is a key to sign with. See `keystoreProperties`.
+            if (hasSigningKey) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }
