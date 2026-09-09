@@ -89,3 +89,39 @@ Losing either one is the same as losing both.
 The in-app updater. A debug-signed build cannot install a release-signed update
 over itself, so the updater has nothing to hand out until this key exists and
 every build after it uses the same one.
+
+## The key that exists
+
+Created 2026-09-09. Every Android release from 0.5.0 onward is signed with it,
+and every future one must be.
+
+```
+Subject:  CN=Rishi Praseeth, OU=Pantheras, O=Pantheras,
+          L=Ernakulam, ST=Kerala, C=IND
+Key:      RSA 4096, valid 30 years
+SHA-256:  b7:f5:b5:bf:48:10:24:25:5e:af:a1:33:10:41:bd:2b:
+          30:57:50:29:3c:bf:4f:76:7c:08:18:33:0f:84:d2:f1
+```
+
+That fingerprint is public — it ships inside every APK. It is written down so
+any future build can be checked against it:
+
+```
+apksigner verify --print-certs app-universal-release.apk
+```
+
+If the SHA-256 does not match the one above, the APK was signed with a
+different key and will not install over an existing TargetX. Stop and find out
+why before publishing it.
+
+## Verified
+
+0.5.0 was built, signed and installed from this key on 2026-09-09:
+
+- `apksigner` reports one signer, APK Signature Scheme v2, RSA 4096. There is
+  no v1 signature and that is correct - `minSdk` is 24, and v2 covers every
+  device this app supports.
+- Both ABIs present: `arm64-v8a` (real phones) and `x86_64` (emulator).
+- Installed and launched with minification on. Release builds run R8, which
+  strips code debug builds keep, so "it compiles" is not the test - it was
+  launched, the first-run screen rendered, and logcat had no fatal.
