@@ -10,7 +10,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const invoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
-vi.mock("../../sync/etlab", () => ({ canSync: () => true }));
+// `auth.ts` asks `isDesktopShell()`, not `canSync()` - sign-in is a desktop
+// flow, and on Android the browser it wants to open does not exist. That test
+// is false in jsdom by design, so without this the whole file only ever
+// exercises the "not configured in this build" refusal. Spread the real
+// module: only the one answer is staged, and `isNarrow` stays genuine.
+vi.mock("../platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../platform")>()),
+  isDesktopShell: () => true,
+}));
 
 // Both are read at module load, so they have to be in place before the import.
 // Neither is a secret: the issuer is in every token this app receives, and a

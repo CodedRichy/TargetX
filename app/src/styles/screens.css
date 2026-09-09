@@ -574,6 +574,10 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   font-size: var(--text-xs);
   line-height: 1.4;
   margin-top: var(--s2);
+  /* The check cell sets nowrap, which is right for a one-line pill and fatal
+     for a sentence: the line cannot break, so its last inline node is pushed
+     off the side of a phone. This is prose, so it wraps. */
+  white-space: normal;
 }
 .source-conflict strong { color: var(--text-dim); font-weight: 600; }
 
