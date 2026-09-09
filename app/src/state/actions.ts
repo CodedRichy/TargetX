@@ -458,6 +458,36 @@ export function importJson(text: string) {
   });
 }
 
+/**
+ * Erase everything, and mean it.
+ *
+ * The control that calls this promises "This deletes every subject, mark and
+ * past semester on this computer." It used to clear the seven fields below the
+ * comment and stop, and everything the sync pages had written stayed exactly
+ * where it was. Measured in a browser after pressing "Yes, erase it":
+ * `daywiseAttendance` survived with the day-by-day, period-by-period grid and
+ * every subject name in it; `timetable` survived with subjects AND teacher
+ * names; `student` survived carrying the branch and the college domain. That
+ * is the whole shape of a student's week, left on a device by a button whose
+ * entire purpose is to leave nothing.
+ *
+ * The reason this matters more on a phone than it did on a laptop is that
+ * phones are sold, lent and handed to a sibling, and this is the control
+ * someone presses before doing any of those. A destructive action that quietly
+ * under-delivers is worse than one that refuses: the student has been told the
+ * device is clean and has no reason to look again.
+ *
+ * So the rule here is now the opposite of a list of things to clear: every
+ * field that holds a record OR identifies the student goes, and the only
+ * survivors are the ones that are neither. Those are `version` and `scheme`
+ * (what this file is), and `theme` and `drawerOpen` (how this person likes
+ * their app to look, which is not a record of anything and whose loss would
+ * just be an unexplained change). `etlab` is cleared with the rest because it
+ * carries the portal base the student typed.
+ *
+ * Anything ADDED to `AppState` later is therefore a decision to make here, and
+ * the safe default for a new field is to clear it.
+ */
 export function resetEverything() {
   edit((s) => {
     s.semesters = { S1: { courses: [] } };
@@ -467,5 +497,19 @@ export function resetEverything() {
     s.onboarded = false;
     s.lastSync = undefined;
     s.changes = undefined;
+
+    // Who this is. `defaultState()` rather than a literal so a field added to
+    // `student` cannot be forgotten here.
+    s.student = defaultState().student;
+    s.etlab = {};
+
+    // What the sync pages wrote. All four are optional and absent-means-none,
+    // so they are deleted rather than nulled: a null is a value this record
+    // does not need to carry, and `undefined` is what a never-synced install
+    // actually looks like.
+    s.daywiseAttendance = undefined;
+    s.daywiseMonths = undefined;
+    s.timetable = undefined;
+    s.monthControls = undefined;
   });
 }
