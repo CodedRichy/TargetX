@@ -1,6 +1,6 @@
 import { For, Show, createMemo, createSignal } from "solid-js";
 import {
-  ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN,
+  ATTENDANCE_CONDONE, ATTENDANCE_FULL_MARKS_PCT, ATTENDANCE_MARK_MAX, ATTENDANCE_MIN,
   attendanceMarks, courseLabel, daywiseBySubject, monthLabel, monthsHeld,
   toOptionalFloat,
 } from "../engine";
@@ -25,6 +25,30 @@ import { setView } from "../state/nav";
  * house, and inventing either is the exact lie the rest of the app refuses to
  * tell.
  */
+
+/**
+ * A percentage written so it can never claim a line it has not reached.
+ *
+ * `toFixed(0)` rounds, and rounding crosses the two lines this whole screen is
+ * about. At 74.5% every figure on the card printed "75%" while `plan.state`
+ * stayed on the true value, so the verdict read "At 75% - below the 75% line"
+ * and the ONLY thing still saying which side of eligibility the student was on
+ * was the red fill. 84.5% printed "85%" beside "4 of 5 marks"; 59.5% printed
+ * "60%", the condonation floor, from below it.
+ *
+ * Truncating to a tenth is not merely closer, it is provably consistent with
+ * the decisions drawn from the same number. Every line and every R 7.5.ii mark
+ * band is a whole-number `>=` floor, and truncation is monotone and fixes
+ * whole numbers - so the printed figure is at or above a band exactly when
+ * `current` is. Rounding has no such guarantee in either direction.
+ *
+ * The tenth is dropped when it is zero, so an ordinary 82% still reads "82%"
+ * and the decimal appears only where it is carrying the fact.
+ */
+const pctText = (value: number): string => {
+  const cut = Math.floor(value * 10) / 10;
+  return Number.isInteger(cut) ? cut.toFixed(0) : cut.toFixed(1);
+};
 
 /** A subject's attendance standing, ready to render. */
 interface Line {
@@ -173,14 +197,33 @@ function BySubjectSection() {
     return rows().map((row) => {
       const code = (row.course.code ?? "").trim().toLowerCase();
       const name = courseLabel(row.course).trim().toLowerCase();
-      let found: { attended: number; held: number } | null = null;
-      for (const [printed, tally] of log) {
-        const key = printed.toLowerCase();
-        if ((code !== "" && key.includes(code)) || (name !== "" && key.includes(name))) {
-          found = tally;
-          break;
+      /*
+       * Exact first, and only then a substring.
+       *
+       * This was one substring pass, first hit wins, and a subject name that
+       * is a prefix of another's is normal in a KTU semester: "Software
+       * Engineering" is inside "Software Engineering Lab". Whichever the
+       * portal happened to print FIRST in the day won the theory subject's
+       * row - so the lab's periods were counted twice, the theory subject's
+       * own period was never counted at all, and the panel then reported a
+       * disagreement that existed only because of the mismatch. A panel whose
+       * job is to catch one wrong day cannot invent one out of a name.
+       *
+       * A subject that matches nothing exactly still falls through to the
+       * substring pass, because the portal's period string is not always the
+       * course title verbatim - it is often the title with a room or a batch
+       * suffix. What changed is only that an exact name can no longer lose to
+       * a longer one that merely contains it.
+       */
+      const hits = (test: (key: string) => boolean) => {
+        for (const [printed, tally] of log) {
+          if (test(printed.toLowerCase())) return tally;
         }
-      }
+        return null;
+      };
+      const found =
+        hits((key) => (name !== "" && key === name) || (code !== "" && key === code))
+        ?? hits((key) => (code !== "" && key.includes(code)) || (name !== "" && key.includes(name)));
       return {
         label: courseLabel(row.course),
         logged: found,
@@ -245,6 +288,35 @@ function BySubjectSection() {
                     && logged.held === r.storedHeld;
                   const known = () =>
                     r.storedAttended !== null && r.storedHeld !== null;
+                  /*
+                   * Which of the two figures actually differs, said in words.
+                   *
+                   * This read "log says more/fewer classes" off the sign of
+                   * the HELD difference alone, so the case the panel exists
+                   * for - same number of classes, one of them marked absent
+                   * that the student remembers attending - fell into the
+                   * "fewer" branch by default and was announced as a count
+                   * the log never disputed. The paragraph above the table
+                   * then tells the student a gap is not worth reading as a
+                   * mistake "when the log is simply shorter", so the one
+                   * genuine finding was filed under the app's own known
+                   * blind spot. Held and attended are two different claims
+                   * and are now reported as two different claims.
+                   */
+                  const disagreement = () => {
+                    const heldGap = logged.held - (r.storedHeld ?? 0);
+                    if (heldGap !== 0) {
+                      const n = Math.abs(heldGap);
+                      return `log has ${n} ${heldGap > 0 ? "more" : "fewer"} `
+                        + `class${n === 1 ? "" : "es"}`;
+                    }
+                    // Same classes, different verdict on them: the log and the
+                    // portal disagree about attendance, not about the timetable.
+                    const attGap = logged.attended - (r.storedAttended ?? 0);
+                    const n = Math.abs(attGap);
+                    return `same classes, log marks ${n} `
+                      + `${attGap > 0 ? "more attended" : "fewer attended"}`;
+                  };
                   return (
                     <tr>
                       <th class="grid-label left" scope="row">{r.label}</th>
@@ -257,9 +329,7 @@ function BySubjectSection() {
                           <span class="dim">no published total to compare</span>
                         }>
                           <Show when={agrees()} fallback={
-                            <span class="pill shortage">
-                              log says {logged.held - (r.storedHeld ?? 0) > 0 ? "more" : "fewer"} classes
-                            </span>
+                            <span class="pill shortage">{disagreement()}</span>
                           }>
                             <span class="pill safe">matches</span>
                           </Show>
@@ -686,7 +756,7 @@ function ThresholdMeter(props: { current: number }) {
   /** What R 7.5.ii pays at this percentage. Engine-computed, never guessed. */
   const earned = () => attendanceMarks(pct()) ?? 0;
   const label = () =>
-    `Attendance ${pct().toFixed(0)}%. Eligibility line ${ATTENDANCE_MIN}%. `
+    `Attendance ${pctText(pct())}%. Eligibility line ${ATTENDANCE_MIN}%. `
     + `Full internal marks from ${ATTENDANCE_FULL_MARKS_PCT}%. `
     + `Currently earning ${earned()} of ${ATTENDANCE_MARK_MAX} attendance marks.`;
 
@@ -708,7 +778,7 @@ function ThresholdMeter(props: { current: number }) {
           what no other calculator shows - is how many of the five R 7.5.ii
           marks this attendance is currently earning. */}
       <div class="meter-ends">
-        <span class="num">{pct().toFixed(0)}%</span>
+        <span class="num">{pctText(pct())}%</span>
         <span>
           <strong class="num">{earned()}</strong> of {ATTENDANCE_MARK_MAX} marks
         </span>
@@ -725,7 +795,7 @@ function SubjectCard(props: { line: Line }) {
       <div class="tile-head">
         <h3>{props.line.label}</h3>
         <Show when={plan()} fallback={<span class="tile-note dim">not recorded</span>}>
-          {(p) => <span class="tile-note num">{p().current.toFixed(0)}%</span>}
+          {(p) => <span class="tile-note num">{pctText(p().current)}%</span>}
         </Show>
       </div>
 
@@ -779,17 +849,38 @@ function SubjectCard(props: { line: Line }) {
             <Show when={p().state === "surplus"} fallback={
               <p class="tile-verdict bad">
                 <Show when={p().attend !== null} fallback={
-                  <>At {p().current.toFixed(0)}% there is no way back above{" "}
+                  <>At {pctText(p().current)}% there is no way back above{" "}
                     {ATTENDANCE_MIN}% this semester.</>
                 }>
-                  At <strong class="num">{p().current.toFixed(0)}%</strong> — below the{" "}
+                  At <strong class="num">{pctText(p().current)}%</strong> — below the{" "}
                   {ATTENDANCE_MIN}% line. Attend the next{" "}
                   <strong class="num">{p().attend}</strong> without missing one to get back.
+                </Show>
+                {/*
+                 * The second line, which this screen was drawing nothing for.
+                 *
+                 * A card at 30% and a card at 74% were the same card: same
+                 * red, same "below the 75% line", same "attend N in a row to
+                 * get back" - and at 30% that N was 360, an arithmetic fact
+                 * offered as a plan. But the two are not the same situation.
+                 * Above 60% a shortage is a fee and a form; below it R 6.2
+                 * gives no appeal at all, and a student reading a recovery
+                 * count has no way to tell which of those they are in. The
+                 * engine already knows - `ATTENDANCE_CONDONE` is the line
+                 * `isDebarred` is drawn from - and the recovery number stays
+                 * on screen because it is still true and still what they must
+                 * do; it is now said next to what it cannot fix on its own.
+                 */}
+                <Show when={p().current < ATTENDANCE_CONDONE}>
+                  {" "}Also below the <strong class="num">{ATTENDANCE_CONDONE}%</strong>{" "}
+                  floor R 6.2 lets the Principal condone — under that line there
+                  is no appeal, so getting back over it is the first thing this
+                  count has to buy.
                 </Show>
               </p>
             }>
               <p class="tile-verdict">
-                At <strong class="num">{p().current.toFixed(0)}%</strong>. Miss more than{" "}
+                At <strong class="num">{pctText(p().current)}%</strong>. Miss more than{" "}
                 <strong class="num">{p().skip}</strong> and you drop below {ATTENDANCE_MIN}%.
               </p>
             </Show>

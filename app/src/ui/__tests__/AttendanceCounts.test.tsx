@@ -57,6 +57,56 @@ describe("the counts behind the percentage are on the card", () => {
   });
 });
 
+describe("a printed percentage never claims a line it has not reached", () => {
+  /*
+   * The failure this guards was total: at 74.5% the card's headline, its
+   * verdict, the meter's ends and the meter's aria-label all printed "75%",
+   * because every one of them went through `toFixed(0)` while `plan.state`
+   * stayed on the true value. The sentence that came out was "At 75% - below
+   * the 75% line", and the only thing on the card still saying which side of
+   * eligibility the student was on was the red fill - colour as the sole
+   * carrier of the fact the screen exists to deliver.
+   */
+  const verdict = () =>
+    document.querySelector(".tile-verdict")?.textContent ?? "";
+  const headline = () =>
+    document.querySelector(".tile-head .tile-note")?.textContent ?? "";
+
+  it("does not round 74.5% up onto the eligibility line", () => {
+    open({ ...CN, attended: 149, held: 200 });
+    expect(headline()).toBe("74.5%");
+    expect(verdict()).toContain("At 74.5%");
+    expect(verdict()).not.toContain("At 75%");
+  });
+
+  it("does not round 84.5% up onto the full-marks line", () => {
+    // 84.5% earns 4 of the 5 R 7.5.ii marks. Printed as "85%" it sat beside
+    // its own mark count contradicting it.
+    open({ ...CN, attended: 169, held: 200 });
+    expect(screen.getAllByText(/84\.5%/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/^85%$/)).toBeNull();
+  });
+
+  it("still writes a whole percentage as a whole number", () => {
+    // The tenth is carrying a fact or it is noise. At 75% it is noise.
+    open({ ...CN, attended: 150, held: 200 });
+    expect(screen.getAllByText("75%").length).toBeGreaterThan(0);
+  });
+
+  it("keeps the printed figure and the verdict on the same side of the line", () => {
+    // The invariant, stated once: truncation is monotone and fixes whole
+    // numbers, and every line is a whole-number `>=` floor, so the headline
+    // and the verdict can no longer disagree at any denominator.
+    for (const [attended, held] of [[149, 200], [150, 200], [119, 200],
+                                    [3, 4], [59, 80], [0, 40], [40, 40]]) {
+      cleanup();
+      open({ ...CN, attended, held });
+      const printed = Number(headline().replace("%", ""));
+      expect(verdict().includes("below the")).toBe(printed < 75);
+    }
+  });
+});
+
 describe("the day-by-day log is a second opinion, not decoration", () => {
   const seedLog = (statuses: Array<[string, string]>) => edit((d) => {
     d.daywiseAttendance = [{
@@ -80,8 +130,38 @@ describe("the day-by-day log is a second opinion, not decoration", () => {
       ["absent", "CST303 Computer Networks"],
     ]);
     // The log says 1/2 and the portal says 39/50. One of them is wrong, and
-    // the student is the only person who can say which.
-    expect(screen.getByText(/log says fewer classes/)).toBeTruthy();
+    // the student is the only person who can say which. Here it is the class
+    // COUNT that differs - 2 against 50 - so that is what is named.
+    expect(screen.getByText(/log has 48 fewer classes/)).toBeTruthy();
+  });
+
+  it("names an attendance disagreement as one, when the counts agree", () => {
+    // The case this whole panel exists for: the same two classes, and the
+    // portal has marked one of them absent that the log says was attended.
+    // Reported as "fewer classes" until the wording branched on the sign of
+    // the HELD gap alone, which is zero here - so the one finding worth
+    // acting on was announced as the app's own known blind spot, the
+    // shorter-log gap the paragraph above the table tells students to ignore.
+    open({ ...CN, attended: 1, held: 2 });
+    seedLog([
+      ["present", "CST303 Computer Networks"],
+      ["present", "CST303 Computer Networks"],
+    ]);
+    expect(screen.getByText(/same classes, log marks 1 more attended/)).toBeTruthy();
+  });
+
+  it("does not hand a subject the tally of one whose name contains it", () => {
+    // "Computer Networks" is inside "Computer Networks Lab", and the portal
+    // prints whichever ran first. Under a single substring pass the theory
+    // subject took the lab's two periods, its own period went uncounted, and
+    // the panel reported a disagreement that only the matching had created.
+    open({ ...CN, attended: 1, held: 1 });
+    seedLog([
+      ["present", "Computer Networks Lab"],
+      ["present", "Computer Networks Lab"],
+      ["present", "Computer Networks"],
+    ]);
+    expect(screen.getByText("matches")).toBeTruthy();
   });
 
   it("shows nothing at all when there is no day-by-day record", () => {
