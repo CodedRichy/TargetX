@@ -141,6 +141,51 @@ body {
   overflow-x: hidden;
 }
 
+/*
+ * One section, one screen.
+ *
+ * Every band is at least a viewport tall and its content is centred in it, so
+ * arriving anywhere on this page shows exactly one argument rather than the
+ * bottom of one and the top of the next. That was the actual complaint: the
+ * hero stopped at 84vh, which left a stripe of the following section under it
+ * and made the page look like it had been cut off mid-sentence.
+ *
+ * `min-height`, never `height`: Downloads and Privacy are taller than any
+ * laptop viewport and must be allowed to grow. `svh` rather than `vh` because
+ * on mobile Safari and Chrome `vh` is the viewport with the toolbars HIDDEN,
+ * so a `100vh` section is about 60px taller than what the phone is showing and
+ * every section leaks the next one - the exact fault this is fixing, appearing
+ * only on phones.
+ *
+ * Snap is `proximity`, not `mandatory`. Mandatory fights a section taller than
+ * the screen: the reader scrolls to see the rest of the download table and the
+ * page hauls them back to a boundary. Proximity tidies a near-miss and leaves
+ * a deliberate scroll alone.
+ */
+html {
+  scroll-snap-type: y proximity;
+  scroll-padding-top: 3.5rem;
+  /*
+   * The scrollbar, gone by request.
+   *
+   * Scoped to the root scroller on purpose: `* { scrollbar-width: none }`
+   * would also blind the horizontal scrollers inside the build table and the
+   * store rail, where the bar is the only thing saying there is more to the
+   * right. Those keep theirs.
+   *
+   * A hidden scrollbar takes away the page's only "there is more below" signal
+   * and its position indicator. The cue under the hero is the replacement for
+   * the first of those; nothing replaces the second, which is the trade this
+   * makes.
+   */
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar { width: 0; height: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-snap-type: none; }
+}
+
 a { color: var(--brand); text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
 a:hover { color: var(--brand-bright); }
 
@@ -185,13 +230,33 @@ p { margin: 0; }
   padding-inline: clamp(var(--s5), 4vw, var(--s8));
 }
 
-.band { border-top: 1px solid var(--hairline); }
+/*
+ * No rule between sections.
+ *
+ * There was a 1px hairline on every band, and at full-height it reads as a
+ * seam across an otherwise empty screen - which is what it looked like: a line
+ * with nothing on either side of it. The separation is now done by the
+ * viewport itself. If one section fills the screen, the next one starting is
+ * not something that needs announcing with a border.
+ */
+.band {
+  min-height: 100svh;
+  display: grid;
+  align-content: center;
+  scroll-snap-align: start;
+}
 
 .band-inner {
   display: grid;
   grid-template-columns: var(--rail) minmax(0, 1fr);
   gap: 0 var(--s7);
-  padding-block: clamp(var(--s7), 9vh, var(--s9));
+  /* Was 9vh, when this padding was the only thing holding two sections apart.
+     The viewport does that now, and the old value was pushing sections that
+     would otherwise fit a screen just past it - `marks` measured 106vh, so the
+     next block showed as a sliver at the fold, which is the thing being fixed
+     rather than a small imperfection. */
+  padding-block: clamp(var(--s6), 4vh, var(--s8));
+  width: 100%;
 }
 
 .mark {
@@ -289,10 +354,53 @@ p { margin: 0; }
   gap: clamp(var(--s6), 5vw, var(--s8));
   align-items: center;
   padding-block: clamp(var(--s6), 7vh, 5rem) clamp(var(--s7), 9vh, var(--s9));
-  min-height: min(84vh, 56rem);
+  /* Minus the masthead: it is `position: sticky`, which unlike `fixed` still
+     occupies its 3.5rem in normal flow, so a 100svh hero underneath it pushes
+     the fold down by exactly the height of the bar. */
+  min-height: calc(100svh - 3.5rem);
+  scroll-snap-align: start;
+  position: relative;
 }
 @media (max-width: 62rem) {
   .hero { grid-template-columns: minmax(0, 1fr); gap: var(--s7); }
+}
+
+/*
+ * The cue that says the page continues.
+ *
+ * Only here because the scrollbar was removed. A full-screen hero with no
+ * scrollbar has nothing in it that says anything follows, and the page's whole
+ * argument is below the fold. It is deliberately quiet - mono, faint, the size
+ * of the eyebrow - because it is a signpost, not a call to action.
+ *
+ * The nudge stops entirely under reduced motion, where the text alone does the
+ * job.
+ */
+.scroll-cue {
+  display: flex; align-items: center; gap: 0.6ch;
+  font-family: var(--font-mono); font-size: 0.7rem;
+  letter-spacing: var(--tracking-widest); text-transform: uppercase;
+  color: var(--text-faint); text-decoration: none;
+  width: fit-content;
+  /* Sat at the bottom of the hero rather than after the note, because a cue
+     that points off the screen belongs at the edge it is pointing over. It
+     goes back into normal flow once the hero stacks, where "the bottom" is
+     under the readout card and nowhere near the text it follows. */
+  position: absolute;
+  left: 0;
+  bottom: clamp(var(--s5), 4vh, var(--s7));
+}
+@media (max-width: 62rem) {
+  .scroll-cue { position: static; margin-top: var(--s6); }
+}
+.scroll-cue:hover { color: var(--text-dim); }
+.scroll-cue span { animation: cue-nudge 2.4s ease-in-out infinite; }
+@keyframes cue-nudge {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(0.22em); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-cue span { animation: none; }
 }
 
 .eyebrow {
