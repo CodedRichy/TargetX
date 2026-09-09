@@ -2,9 +2,12 @@ package cv.codedrichy.targetx
 
 import android.content.res.Configuration
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 
@@ -12,7 +15,45 @@ class MainActivity : TauriActivity() {
   /** Held so the Back handler can ask the page whether it has anywhere to go. */
   private var web: WebView? = null
 
+  /**
+   * False until the page has painted something, which is what the system
+   * splash waits on. See `onCreate`.
+   */
+  private var painted = false
+
   override fun onCreate(savedInstanceState: Bundle?) {
+    /*
+     * Hold the system splash until the page has actually drawn.
+     *
+     * Launching showed three things in a row: Android's splash with the app
+     * icon, then roughly two seconds of an empty window, then the app's own
+     * opening with the mark flying into the tab bar. The empty stretch in the
+     * middle is a WebView starting up, and it read as the app having crashed
+     * and come back - the worst two seconds to hand a student who has just
+     * tapped the icon for the first time.
+     *
+     * `setKeepOnScreenCondition` closes it: the splash is the thing on screen
+     * for that whole gap, and it hands over directly to the app's own opening.
+     * Nothing is added to the launch - the wait was always there - but it is
+     * now spent looking at the icon rather than at nothing.
+     *
+     * MUST be called before `super.onCreate`, and the release comes from
+     * `postVisualStateCallback` rather than from the page, deliberately: the
+     * signal is "the WebView is ready to draw", it is a platform callback, and
+     * taking it natively avoids adding a JavaScript interface to a webview
+     * this app is careful about what it hands to (see the `opener` and
+     * `dialog` scopes in `lib.rs`).
+     *
+     * The timeout is not optional. If that callback never fires - the page
+     * fails to load, the renderer dies - a splash with no release condition is
+     * an app that never starts, which is a far worse failure than the blank
+     * gap being fixed here. Two and a half seconds is past the measured wait
+     * and still short of a student deciding the app is broken.
+     */
+    val splash = installSplashScreen()
+    splash.setKeepOnScreenCondition { !painted }
+    Handler(Looper.getMainLooper()).postDelayed({ painted = true }, SPLASH_CAP_MS)
+
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
 
@@ -78,6 +119,30 @@ class MainActivity : TauriActivity() {
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
     web = webView
+
+    /*
+     * Paint the WebView in the app's own background before it has any content.
+     *
+     * A WebView with nothing drawn in it is WHITE, and this app is not: the
+     * light theme is a warm off-white and the dark theme is nearly black. That
+     * white is what showed in the gap between the splash being released and
+     * the page painting - a bright flash on a warm-toned app, and on a phone
+     * in dark mode, a full-screen white one.
+     *
+     * These two are `--bg` from `tokens.css`, converted from oklch. They are
+     * duplicated here because Kotlin cannot read a CSS custom property before
+     * the CSS has loaded, which is precisely the moment being covered. If the
+     * palette changes, this changes with it - it is the only value in this
+     * file that has a twin somewhere else.
+     */
+    webView.setBackgroundColor(if (isNight()) BG_DARK else BG_LIGHT)
+
+    // Fires once the WebView has processed everything needed to draw the
+    // current DOM - the moment the splash above is waiting for. The request
+    // id is unused; there is only ever one of these in flight.
+    webView.postVisualStateCallback(1L, object : WebView.VisualStateCallback() {
+      override fun onComplete(requestId: Long) { painted = true }
+    })
     webView.isVerticalScrollBarEnabled = false
     webView.isHorizontalScrollBarEnabled = false
 
@@ -120,8 +185,7 @@ class MainActivity : TauriActivity() {
      * token on a string the page owns, and the page is the only thing that
      * reads it.
      */
-    val night = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
-      Configuration.UI_MODE_NIGHT_YES
+    val night = isNight()
     val ua = webView.settings.userAgentString ?: ""
     if (!ua.contains(SCHEME_TOKEN)) {
       webView.settings.userAgentString =
@@ -147,7 +211,19 @@ class MainActivity : TauriActivity() {
     )
   }
 
+  /** Whether the system is in dark mode right now. */
+  private fun isNight(): Boolean =
+    (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+      Configuration.UI_MODE_NIGHT_YES
+
   private companion object {
     const val SCHEME_TOKEN = "TargetXScheme/"
+
+    /** Longest the splash may hold if the page never reports a first paint. */
+    const val SPLASH_CAP_MS = 2500L
+
+    /** `--bg` from `tokens.css`, dark and light. See `onWebViewCreate`. */
+    const val BG_DARK = 0xFF0E0905.toInt()
+    const val BG_LIGHT = 0xFFF4EFEB.toInt()
   }
 }
