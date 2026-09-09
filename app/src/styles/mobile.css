@@ -29,6 +29,31 @@
  */
 .tabbar { display: none; }
 
+/* --- touch ----------------------------------------------------------------
+ *
+ * Keyed off the POINTER, not the width. A narrow desktop window is still a
+ * mouse and must keep its hover affordances; a touch laptop is still a finger
+ * at 1400px and must not. This is the one place in this file where the
+ * breakpoint would have been the wrong question.
+ */
+@media (hover: none) {
+  /*
+   * Android paints a translucent blue slab over the whole element on every
+   * tap - its default `-webkit-tap-highlight-color`. On a five-tab bar that
+   * reads as the button flashing blue before the screen changes, which is
+   * what it looked like on the device: the flash outlasts the 120ms colour
+   * transition underneath it, so the highlight IS the animation you see.
+   *
+   * Removed rather than restyled. Every control here already answers a press
+   * some other way - the tab colour changes, `:active` and the arrival
+   * animation do the rest - so the slab adds nothing but a colour from
+   * outside the palette.
+   */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
 /* The breakpoint. 720px rather than a phone-exact number: a small window on a
    laptop has the same problem as a phone and deserves the same answer, and the
    existing sheets already turn at 719-720 in several places. */

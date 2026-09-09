@@ -44,7 +44,7 @@
               border-color var(--dur-fast) var(--ease),
               color var(--dur-fast) var(--ease);
 }
-.pill:hover { background: var(--surface-2); color: var(--text); }
+@media (hover: hover) { .pill:hover { background: var(--surface-2); color: var(--text); } }
 
 /* The search pill is wider than its label so it reads as a field to type in
    rather than a button that does something. */
@@ -114,11 +114,11 @@
   color: var(--text-dim);
   cursor: default;
 }
-.winbtn:hover { background: var(--surface-2); color: var(--text); }
+@media (hover: hover) { .winbtn:hover { background: var(--surface-2); color: var(--text); } }
 /* Red only on the one button that discards what you were doing, and only on
    hover - a permanently red close button reads as an error state in a header
    that uses colour to mean something. */
-.winbtn-close:hover { background: var(--danger); color: oklch(0.98 0 0); }
+@media (hover: hover) { .winbtn-close:hover { background: var(--danger); color: oklch(0.98 0 0); } }
 .winbtn:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
 
 .sems { display: flex; gap: 1px; margin-left: var(--s2); }
@@ -139,7 +139,7 @@
   padding: var(--s1) var(--s3);
   transition: color var(--fast) var(--ease), background var(--fast) var(--ease);
 }
-.sem:hover:not(:disabled) { color: var(--text); background: var(--surface-3); }
+@media (hover: hover) { .sem:hover:not(:disabled) { color: var(--text); background: var(--surface-3); } }
 /* The add button at S8. Present and refusing, not missing - and it must stop
    answering the hover, or a control that does nothing still looks live. */
 .sem:disabled { cursor: default; opacity: 0.35; }
@@ -173,7 +173,7 @@
   padding: var(--s1) var(--s3);
   transition: color var(--fast) var(--ease), border-color var(--fast) var(--ease);
 }
-.icon-btn:hover { color: var(--brand-bright); border-color: var(--brand-deep); }
+@media (hover: hover) { .icon-btn:hover { color: var(--brand-bright); border-color: var(--brand-deep); } }
 
 /* --- goal bar ------------------------------------------------------------- */
 
@@ -324,7 +324,7 @@ tbody td.left, tbody th.left { text-align: left; }
 /* No zebra striping: it fights the status colour, which is the one thing on
    the row that has to be read at a glance. Hover carries the row instead. */
 tbody tr.row { transition: background var(--fast) var(--ease); }
-tbody tr.row:hover { background: var(--surface-1); }
+@media (hover: hover) { tbody tr.row:hover { background: var(--surface-1); } }
 tbody tr.row.open { background: var(--surface-1); }
 
 .code {
@@ -353,7 +353,7 @@ button.code {
   text-align: right;
   width: 6ch;
 }
-.cell-input:hover { border-color: var(--hairline); }
+@media (hover: hover) { .cell-input:hover { border-color: var(--hairline); } }
 .cell-input:focus { background: var(--surface-2); border-color: var(--brand-deep); outline: none; }
 .cell-input.wide { width: 9ch; }
 
@@ -412,12 +412,12 @@ select.cell-input { text-align: left; width: auto; }
   cursor: pointer; opacity: 0; padding: 0 var(--s1);
   transition: opacity var(--fast) var(--ease), color var(--fast) var(--ease);
 }
-tr.row:hover .del { opacity: 1; }
+@media (hover: hover) { tr.row:hover .del { opacity: 1; } }
 /* Otherwise the remove button is focusable and invisible: Tab lands on it and
    nothing on screen moves, which is the worst kind of lost focus - present in
    the tab order, absent from the page. */
 .del:focus-visible { opacity: 1; }
-.del:hover { color: var(--danger); }
+@media (hover: hover) { .del:hover { color: var(--danger); } }
 
 /* --- expanded detail ------------------------------------------------------ */
 
@@ -768,7 +768,7 @@ tr.row:hover .del { opacity: 1; }
   flex: none;
   transition: filter var(--dur-fast) var(--ease);
 }
-.homebtn:hover { filter: brightness(1.12); }
+@media (hover: hover) { .homebtn:hover { filter: brightness(1.12); } }
 .homebtn[aria-current="true"] { box-shadow: 0 0 0 3px var(--brand-wash); }
 
 /* The ask box takes ALL the slack, with no cap.
@@ -798,7 +798,7 @@ tr.row:hover .del { opacity: 1; }
   position: relative;
   flex: none;
 }
-.iconbtn:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+@media (hover: hover) { .iconbtn:hover:not(:disabled) { background: var(--surface-2); color: var(--text); } }
 .iconbtn:disabled { cursor: default; }
 /* Not dimmed while it works. A control that fades the moment it is pressed
    reads as having failed, and this one is doing exactly what was asked. */
@@ -836,7 +836,7 @@ tr.row:hover .del { opacity: 1; }
   flex: none;
   text-align: start;
 }
-.profile:hover { background: var(--surface-2); }
+@media (hover: hover) { .profile:hover { background: var(--surface-2); } }
 
 .avatar {
   display: grid;
@@ -958,7 +958,7 @@ tr.row:hover .del { opacity: 1; }
               border-color var(--dur-fast) var(--ease),
               color var(--dur-fast) var(--ease);
 }
-.ask:hover { background: var(--surface-2); color: var(--text); }
+@media (hover: hover) { .ask:hover { background: var(--surface-2); color: var(--text); } }
 .ask:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 /* While the palette is open it IS this control, grown. Two copies on screen
@@ -1013,7 +1013,7 @@ tr.row:hover .del { opacity: 1; }
   line-height: 1;
   padding: 2px 5px;
 }
-.pop-x:hover { background: var(--surface-2); color: var(--text); }
+@media (hover: hover) { .pop-x:hover { background: var(--surface-2); color: var(--text); } }
 .pop-x:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
 
 /* --- actions inside a popover ---------------------------------------------
@@ -1045,7 +1045,7 @@ tr.row:hover .del { opacity: 1; }
      nothing stopping it, the action is the thing that gives up its width. */
   white-space: nowrap;
 }
-.pop-action:hover:not(:disabled) { filter: brightness(1.1); }
+@media (hover: hover) { .pop-action:hover:not(:disabled) { filter: brightness(1.1); } }
 .pop-action:disabled { cursor: default; opacity: 0.6; }
 .pop-action:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 

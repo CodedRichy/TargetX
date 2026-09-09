@@ -102,7 +102,7 @@ button.primary {
   color: var(--on-brand);
   font-weight: 600;
 }
-button.primary:hover:not(:disabled) { background: var(--brand-bright); }
+@media (hover: hover) { button.primary:hover:not(:disabled) { background: var(--brand-bright); } }
 button.primary:disabled { opacity: 0.4; cursor: not-allowed; }
 
 button.ghost {
@@ -110,14 +110,14 @@ button.ghost {
   border: 1px solid var(--hairline-strong);
   color: var(--text-dim);
 }
-button.ghost:hover { border-color: var(--brand-deep); color: var(--brand-bright); }
+@media (hover: hover) { button.ghost:hover { border-color: var(--brand-deep); color: var(--brand-bright); } }
 
 button.danger {
   background: transparent;
   border: 1px solid var(--danger);
   color: var(--danger);
 }
-button.danger:hover { background: var(--danger-wash); }
+@media (hover: hover) { button.danger:hover { background: var(--danger-wash); } }
 
 button.link {
   background: none;
@@ -127,7 +127,7 @@ button.link {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-button.link:hover { color: var(--text); }
+@media (hover: hover) { button.link:hover { color: var(--text); } }
 button.link.back { display: block; margin-bottom: var(--s4); }
 
 .setup-actions {
@@ -295,7 +295,7 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   text-align: left;
   transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease);
 }
-.route:hover { background: var(--surface-2); border-color: var(--brand-deep); }
+@media (hover: hover) { .route:hover { background: var(--surface-2); border-color: var(--brand-deep); } }
 
 /* The recommended route has to LOOK recommended.
  *
@@ -309,7 +309,7 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   background: var(--brand-wash);
   border-color: var(--brand-deep);
 }
-.route.recommended:hover { border-color: var(--brand); }
+@media (hover: hover) { .route.recommended:hover { border-color: var(--brand); } }
 .route.recommended strong { font-size: var(--text-xl); }
 
 /* Not disabled-looking, just secondary. These are real choices and a student
@@ -366,7 +366,7 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   padding: var(--s2) var(--s4);
 }
 .picks li:last-child { border-bottom: 0; }
-.picks li:hover { background: var(--surface-1); }
+@media (hover: hover) { .picks li:hover { background: var(--surface-1); } }
 .picks li.on { background: var(--brand-wash); }
 .pick-name { color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis;
              white-space: nowrap; }
@@ -405,7 +405,7 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   font-size: var(--text-sm);
   padding: var(--s1) var(--s4);
 }
-.chip:hover { border-color: var(--brand-deep); color: var(--brand-bright); }
+@media (hover: hover) { .chip:hover { border-color: var(--brand-deep); color: var(--brand-bright); } }
 
 /* --- sync ------------------------------------------------------------------ */
 
@@ -620,7 +620,7 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   cursor: pointer;
   font-size: var(--text-sm);
 }
-.diagnostic summary:hover { color: var(--text); }
+@media (hover: hover) { .diagnostic summary:hover { color: var(--text); } }
 .diagnostic .lede { font-size: var(--text-sm); margin: var(--s3) 0; }
 .diagnostic pre {
   background: var(--surface-2);
@@ -651,7 +651,7 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   padding: var(--s2) var(--s3);
   transition: color var(--fast) var(--ease), border-color var(--fast) var(--ease);
 }
-.tab:hover { color: var(--text); }
+@media (hover: hover) { .tab:hover { color: var(--text); } }
 .tab[aria-current="true"] { border-bottom-color: var(--brand); color: var(--text); }
 
 /* --- Home: the bento ------------------------------------------------------
@@ -902,7 +902,7 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
   border-bottom-color: transparent;
   min-width: 4.5rem;
 }
-.theme-toggle:hover { color: var(--text); }
+@media (hover: hover) { .theme-toggle:hover { color: var(--text); } }
 
 /* The launch check's findings. Sits under the goal bar rather than over the
    screen: it reports on data the student can see, so covering it would be
@@ -951,7 +951,7 @@ label { color: var(--text-dim); display: block; font-size: var(--text-sm); }
    pointer. Renaming ends the collision instead of winning the next round of
    it. */
 .launch-notice .link.offer { color: var(--brand); }
-.launch-notice .link.offer:hover { color: var(--brand); text-decoration-thickness: 2px; }
+@media (hover: hover) { .launch-notice .link.offer:hover { color: var(--brand); text-decoration-thickness: 2px; } }
 
 /* Download progress on the update prompt.
    A bar rather than a spinner because the one thing a student wants to know
@@ -1065,7 +1065,7 @@ a.link {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-a.link:hover { text-decoration-thickness: 2px; }
+@media (hover: hover) { a.link:hover { text-decoration-thickness: 2px; } }
 
 /* The path is the one string on this screen a student may have to retype, so
    it is selectable, monospaced, and allowed to break at its separators rather
@@ -1211,7 +1211,7 @@ a.link:hover { text-decoration-thickness: 2px; }
 }
 .confirm-inline .fineprint { color: var(--text-dim); }
 button.link.remove-go { color: var(--danger); }
-button.link.remove-go:hover { color: var(--danger); font-weight: 600; }
+@media (hover: hover) { button.link.remove-go:hover { color: var(--danger); font-weight: 600; } }
 
 /* The counts a subject's percentage is computed from. Quiet, because it is
    evidence rather than a finding - but present, because a percentage with no

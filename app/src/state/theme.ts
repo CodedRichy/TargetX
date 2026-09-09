@@ -1,4 +1,5 @@
 import { createEffect } from "solid-js";
+import { androidScheme } from "./platform";
 import { edit, state } from "./store";
 
 /**
@@ -22,8 +23,17 @@ export const THEMES: Array<{ id: Theme; label: string }> = [
 
 const query = () => window.matchMedia("(prefers-color-scheme: light)");
 
-/** What the OS is asking for right now. */
+/**
+ * What the OS is asking for right now.
+ *
+ * Android is asked first, and not through the media query: its WebView
+ * answered `light` on a phone whose system theme was dark, which sent every
+ * "system" user into the light palette and left the OS to darken the pixels
+ * itself. `platform.ts` carries the real answer; see the note there.
+ */
 export function systemAppearance(): Appearance {
+  const android = androidScheme();
+  if (android) return android;
   return query().matches ? "light" : "dark";
 }
 

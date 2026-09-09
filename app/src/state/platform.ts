@@ -64,6 +64,44 @@ export const isAndroid = (): boolean =>
 export const isDesktopShell = (): boolean => inShell() && !isAndroid();
 
 /**
+ * What the ANDROID system asks for, light or dark - `null` everywhere else.
+ *
+ * `prefers-color-scheme` is the right question and Android's WebView answers
+ * it wrongly: measured on a device in system dark mode, with the activity
+ * configuration reporting `night`, the media query still said `light`. The app
+ * resolved "system" to its light palette, and the OS then algorithmically
+ * darkened the result - so the phone showed colours from neither theme, with
+ * the tab bar's selected item coming out darker than its unselected
+ * neighbours, which is that inversion reading backwards.
+ *
+ * So `MainActivity` states the scheme in the user agent, where nothing below
+ * this layer can reset it, and re-states it through a `targetx:scheme` event
+ * when the phone changes mode while the app is open - the UA cannot change
+ * after creation, and `uiMode` is in the activity's `configChanges`, so
+ * without the event a student flipping dark mode would see nothing happen.
+ *
+ * A signal, not a function: the appearance is rendered, and the effect that
+ * stamps it on the document has to re-run when this changes.
+ */
+const readScheme = (): "light" | "dark" | null => {
+  if (!isAndroid()) return null;
+  const m = /TargetXScheme\/(light|dark)/.exec(navigator.userAgent);
+  return m ? (m[1] as "light" | "dark") : null;
+};
+
+const [schemeSignal, setScheme] = createSignal<"light" | "dark" | null>(readScheme());
+
+if (typeof window !== "undefined") {
+  window.addEventListener("targetx:scheme", (e) => {
+    const next = (e as CustomEvent<string>).detail;
+    if (next === "light" || next === "dark") setScheme(next);
+  });
+}
+
+/** The Android system scheme, or `null` on desktop and in a browser. */
+export const androidScheme = schemeSignal;
+
+/**
  * Whether the layout is in its narrow, one-column form.
  *
  * The same 720px the phone stylesheet turns at, and read the same way it is

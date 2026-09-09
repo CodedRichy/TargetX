@@ -1,9 +1,12 @@
 package cv.codedrichy.targetx
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 
 class MainActivity : TauriActivity() {
   /** Held so the Back handler can ask the page whether it has anywhere to go. */
@@ -77,5 +80,73 @@ class MainActivity : TauriActivity() {
     web = webView
     webView.isVerticalScrollBarEnabled = false
     webView.isHorizontalScrollBarEnabled = false
+
+    /*
+     * Let the page hear that the system is in dark mode.
+     *
+     * WebView does not pass the app night mode through to
+     * `prefers-color-scheme` on its own. Without this the media query answered
+     * "light" on a phone whose system theme was dark, `theme.ts` resolved
+     * "system" to its LIGHT palette, and the OS then algorithmically darkened
+     * the light pixels it got - so the app rendered in colours nobody chose.
+     * Measured on device: computed `--surface-1` was `oklch(0.99 ...)` while
+     * the screenshot was black, and the tab bar's selected item came out
+     * DARKER (L 0.43) than its unselected neighbours (L 0.505), which is the
+     * inversion reading backwards.
+     *
+     * Allowing algorithmic darkening is what switches that off, despite the
+     * name: once the page declares `color-scheme` - which `tokens.css` does,
+     * in both blocks - WebView stops inverting anything and reports the real
+     * scheme instead, leaving the app's own contrast-tested dark palette to do
+     * the work.
+     */
+    if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+      WebSettingsCompat.setAlgorithmicDarkeningAllowed(webView.settings, true)
+    }
+
+    /*
+     * Say the scheme in the user agent, because the media query would not.
+     *
+     * The setting above is the documented way to make `prefers-color-scheme`
+     * follow the app's night mode, and on this device it did not: measured
+     * after a cold start, with the activity configuration reporting `night`
+     * and the call confirmed present in the shipped dex, the page still read
+     * `prefers-color-scheme: light`. Whatever resets it sits below where this
+     * class can reach, so the answer is carried where nothing can overwrite it.
+     *
+     * The user agent, not a plugin - the same reasoning `platform.ts` already
+     * gives for detecting Android at all, and the same trade-off: it costs one
+     * token on a string the page owns, and the page is the only thing that
+     * reads it.
+     */
+    val night = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+      Configuration.UI_MODE_NIGHT_YES
+    val ua = webView.settings.userAgentString ?: ""
+    if (!ua.contains(SCHEME_TOKEN)) {
+      webView.settings.userAgentString =
+        ua + " " + SCHEME_TOKEN + (if (night) "dark" else "light")
+    }
+  }
+
+  /*
+   * The UA is fixed at creation, and `uiMode` is in this activity's
+   * `configChanges`, so switching the phone to dark mode while the app is open
+   * neither recreates the activity nor updates that string. This tells the page
+   * directly instead, and the page listens for it.
+   */
+  override fun onConfigurationChanged(newConfig: Configuration) {
+    super.onConfigurationChanged(newConfig)
+    val night = (newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+      Configuration.UI_MODE_NIGHT_YES
+    val scheme = if (night) "dark" else "light"
+    web?.evaluateJavascript(
+      "window.dispatchEvent(new CustomEvent('targetx:scheme'," +
+        "{detail:'" + scheme + "'}))",
+      null,
+    )
+  }
+
+  private companion object {
+    const val SCHEME_TOKEN = "TargetXScheme/"
   }
 }
