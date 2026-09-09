@@ -405,13 +405,7 @@ function HistoryRow(props: { row: Row }) {
                   <Show when={props.row.recomputed !== null
                               && driftsFrom(props.row.recomputed,
                                             props.row.published!.sgpa)}>
-                    {/* The cell inherits `white-space: nowrap` - right for a
-                        one-line pill, fatal for a sentence: measured at 411px
-                        it ran 58px past the screen edge with nothing above it
-                        clipping, and 149px past at 320px. Inline, because the
-                        rule belongs in `.source-conflict` in screens.css and
-                        that file is not mine to edit. */}
-                    <span class="source-conflict" style={{ "white-space": "normal" }}>
+                    <span class="source-conflict">
                       Recomputed from part of the semester, so{" "}
                       <span class="num">{props.row.recomputed!.toFixed(2)}</span> is not
                       a second opinion on{" "}
@@ -437,12 +431,8 @@ function HistoryRow(props: { row: Row }) {
             dropped, so a student can see the portal was wrong instead of
             wondering why the number moved. #5. */}
         <Show when={props.row.published?.conflict}>
-          {/* The `white-space` below answers the same inherited `nowrap` the
-              partial-record sentence does. This branch is in no seed, so it
-              has never been measured on a phone - two source labels and two
-              figures on one unwrappable line would leave the screen. */}
           {(c) => (
-            <span class="source-conflict" style={{ "white-space": "normal" }}>
+            <span class="source-conflict">
               {SOURCE_LABEL[props.row.published!.source]}{" "}
               <strong class="num">{props.row.published!.sgpa.toFixed(2)}</strong>
               {" · "}{SOURCE_LABEL[c().source]} said{" "}
