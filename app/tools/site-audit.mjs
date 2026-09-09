@@ -158,6 +158,7 @@ const FIXTURE = {
     ["TargetX_0.1.0_universal.dmg", 13107200],
     ["TargetX_0.1.0_amd64.AppImage", 84200000],
     ["TargetX_0.1.0_amd64.deb", 6920000],
+    ["TargetX-0.1.0.apk", 26898775],
   ].map(([name, size]) => ({
     name, size,
     browser_download_url:

@@ -70,7 +70,7 @@
     var d = navigator.userAgentData;
     if (d && d.platform) {
       var p = d.platform.toLowerCase();
-      if (d.mobile) return "mobile";
+      if (d.mobile) return p.indexOf("android") === 0 ? "android" : "mobile";
       if (p.indexOf("win") === 0) return "windows";
       if (p.indexOf("mac") === 0) return "macos";
       if (p.indexOf("linux") === 0 || p === "chrome os") return "linux";
@@ -83,7 +83,10 @@
        reported itself as "Macintosh" since iPadOS 13, which no amount of
        string matching distinguishes from a real Mac - the touch points do,
        because no Mac reports more than one. */
-    if (/iPhone|iPod|Android/i.test(ua)) return "mobile";
+    /* Android is a platform we build for, so it is picked out before the
+       phones we do not - an .apk is a real answer for this reader. */
+    if (/Android/i.test(ua)) return "android";
+    if (/iPhone|iPod/i.test(ua)) return "mobile";
     if (/iPad/i.test(ua)) return "mobile";
     if (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1) return "mobile";
 
@@ -96,10 +99,11 @@
     return "";
   }
 
-  /* "mobile" and "" are not platforms we build for - they are the two cases
-     where the honest thing is to stop recommending and point at the table. */
+  /* "mobile" here means an iPhone or iPad - the one case left where we have
+     nothing to hand over, and the honest thing is to stop recommending and
+     point at the table. */
   var LABEL = {
-    windows: "Windows", macos: "macOS", linux: "Linux",
+    windows: "Windows", macos: "macOS", linux: "Linux", android: "Android",
     mobile: "desktop", "": "your computer"
   };
 
@@ -112,6 +116,7 @@
     if (/\.appimage$/.test(n)) return { os: "linux", kind: "AppImage", rank: 0 };
     if (/\.deb$/.test(n)) return { os: "linux", kind: "Debian package", rank: 1 };
     if (/\.rpm$/.test(n)) return { os: "linux", kind: "RPM package", rank: 2 };
+    if (/\.apk$/.test(n)) return { os: "android", kind: "APK", rank: 0 };
     return null;
   }
 
@@ -124,7 +129,7 @@
      alphabet talking rather than anything about the reader - and the row a
      reader wants is the one for the machine they are on, so that OS goes
      first and the rest follow in order of how many students run them. */
-  var OS_ORDER = { windows: 1, macos: 2, linux: 3 };
+  var OS_ORDER = { windows: 1, macos: 2, linux: 3, android: 4 };
   function weight(os) { return os === here ? 0 : (OS_ORDER[os] || 9); }
 
   /* The OS warnings the two notices below the table explain. Repeated on the
@@ -132,7 +137,8 @@
      Kept here as well as in the static markup because these rows replace it. */
   var UNSIGNED = {
     windows: "unsigned",
-    macos: "not notarised"
+    macos: "not notarised",
+    android: "sideloaded"
   };
   var heroBtn = document.getElementById("hero-dl");
   heroBtn.firstChild.nodeValue = DESKTOP_ONLY
@@ -229,7 +235,12 @@
          purpose is that it can be checked. */
       var hash = document.getElementById("dl-hash");
       if (hash && mine.name) {
-        hash.textContent = "Get-FileHash .\\" + mine.name + " -Algorithm SHA256";
+        /* That command is PowerShell, which no phone has. An Android reader
+           gets the one their own device can run instead of an instruction
+           that cannot be followed on the machine holding the file. */
+        hash.textContent = here === "android"
+          ? "sha256sum " + mine.name
+          : "Get-FileHash .\\" + mine.name + " -Algorithm SHA256";
       }
     } else {
       document.getElementById("dl-for").textContent = "Latest release";
