@@ -123,6 +123,22 @@ export interface ImportOutcome {
   skipped: number;
   /** One line per refused row, said to the student rather than counted away. */
   refused: string[];
+  /**
+   * The course codes a paste INVENTED, for the same reason `refused` lists
+   * codes rather than counting them.
+   *
+   * A row whose code matches nothing in the semester is appended as a new
+   * subject, which is right for a course the student genuinely has and has not
+   * entered yet - and is also what a typo, a stray header row, or a paste
+   * taken from the wrong semester produces. An invented subject is not inert:
+   * `courseFromCode` infers its credits, and those credits go straight into
+   * the SGPA projection. So the student is shown a number computed partly from
+   * a course that does not exist, and told only that there was "1 new".
+   *
+   * Naming them is the whole fix. A code is something a student can look at
+   * and recognise as wrong; a count is not.
+   */
+  addedCodes: string[];
 }
 
 /**
@@ -134,7 +150,8 @@ export interface ImportOutcome {
  */
 export function importPaste(text: string, mode: "attendance" | "marks"): ImportOutcome {
   const { rows, skipped } = parseEtlab(text, mode);
-  let matched = 0, added = 0;
+  let matched = 0;
+  const addedCodes: string[] = [];
 
   edit((s) => {
     const sem = s.semesters[s.activeSemester] ?? (s.semesters[s.activeSemester] = { courses: [] });
@@ -166,7 +183,7 @@ export function importPaste(text: string, mode: "attendance" | "marks"): ImportO
         sem.courses.push(courseFromCode(row.code));
         index = sem.courses.length - 1;
         used.add(index);
-        added += 1;
+        addedCodes.push(row.code);
       } else {
         matched += 1;
       }
@@ -191,9 +208,10 @@ export function importPaste(text: string, mode: "attendance" | "marks"): ImportO
 
   return {
     matched,
-    added,
+    added: addedCodes.length,
     skipped: skipped.length,
     refused: skipped.map((r) => `${r.code} — ${r.reason}`),
+    addedCodes,
   };
 }
 

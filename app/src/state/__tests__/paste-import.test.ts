@@ -97,3 +97,45 @@ describe("a row whose columns cannot be identified", () => {
     expect(courses()[0]!.s1).toBe(41);
   });
 });
+
+/**
+ * A code the semester does not have is appended, and must be NAMED.
+ *
+ * Appending is right for a course the student genuinely has and has not
+ * entered yet, and it is also what a typo, a stray header row, or a paste from
+ * the wrong semester produces. The two are indistinguishable to the parser, so
+ * the student has to be the one who tells them apart - and the outcome used to
+ * hand them a count ("added 1 new") rather than the code, next to a count of
+ * what matched, in a sentence that reads like success.
+ *
+ * It is not inert. `courseFromCode` infers the credits of an invented subject
+ * and those credits go into the projected SGPA, so a typo moves the number the
+ * whole app exists to get right.
+ */
+describe("a row whose code the semester does not have", () => {
+  it("names what it added rather than counting it", () => {
+    const outcome = importPaste("ZZZ999  Ghost Subject  10  10  100%\n", "attendance");
+
+    expect(outcome.added).toBe(1);
+    expect(outcome.addedCodes).toEqual(["ZZZ999"]);
+    expect(outcome.matched).toBe(0);
+  });
+
+  it("names each one when a paste invents several", () => {
+    const outcome = importPaste([
+      "PCCST501  Computer Networks  41  48  85.4%",
+      "ZZZ999  Ghost Subject  10  10  100%",
+      "QQQ111  Another Ghost  5  5  100%",
+    ].join("\n"), "attendance");
+
+    expect(outcome.matched).toBe(1);
+    expect(outcome.addedCodes).toEqual(["ZZZ999", "QQQ111"]);
+  });
+
+  it("says nothing was added when every row matched", () => {
+    const outcome = importPaste("PCCST501  Computer Networks  41  48  85.4%\n", "attendance");
+
+    expect(outcome.added).toBe(0);
+    expect(outcome.addedCodes).toEqual([]);
+  });
+});

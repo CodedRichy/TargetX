@@ -90,16 +90,23 @@ function PasteImport() {
   const [mode, setMode] = createSignal<"attendance" | "marks">("attendance");
   const [note, setNote] = createSignal("");
   const [refused, setRefused] = createSignal<string[]>([]);
+  const [added, setAdded] = createSignal<string[]>([]);
 
   const run = () => {
     if (!text().trim()) return;
     const outcome = importPaste(text(), mode());
-    setNote(`Updated ${outcome.matched} subject${outcome.matched === 1 ? "" : "s"}`
-      + (outcome.added ? `, added ${outcome.added} new` : "") + ".");
+    setNote(`Updated ${outcome.matched} subject${outcome.matched === 1 ? "" : "s"}.`);
     // Refused rows are listed, not counted. "3 rows skipped" tells a student
     // nothing they can act on; the course code tells them exactly which
     // subject still needs typing in by hand.
     setRefused(outcome.refused);
+    // Added rows are now listed for the same reason and a sharper one. They
+    // used to ride along in the note as ", added 1 new" - a count, next to a
+    // count, in a sentence that reads like success. A code that matches
+    // nothing in the semester is appended as a real subject with inferred
+    // credits, and those credits enter the SGPA projection, so a typo quietly
+    // moves the number the whole app exists to get right.
+    setAdded(outcome.addedCodes);
     setText("");
   };
 
@@ -138,6 +145,23 @@ function PasteImport() {
           <Show when={note()}><span class="fineprint">{note()}</span></Show>
         </div>
       </details>
+
+      <Show when={added().length > 0}>
+        <div class="notice warn" role="status">
+          <strong>
+            {added().length} new subject{added().length === 1 ? " was" : "s were"} added
+            to {state.activeSemester}.
+          </strong>{" "}
+          These codes matched nothing already in the semester, so they were
+          entered as new subjects with credits inferred from the code. If one
+          of them is a typo, or belongs to another semester, remove it in the
+          Semester table — an invented subject carries its inferred credits
+          into your projected SGPA.
+          <ul class="fineprint num">
+            <For each={added()}>{(code) => <li>{code}</li>}</For>
+          </ul>
+        </div>
+      </Show>
 
       <Show when={refused().length > 0}>
         <div class="notice warn" role="status">
