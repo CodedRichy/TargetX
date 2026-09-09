@@ -232,6 +232,14 @@
     padding: var(--s2) var(--s3);
     /* Below the status bar / notch. Zero on anything that has no inset. */
     padding-top: calc(var(--s2) + env(safe-area-inset-top, 0px));
+    /*
+     * Room under the Ask Tex pill, which is the header's last child on every
+     * screen. At the shared `--s2` the pill finished 9px above whatever came
+     * next, so the one control inviting a question sat wedged against the
+     * content it was asking about. The header is the common shell, so this is
+     * the single place that answers it everywhere.
+     */
+    padding-bottom: var(--s4);
   }
 
   /* Every direct child may shrink. Without this one line, a single wide child
@@ -764,6 +772,13 @@
     max-width: 100%;
     overflow: visible;
     padding-inline: var(--s3);
+    /*
+     * Measured flush: `.goalbar` ended at 304 and this began at 304, so the
+     * first subject card touched the shortfall line above it with nothing
+     * between them. As cards rather than table rows the ledger needs the
+     * separation a table's own chrome used to imply.
+     */
+    padding-block-start: var(--s4);
   }
 
   /* --- the ledger, as cards ------------------------------------------------ */
