@@ -56,7 +56,29 @@ thing. The numbers, and the person who sent them.
 
 <img src="docs/home-phone.png" alt="The same home screen on an Android phone: Ask Tex at the top, the standing card reading 7.09 CGPA with a projected SGPA gauge, and the attendance tile below it" width="300">
 
-*The same record on a phone. The Android build is not in the releases yet — everything you can install today is Windows, macOS and Linux.*
+*The same record on a phone. The Android build is not in the releases yet.*
+
+---
+
+## Which machines it runs on
+
+Windows, macOS and Linux. Every release carries a `.exe` and `.msi`, a
+universal `.dmg`, and an `.AppImage` and `.deb`.
+
+The Android build in the picture above works. It is not released yet.
+
+There is no iPhone version, and there is not going to be one. An iPhone runs
+only what Apple has signed, and Apple signs for members of its Developer
+Program, which costs $99 a year. It is rent. The year the payments stop, the
+app stops installing for everyone who has it, including the people who already
+had it working. TestFlight is not a way round that either: a build uploaded
+there stops opening 90 days later, so a student would lose the app four times a
+year and have to be re-invited each time.
+
+Everything on this page is a file you download from GitHub and keep, on a
+machine that will still run it in five years whether or not I am still here.
+iOS has nothing of that shape, and building for it would mean taking on a
+yearly bill for a project whose sync half is already ending.
 
 ---
 
