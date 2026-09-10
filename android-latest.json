@@ -1,6 +1,6 @@
 {
-  "version": "0.5.0",
-  "url": "https://github.com/CodedRichy/TargetX/releases/download/v0.5.0/TargetX-0.5.0.apk",
-  "sha256": "6cdf9fdb8e1be30f2d76ba925881bc7df5ed3b17896fbfacfee29bbbbc4a6aa6",
-  "notes": "Tex has a face, schemes travel between students, and the phone build catches up with the desktop."
+  "version": "0.5.1",
+  "url": "https://github.com/CodedRichy/TargetX/releases/download/v0.5.1/TargetX-0.5.1.apk",
+  "sha256": "766c6b0f2ab7a484ff8aae4601d84cfae50af7f454237b4ffe8ab858d5a5c612",
+  "notes": "The refresh button now actually refreshes: your portal login can be kept in the Android Keystore, which is what the app needed to bring anything down on its own."
 }

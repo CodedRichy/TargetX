@@ -5,6 +5,7 @@ import type { PresetCourse } from "../engine";
 import { applyPreset } from "../state/actions";
 import { edit, setGoal, state } from "../state/store";
 import { SyncPanel } from "./SyncPanel";
+import { KtuPanel } from "./KtuPanel";
 
 /**
  * First-run setup.
@@ -108,7 +109,7 @@ function Welcome(props: { onNext: () => void }) {
 
 // --- step 2 ----------------------------------------------------------------
 
-type Route = null | "sync" | "preset" | "manual";
+type Route = null | "sync" | "ktu" | "preset" | "manual";
 
 function DataStep(props: { onBack: () => void; onNext: () => void }) {
   const [route, setRoute] = createSignal<Route>(null);
@@ -120,6 +121,14 @@ function DataStep(props: { onBack: () => void; onNext: () => void }) {
           <button class="link back" onClick={() => setRoute(null)}>← Other ways to start</button>
           <Show when={route() === "sync"}>
             <SyncPanel onDone={props.onNext} />
+          </Show>
+          <Show when={route() === "ktu"}>
+            <h2>Fetch your KTU results</h2>
+            <p class="lede">
+              Your published grades, credits and SGPA for every semester so
+              far, read straight from the university.
+            </p>
+            <KtuPanel onFetched={() => props.onNext()} />
           </Show>
           <Show when={route() === "preset"}>
             <PresetPicker onDone={props.onNext} />
@@ -140,6 +149,20 @@ function DataStep(props: { onBack: () => void; onNext: () => void }) {
               Pulls every semester, attendance, series marks, grades and
               published SGPA from etlab in one go. Your password is used once
               and never stored.
+            </span>
+          </button>
+
+          {/* The university's own record, and until now reachable only from a
+              folded section of a screen a new student has no reason to open -
+              issue #16. It sits below etlab rather than above it because it
+              carries published results, not the current semester's attendance
+              and internals, which is what most students arrive wanting. */}
+          <button class="route alt" onClick={() => setRoute("ktu")}>
+            <strong>Fetch your KTU results</strong>
+            <span>
+              Sign in to the KTU results portal for your published grades,
+              credits and SGPA. Past semesters, from the university itself —
+              your college portal above is what carries this semester.
             </span>
           </button>
 
