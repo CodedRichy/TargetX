@@ -74,7 +74,16 @@ fn log_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  tauri::Builder::default()
+  // Android only: the Kotlin side of the portal-password vault. It has to be
+  // registered conditionally, and a `#[cfg]` cannot sit inside a method chain,
+  // so the builder is opened here and the chain continues below unchanged.
+  // Windows talks to Credential Manager in-process and needs no plugin; the
+  // remaining platforms compile no-ops. See `creds.rs`.
+  let builder = tauri::Builder::default();
+  #[cfg(target_os = "android")]
+  let builder = builder.plugin(creds::init());
+
+  builder
     // The student's record lives in a file under `appDataDir()`, not in the
     // webview's localStorage. See `app/src/state/persist.ts`. Scoped in
     // `capabilities/default.json` to that folder's top level and nothing else:

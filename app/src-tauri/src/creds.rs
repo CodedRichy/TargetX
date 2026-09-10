@@ -9,10 +9,16 @@
 //! with DPAPI under the logged-in user's key, so another account on the same
 //! machine cannot read it and it never exists as plaintext on disk.
 //!
-//! Scoped to Windows for this release: that is the reporter's platform and the
-//! one the brief names. The other platforms compile the same commands as safe
-//! no-ops, so the frontend can call them unconditionally and simply find that
-//! nothing was ever stored.
+//! Android keeps it in EncryptedSharedPreferences, whose key lives in the
+//! Android Keystore - see `CredsPlugin.kt`. Until that existed the phone had no
+//! vault at all, and because `autosync` refuses to run without a stored login,
+//! the refresh button on Android contacted no portal ever and reopening the app
+//! brought nothing down. That is issue #16, and it was one missing store rather
+//! than the two separate faults it looked like.
+//!
+//! macOS and Linux still compile the same commands as safe no-ops, so the
+//! frontend can call them unconditionally and simply find that nothing was ever
+//! stored.
 
 use serde::{Deserialize, Serialize};
 
@@ -65,12 +71,96 @@ mod backend {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "android")]
+mod backend {
+    use super::Creds;
+    use serde::Deserialize;
+    use std::sync::OnceLock;
+    use tauri::plugin::PluginHandle;
+    use tauri::Wry;
+
+    /// Set once, during the plugin's own setup. Held globally because the
+    /// `cred_*` commands take no `AppHandle` - they are called from four places
+    /// and threading a handle through all of them to reach one store would be
+    /// more change than the feature.
+    static PLUGIN: OnceLock<PluginHandle<Wry>> = OnceLock::new();
+
+    pub fn attach(handle: PluginHandle<Wry>) {
+        let _ = PLUGIN.set(handle);
+    }
+
+    fn plugin() -> Result<&'static PluginHandle<Wry>, String> {
+        PLUGIN
+            .get()
+            .ok_or_else(|| "The credential store is not available.".to_string())
+    }
+
+    #[derive(Deserialize)]
+    struct Found {
+        found: bool,
+        #[serde(default)]
+        username: String,
+        #[serde(default)]
+        password: String,
+    }
+
+    #[derive(serde::Serialize)]
+    struct BaseArgs<'a> {
+        base: &'a str,
+    }
+
+    #[derive(serde::Serialize)]
+    struct SaveArgs<'a> {
+        base: &'a str,
+        username: &'a str,
+        password: &'a str,
+    }
+
+    pub fn save(base: &str, creds: &Creds) -> Result<(), String> {
+        plugin()?
+            .run_mobile_plugin::<()>(
+                "save",
+                SaveArgs { base, username: &creds.username, password: &creds.password },
+            )
+            .map_err(|e| e.to_string())
+    }
+
+    pub fn load(base: &str) -> Result<Option<Creds>, String> {
+        let found = plugin()?
+            .run_mobile_plugin::<Found>("load", BaseArgs { base })
+            .map_err(|e| e.to_string())?;
+        Ok(found.found.then(|| Creds {
+            username: found.username,
+            password: found.password,
+        }))
+    }
+
+    pub fn delete(base: &str) -> Result<(), String> {
+        plugin()?
+            .run_mobile_plugin::<()>("delete", BaseArgs { base })
+            .map_err(|e| e.to_string())
+    }
+
+    /// False on any error. "Is there a saved login" has no third answer worth
+    /// showing a student, and a vault that cannot be opened has none stored as
+    /// far as everything downstream is concerned.
+    pub fn has(base: &str) -> bool {
+        plugin()
+            .and_then(|p| {
+                p.run_mobile_plugin::<Found>("has", BaseArgs { base })
+                    .map_err(|e| e.to_string())
+            })
+            .map(|f| f.found)
+            .unwrap_or(false)
+    }
+}
+
+#[cfg(not(any(windows, target_os = "android")))]
 mod backend {
     use super::Creds;
 
     const UNAVAILABLE: &str =
-        "Saving the portal password is only available in the Windows build.";
+        "Saving the portal password is only available in the Windows and Android builds.";
 
     pub fn save(_: &str, _: &Creds) -> Result<(), String> {
         Err(UNAVAILABLE.to_string())
@@ -110,4 +200,20 @@ pub fn cred_delete(base: String) -> Result<(), String> {
 #[tauri::command]
 pub fn cred_has(base: String) -> bool {
     backend::has(key(&base))
+}
+
+/// Hand the Android plugin to the backend above.
+///
+/// Registered as a Tauri plugin rather than called directly because
+/// `register_android_plugin` is the only way to reach a Kotlin class, and it is
+/// available on the plugin setup API and nowhere else.
+#[cfg(target_os = "android")]
+pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri::plugin::Builder::new("targetx-creds")
+        .setup(|_app, api| {
+            let handle = api.register_android_plugin("cv.codedrichy.targetx", "CredsPlugin")?;
+            backend::attach(handle);
+            Ok(())
+        })
+        .build()
 }

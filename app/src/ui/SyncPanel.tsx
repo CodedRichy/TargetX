@@ -3,7 +3,7 @@ import { EtlabError, canSync, endSession, fullSync, typedInsecure } from "../syn
 import type { SyncResult } from "../sync/etlab";
 import { applySync } from "../state/actions";
 import { edit, state } from "../state/store";
-import { canRemember, deleteCreds, loadCreds, saveCreds } from "../state/creds";
+import { canRemember, deleteCreds, loadCreds, saveCreds, vaultName } from "../state/creds";
 import { openExternal } from "../state/external";
 
 /**
@@ -245,10 +245,10 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
               only ever reads — it cannot change anything on the portal.
             </>
           }>
-            Your password will be kept in Windows Credential Manager, encrypted
-            for your account on this device — never in TargetX's backup, never
-            in a log, never off this machine. Untick the box, or sign out, to
-            forget it. TargetX only ever reads the portal; it cannot change it.
+            Your password will be kept in {vaultName()}, encrypted on this
+            device — never in TargetX's backup, never in a log, never off this
+            machine. Untick the box, or sign out, to forget it. TargetX only
+            ever reads the portal; it cannot change it.
           </Show>
         </p>
 

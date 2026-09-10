@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { isDesktopShell } from "./platform";
+import { isAndroid, isDesktopShell } from "./platform";
 
 /**
  * The opt-in credential store, front-end side (issue #2).
@@ -10,9 +10,9 @@ import { isDesktopShell } from "./platform";
  * store and back, and this module is the only path to it. `credentials-are-
  * contained` is the test that holds that line.
  *
- * `canRemember` gates the whole feature on the desktop shell - NOT on
- * `canSync`, which is what it used to read and which was wrong the moment an
- * Android build existed.
+ * `canRemember` gates the whole feature on the platforms that actually have a
+ * store behind it - NOT on `canSync`, which is what it used to read and which
+ * was wrong the moment an Android build existed.
  *
  * `canSync` is `"__TAURI_INTERNALS__" in window`. That asks "is there a Rust
  * side", and while the only shell was a desktop window it was also,
@@ -32,18 +32,34 @@ import { isDesktopShell } from "./platform";
  * Android and the fallback line - "Your password is used for this one request
  * and is never saved" - is what shows, which is exactly true there.
  *
- * KNOWN RESIDUE, deliberately left: the Rust backend is Windows-only, so macOS
- * and Linux desktop builds still offer this and still silently fail. That is
- * the same defect on a platform this branch does not ship, and narrowing the
- * gate further needs a platform probe that does not exist yet. Named here so
- * the next person finds it stated rather than discovering it the hard way.
+ * Android now HAS a store - EncryptedSharedPreferences under an Android
+ * Keystore key, see `CredsPlugin.kt` - so the gate opens there too. That was
+ * not only a convenience: `autosync` refuses to run without a stored login, so
+ * while the phone had no vault the refresh button contacted no portal ever and
+ * reopening the app brought nothing down (issue #16). One missing store, two
+ * symptoms that looked unrelated.
+ *
+ * KNOWN RESIDUE, deliberately left: the Rust backend is Windows-only on the
+ * desktop, so macOS and Linux builds still offer this and still silently fail.
+ * That is the same defect on platforms this branch does not ship, and narrowing
+ * the gate further needs a platform probe that does not exist yet. Named here
+ * so the next person finds it stated rather than discovering it the hard way.
  */
 export interface StoredCreds {
   username: string;
   password: string;
 }
 
-export const canRemember = (): boolean => isDesktopShell();
+export const canRemember = (): boolean => isDesktopShell() || isAndroid();
+
+/**
+ * What to call the vault, in the student's own words.
+ *
+ * The copy used to name Windows Credential Manager unconditionally, which on a
+ * phone was a promise about a thing that does not exist there.
+ */
+export const vaultName = (): string =>
+  isAndroid() ? "the Android Keystore" : "Windows Credential Manager";
 
 /**
  * The vault key the KTU results portal's login is kept under.

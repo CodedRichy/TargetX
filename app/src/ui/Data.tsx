@@ -10,7 +10,7 @@ import { openExternal } from "../state/external";
 import { canSync, describeAcademics, parseAcademics } from "../sync/etlab";
 import { parseGradeCard, pdfToText } from "../sync/gradecard";
 import { KtuError, canSyncKtu } from "../sync/ktu";
-import { KTU_CRED_KEY, canRemember, deleteCreds, loadCreds, saveCreds } from "../state/creds";
+import { KTU_CRED_KEY, canRemember, deleteCreds, loadCreds, saveCreds, vaultName } from "../state/creds";
 import { SyncPanel } from "./SyncPanel";
 
 /** The credential-vault key for the KTU result portal, distinct from any etlab base. */
@@ -336,9 +336,8 @@ function GradeCardImport() {
                 <>The KTU portal is read once for this fetch; the password is
                   never saved and the session stays inside the app.</>
               }>
-                Kept in Windows Credential Manager for your account on this
-                device — never in a backup, a log, or off this machine. Untick to
-                forget it.
+                Kept in {vaultName()} on this device — never in a backup, a
+                log, or off this machine. Untick to forget it.
               </Show>
             </p>
 
