@@ -1,5 +1,5 @@
 import { Show, createSignal, onMount } from "solid-js";
-import { EtlabError, canSync, endSession, fullSync } from "../sync/etlab";
+import { EtlabError, canSync, endSession, fullSync, typedInsecure } from "../sync/etlab";
 import type { SyncResult } from "../sync/etlab";
 import { applySync } from "../state/actions";
 import { edit, state } from "../state/store";
@@ -44,6 +44,17 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
    * there is a vault to keep it in.
    */
   const [remember, setRemember] = createSignal(false);
+  /**
+   * Set when a sync failed against an address the student typed as `http://`.
+   *
+   * `normaliseBase` upgraded it to https before the request, which is right -
+   * the next thing to cross that connection is their portal password. But the
+   * failure it produces says "no login form found", which blames the portal
+   * for something we did, and there was no way past it: `allowInsecure`
+   * existed as a parameter with no caller anywhere in the app. A college whose
+   * portal has no https simply could not sync, and never found out why.
+   */
+  const [insecureOffer, setInsecureOffer] = createSignal(false);
 
   // If a login was saved for the address already on the form, fill both fields
   // from the vault and show the box ticked, so the core loop - open, sync - is
@@ -63,12 +74,13 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
     } catch { /* vault optional; never block the form */ }
   });
 
-  const run = async (event: Event) => {
+  const run = async (event: Event, allowInsecure = false) => {
     event.preventDefault();
     setError("");
     setDiagnostic("");
     setCopied(false);
     setResult(null);
+    setInsecureOffer(false);
 
     if (!canSync()) {
       setError("Portal sync needs the desktop app. In a browser, use paste import instead.");
@@ -77,7 +89,7 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
 
     try {
       setBusy("Signing in…");
-      const synced = await fullSync(url(), user(), password());
+      const synced = await fullSync(url(), user(), password(), allowInsecure);
       setBusy("Applying…");
       applySync(synced);
       edit((s) => { s.student.college = url().trim(); });
@@ -96,6 +108,10 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
     } catch (exc) {
       setError(exc instanceof EtlabError ? exc.message : String(exc));
       if (exc instanceof EtlabError && exc.diagnostic) setDiagnostic(exc.diagnostic);
+      // Only after a failure, and only when the address was the student's own
+      // http:// - never as a standing option. Offering to downgrade a
+      // connection that works would be handing away a password for nothing.
+      if (!allowInsecure && typedInsecure(url())) setInsecureOffer(true);
     } finally {
       setBusy("");
       // Drop the password whatever happened. Clearing it only on success left
@@ -241,6 +257,24 @@ export function SyncPanel(props: { onDone?: () => void; compact?: boolean }) {
             <strong>Sync failed.</strong> {error()}
             <Show when={!canSync()}>
               {" "}Paste import is on the Data screen and works everywhere.
+            </Show>
+            {/* The explanation the old error refused to give, and the only
+                door out of it. Deliberately blunt about the cost: this is a
+                password crossing campus wifi in the clear, and a student who
+                chooses that should choose it knowing. */}
+            <Show when={insecureOffer()}>
+              <p class="insecure-offer">
+                You typed <code>http://</code>, and TargetX tried
+                {" "}<code>https://</code> instead — your portal password is
+                the next thing to cross that connection, and over plain
+                {" "}<code>http</code> anyone on the same network can read it.
+                {" "}If your college really has no <code>https</code>, this is
+                the only way in.
+                <button type="button" class="link danger" disabled={!!busy()}
+                        onClick={(e) => { void run(e, true); }}>
+                  Sign in over plain http anyway
+                </button>
+              </p>
             </Show>
             {/* Shown rather than attached invisibly: a student is being asked
                 to forward something off their own academic record, and a

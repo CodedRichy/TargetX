@@ -167,6 +167,25 @@ button.link.back { display: block; margin-bottom: var(--s4); }
 .notice.warn { background: var(--warn-wash); border-left-color: var(--warn); color: var(--text-dim); }
 .notice.bad { background: var(--danger-wash); border-left-color: var(--danger); color: var(--text-dim); }
 
+/*
+ * The plain-http way out, offered only after an upgraded sync has already
+ * failed. Set apart from the error text above it because it is a choice with a
+ * cost rather than more explanation, and the button reads as the deliberate
+ * act it is - not a retry.
+ */
+.insecure-offer {
+  margin-block-start: 0.6rem;
+  padding-block-start: 0.6rem;
+  border-top: 1px solid var(--hairline);
+}
+
+.insecure-offer > button.link.danger {
+  display: block;
+  margin-block-start: 0.5rem;
+  color: var(--danger);
+  font-weight: 600;
+}
+
 .rule { border: 0; border-top: 1px solid var(--hairline); margin: var(--s5) 0; }
 
 .field-input {

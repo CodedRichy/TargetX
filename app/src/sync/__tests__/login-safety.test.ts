@@ -13,7 +13,7 @@
  * recorded rather than papered over.
  */
 import { describe, expect, it } from "vitest";
-import { LOGIN_TITLE_RE, USER_FIELD_RE, normaliseBase } from "../etlab";
+import { LOGIN_TITLE_RE, USER_FIELD_RE, normaliseBase, typedInsecure } from "../etlab";
 
 describe("normaliseBase: the password never travels in cleartext", () => {
   it("upgrades an explicit http:// to https://", () => {
@@ -73,4 +73,46 @@ describe("USER_FIELD_RE: a captcha is never bound as the username", () => {
       // first text input - the captcha - was bound as the username.
       expect(USER_FIELD_RE.test(name)).toBe(false);
     });
+});
+
+/**
+ * Telling the student what we did to their address.
+ *
+ * The upgrade above is right, and for a long time it was also silent: the
+ * request went to https, failed, and the app reported "no login form found" -
+ * blaming the portal for something TargetX had done to the URL. Worse, the
+ * `allowInsecure` escape above had NO caller anywhere in the app, so a college
+ * without https could not sync at all and was never told why.
+ *
+ * `typedInsecure` is what lets the panel say it plainly and offer the one way
+ * through. It answers a narrow question - did the student type http themselves
+ * - so the offer appears only for the people it is the answer for, and is
+ * never a standing invitation to downgrade a connection that works.
+ */
+describe("typedInsecure: only for an address the student typed as http", () => {
+  it("is true for a plainly typed http address", () => {
+    expect(typedInsecure("http://portal.college.edu")).toBe(true);
+    expect(typedInsecure("  HTTP://portal.college.edu  ")).toBe(true);
+  });
+
+  it("is false for https, which needs no explanation", () => {
+    expect(typedInsecure("https://portal.college.edu")).toBe(false);
+  });
+
+  it("is false for a bare hostname", () => {
+    // This one IS upgraded, but from nothing rather than from a choice - the
+    // student expressed no scheme, so there is nothing to explain and nothing
+    // to offer. Offering here would teach people to click it by habit.
+    expect(typedInsecure("cet.etlab.in")).toBe(false);
+  });
+
+  it("is false for empty or rubbish input", () => {
+    expect(typedInsecure("")).toBe(false);
+    expect(typedInsecure("   ")).toBe(false);
+    expect(typedInsecure("not a url")).toBe(false);
+  });
+
+  it("is not fooled by http appearing later in the string", () => {
+    expect(typedInsecure("https://portal.edu/?next=http://x")).toBe(false);
+  });
 });

@@ -62,6 +62,17 @@ export const USER_FIELD_RE = /(user|login|admn|admission|reg|roll|uid|email|stud
  * login page itself. Keeping that path would make every later request
  * /user/login/user/login.
  */
+/**
+ * Did the student type `http://` themselves?
+ *
+ * `normaliseBase` silently rewrites that to https, for a good reason - see
+ * below - but the failure it causes afterwards reads as "no login form found",
+ * which points at the portal instead of at us. The UI asks this so it can say
+ * what actually happened, and offer the one thing that gets past it.
+ */
+export const typedInsecure = (raw: string): boolean =>
+  /^http:\/\//i.test((raw || "").trim());
+
 export function normaliseBase(raw: string, allowInsecure = false): string {
   let url = (raw || "").trim();
   if (!url) throw new EtlabError("College portal URL is empty.");
@@ -510,11 +521,13 @@ function looksLoggedIn(html: string): boolean {
   return true;
 }
 
-export async function login(base: string, username: string, password: string): Promise<void> {
+export async function login(
+  base: string, username: string, password: string, allowInsecure = false,
+): Promise<void> {
   if (!username || !password) {
     throw new EtlabError("Username and password are both required.");
   }
-  await startSession(normaliseBase(base));
+  await startSession(normaliseBase(base, allowInsecure));
 
   const { action, form } = await findLoginForm();
   const [userField, passField] = fieldNames(form);
@@ -862,9 +875,9 @@ export function academicsToState(
 
 /** Sign in and pull everything in one call. */
 export async function fullSync(
-  base: string, username: string, password: string,
+  base: string, username: string, password: string, allowInsecure = false,
 ): Promise<SyncResult> {
-  await login(base, username, password);
+  await login(base, username, password, allowInsecure);
   const academics = await fetchAcademics();
   const types = await fetchSubjectTypes();
   const result = academicsToState(academics, types);
